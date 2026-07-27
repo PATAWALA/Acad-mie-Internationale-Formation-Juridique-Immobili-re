@@ -3,79 +3,27 @@
 import { useState } from 'react';
 import { Check, Clock, BookOpen } from 'lucide-react';
 
-const certificates = [
-  {
-    id: 1,
-    title: 'Certificat en Droit des Affaires OHADA',
-    duration: '4 semaines',
-    normalPrice: 50000,
-    boursePrice: 30000,
-    modules: ['Droit des sociétés', 'Contentieux commercial', 'Arbitrage OHADA'],
-  },
-  {
-    id: 2,
-    title: 'Certificat en Droit Immobilier',
-    duration: '4 semaines',
-    normalPrice: 50000,
-    boursePrice: 30000,
-    modules: ['Transaction immobilière', 'Copropriété', 'Financement immobilier'],
-  },
-  {
-    id: 3,
-    title: 'Certificat en Procédure Civile',
-    duration: '4 semaines',
-    normalPrice: 50000,
-    boursePrice: 30000,
-    modules: ['Voies d\'exécution', 'Saisies', 'Recouvrement'],
-  },
-  {
-    id: 4,
-    title: 'Certificat en Droit du Travail',
-    duration: '4 semaines',
-    normalPrice: 50000,
-    boursePrice: 30000,
-    modules: ['Contrat de travail', 'Licenciement', 'Prud\'hommes'],
-  },
-  {
-    id: 5,
-    title: 'Certificat en Droit Bancaire',
-    duration: '4 semaines',
-    normalPrice: 50000,
-    boursePrice: 30000,
-    modules: ['Garanties bancaires', 'Crédit', 'Contentieux bancaire'],
-  },
-  {
-    id: 6,
-    title: 'Certificat en Droit des Assurances',
-    duration: '4 semaines',
-    normalPrice: 50000,
-    boursePrice: 30000,
-    modules: ['Contrat d\'assurance', 'Indemnisation', 'Règlement des sinistres'],
-  },
-  {
-    id: 7,
-    title: 'Certificat en Fiscalité',
-    duration: '4 semaines',
-    normalPrice: 50000,
-    boursePrice: 30000,
-    modules: ['Impôt sur les sociétés', 'TVA', 'Contrôle fiscal'],
-  },
-  {
-    id: 8,
-    title: 'Certificat en Droit Pénal des Affaires',
-    duration: '4 semaines',
-    normalPrice: 50000,
-    boursePrice: 30000,
-    modules: ['Infractions économiques', 'Blanchiment', 'Responsabilité pénale'],
-  },
-  {
-    id: 9,
-    title: 'Certificat en Gestion Immobilière',
-    duration: '4 semaines',
-    normalPrice: 50000,
-    boursePrice: 30000,
-    modules: ['Gestion locative', 'Syndic', 'Valorisation immobilière'],
-  },
+interface Certificate {
+  id: number;
+  title: string;
+  duration: string;
+  normalPrice: number;
+  boursePrice: number;
+  discount: number; // pourcentage
+  category: 'juridique' | 'immobilier';
+  modules: string[];
+}
+
+const certificates: Certificate[] = [
+  { id: 1, title: 'Certificat en Droit des Affaires OHADA', duration: '4 semaines', normalPrice: 50000, boursePrice: 40000, discount: 20, category: 'juridique', modules: ['Droit des sociétés', 'Contentieux commercial', 'Arbitrage OHADA'] },
+  { id: 2, title: 'Certificat en Droit Immobilier', duration: '4 semaines', normalPrice: 50000, boursePrice: 25000, discount: 50, category: 'immobilier', modules: ['Transaction immobilière', 'Copropriété', 'Financement immobilier'] },
+  { id: 3, title: 'Certificat en Procédure Civile', duration: '4 semaines', normalPrice: 50000, boursePrice: 40000, discount: 20, category: 'juridique', modules: ['Voies d\'exécution', 'Saisies', 'Recouvrement'] },
+  { id: 4, title: 'Certificat en Droit du Travail', duration: '4 semaines', normalPrice: 50000, boursePrice: 40000, discount: 20, category: 'juridique', modules: ['Contrat de travail', 'Licenciement', 'Prud\'hommes'] },
+  { id: 5, title: 'Certificat en Droit Bancaire', duration: '4 semaines', normalPrice: 50000, boursePrice: 40000, discount: 20, category: 'juridique', modules: ['Garanties bancaires', 'Crédit', 'Contentieux bancaire'] },
+  { id: 6, title: 'Certificat en Droit des Assurances', duration: '4 semaines', normalPrice: 50000, boursePrice: 40000, discount: 20, category: 'juridique', modules: ['Contrat d\'assurance', 'Indemnisation', 'Règlement des sinistres'] },
+  { id: 7, title: 'Certificat en Fiscalité', duration: '4 semaines', normalPrice: 50000, boursePrice: 40000, discount: 20, category: 'juridique', modules: ['Impôt sur les sociétés', 'TVA', 'Contrôle fiscal'] },
+  { id: 8, title: 'Certificat en Droit Pénal des Affaires', duration: '4 semaines', normalPrice: 50000, boursePrice: 40000, discount: 20, category: 'juridique', modules: ['Infractions économiques', 'Blanchiment', 'Responsabilité pénale'] },
+  { id: 9, title: 'Certificat en Gestion Immobilière', duration: '4 semaines', normalPrice: 50000, boursePrice: 25000, discount: 50, category: 'immobilier', modules: ['Gestion locative', 'Syndic', 'Valorisation immobilière'] },
 ];
 
 export default function CertificatesGrid() {
@@ -85,7 +33,9 @@ export default function CertificatesGrid() {
     setSelected((prev) =>
       prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]
     );
-    // Scroller vers le formulaire et pré-remplir
+    // Scroll vers le formulaire en pré‑sélectionnant le certificat
+    const event = new CustomEvent('preselect-cert', { detail: { id } });
+    window.dispatchEvent(event);
     setTimeout(() => {
       document.getElementById('registration-form')?.scrollIntoView({ behavior: 'smooth' });
     }, 100);
@@ -108,11 +58,11 @@ export default function CertificatesGrid() {
           Nos 9 Certifications d&apos;Excellence
         </h2>
         <p className="text-gray-400 text-lg max-w-2xl mx-auto">
-          Choisissez vos modules et bénéficiez de la Bourse Mamadou TOURÉ
+          Sélectionnez vos modules et rejoignez l&apos;élite juridique et immobilière grâce à la Bourse Mamadou TOURÉ
         </p>
       </div>
 
-      {/* Résumé sélection */}
+      {/* Résumé sélection (barre sticky) */}
       {selected.length > 0 && (
         <div className="sticky top-20 z-30 bg-[#0B0F19]/95 backdrop-blur-xl border border-[#1E293B] rounded-2xl p-4 mb-8 flex items-center justify-between flex-wrap gap-4">
           <span className="text-white">
@@ -132,7 +82,7 @@ export default function CertificatesGrid() {
               href="#registration-form"
               className="px-5 py-2 bg-[#D4AF37] text-[#0B0F19] rounded-xl font-semibold text-sm hover:bg-[#C5A028] transition"
             >
-              S&apos;inscrire
+              Continuer l&apos;inscription
             </a>
           </div>
         </div>
@@ -143,12 +93,11 @@ export default function CertificatesGrid() {
         {certificates.map((cert) => (
           <div
             key={cert.id}
-            className={`relative bg-[#0f172a] border rounded-2xl p-6 transition-all duration-300 cursor-pointer hover:shadow-xl ${
+            className={`relative bg-[#0f172a] border rounded-2xl p-6 transition-all duration-300 hover:shadow-xl ${
               selected.includes(cert.id)
                 ? 'border-[#D4AF37]/40 shadow-lg shadow-[#D4AF37]/10'
                 : 'border-[#1E293B] hover:border-[#D4AF37]/20'
             }`}
-            onClick={() => toggleCert(cert.id)}
           >
             {selected.includes(cert.id) && (
               <div className="absolute top-4 right-4 w-6 h-6 bg-[#D4AF37] rounded-full flex items-center justify-center">
@@ -169,14 +118,23 @@ export default function CertificatesGrid() {
                 </li>
               ))}
             </ul>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 mb-4">
               <span className="text-gray-500 line-through text-sm">
                 {cert.normalPrice.toLocaleString()} FCFA
               </span>
               <span className="text-[#D4AF37] font-bold">
                 {cert.boursePrice.toLocaleString()} FCFA
               </span>
+              <span className="text-green-400 text-xs font-semibold">
+                -{cert.discount}%
+              </span>
             </div>
+            <button
+              onClick={() => toggleCert(cert.id)}
+              className="w-full py-2 border border-[#D4AF37]/30 text-[#D4AF37] rounded-xl text-sm font-medium hover:bg-[#D4AF37]/10 transition"
+            >
+              {selected.includes(cert.id) ? 'Retirer' : 'Choisir ce module'}
+            </button>
           </div>
         ))}
       </div>

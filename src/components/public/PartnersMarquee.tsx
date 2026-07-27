@@ -1,11 +1,13 @@
+'use client';
+
 const institutions = [
-  'Barreau de Côte d\'Ivoire',
+  "Barreau de Côte d'Ivoire",
   'Magistrature',
-  'Air Côte d\'Ivoire',
+  "Air Côte d'Ivoire",
   'Cabinet Notarial',
   'Banque Atlantique',
   'Ministère de la Justice',
-  'Cour d\'Appel d\'Abidjan',
+  "Cour d'Appel d'Abidjan",
   'Conseil National des Barreaux',
 ];
 
