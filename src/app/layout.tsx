@@ -1,7 +1,6 @@
 import { Inter, Playfair_Display } from 'next/font/google';
 import { generateWebSiteSchema, generatePersonSchema, JsonLd } from '@/lib/structured-data';
 import { generateBaseMetadata, siteConfig } from '@/lib/metadata';
-import ClientLayout from './ClientLayout';
 import './globals.css';
 import type { Metadata } from 'next';
 
@@ -66,7 +65,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
       </head>
       <body className={`${inter.variable} ${playfair.variable} font-sans bg-dark-900 text-white antialiased`}>
-        <ClientLayout>{children}</ClientLayout>
+        {children} {/* 👈 C'est ici que Next.js affiche tes pages ! */}
       </body>
     </html>
   );
