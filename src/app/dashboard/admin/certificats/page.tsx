@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createClientComponent } from '@/lib/supabase/client';
-import CertificateFormModal from '@/components/admin/CertificateFormModal';
+import CertificateFormModal from '@/components/dashboard/admin/CertificateFormModal';
 
 export default function AdminCertificatsPage() {
   const supabase = createClientComponent();

@@ -44,7 +44,7 @@ export default function LoginPage() {
       // 3. Redirection conditionnelle selon le rôle
       switch (profile.role) {
         case 'SUPER_ADMIN':
-          router.push('/dashboard/super-admin');
+          router.push('/dashboard/admin');
           break;
         case 'TEACHER':
           router.push('/dashboard/enseignant');
