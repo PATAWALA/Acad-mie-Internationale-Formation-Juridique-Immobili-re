@@ -5,7 +5,13 @@ import { useRouter } from 'next/navigation';
 import { createClientComponent } from '@/lib/supabase/client';
 import CountrySelect from './CountrySelect';
 import Link from 'next/link';
-import { Eye, EyeOff } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  Eye, EyeOff, ArrowRight, ArrowLeft, Check, 
+  GraduationCap, User, Phone, Mail, Lock, 
+  CreditCard, Sparkles, TrendingUp, Shield,
+  ChevronRight, Loader2
+} from 'lucide-react';
 
 export default function RegistrationForm() {
   const router = useRouter();
@@ -26,7 +32,6 @@ export default function RegistrationForm() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  // Chargement des certificats depuis Supabase
   const [certificates, setCertificates] = useState<any[]>([]);
   const [certsLoading, setCertsLoading] = useState(true);
 
@@ -40,7 +45,6 @@ export default function RegistrationForm() {
     fetchCertificates();
   }, []);
 
-  // Pré‑sélection depuis la grille (événement personnalisé)
   useEffect(() => {
     const handler = (e: Event) => {
       const { id } = (e as CustomEvent).detail;
@@ -64,7 +68,6 @@ export default function RegistrationForm() {
     }));
   };
 
-  // Calculs dynamiques des totaux et réductions
   const selectedDetails = formData.selectedCerts.map((id) =>
     certificates.find((c) => c.id === id)
   ).filter(Boolean);
@@ -106,7 +109,6 @@ export default function RegistrationForm() {
     const fullName = `${formData.firstName} ${formData.lastName}`.trim();
 
     try {
-      // 1. Création du compte Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
@@ -125,7 +127,6 @@ export default function RegistrationForm() {
         return;
       }
 
-      // 2. Insérer le profil PENDING_PAYMENT
       const { error: profileError } = await supabase.from('profiles').insert({
         id: userId,
         email: formData.email,
@@ -141,7 +142,6 @@ export default function RegistrationForm() {
         return;
       }
 
-      // 3. Insérer les enrollments avec les prix dynamiques
       const { error: enrollError } = await supabase.from('enrollments').insert(
         formData.selectedCerts.map((certId) => {
           const cert = certificates.find((c) => c.id === certId);
@@ -164,7 +164,6 @@ export default function RegistrationForm() {
         return;
       }
 
-      // 4. Connexion automatique
       if (authData.session) {
         await supabase.auth.setSession(authData.session);
       } else {
@@ -196,114 +195,416 @@ export default function RegistrationForm() {
     }
   };
 
+  // Progress bar percentage
+  const progress = step === 1 ? 50 : 100;
+
   return (
-    <section id="registration-form" className="py-20 px-4 md:px-8 max-w-3xl mx-auto">
-      <div className="text-center mb-12">
-        <h2 className="text-3xl md:text-5xl font-display text-white mb-4">
-          🔥 Votre avenir commence ici
-        </h2>
-        <p className="text-gray-400 text-lg">
-          La Bourse Mamadou TOURÉ vous offre jusqu'à <span className="text-[#D4AF37] font-bold">50% de réduction</span>. Les places sont limitées.
-        </p>
+    <section id="registration-form" className="min-h-screen bg-[#020617] py-12 md:py-20 px-4">
+      {/* Background Effects */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-20 right-0 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 left-0 w-96 h-96 bg-amber-500/5 rounded-full blur-3xl" />
       </div>
 
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (step === 1) setStep(2);
-          else if (step === 2) handleSubmit();
-        }}
-        className="bg-[#0f172a] border border-[#1E293B] rounded-2xl p-8 space-y-6"
-      >
-        {/* Step 1 : Infos personnelles */}
-        {step === 1 && (
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-white mb-2">1. Qui êtes-vous ?</h3>
-            <div className="grid sm:grid-cols-2 gap-4">
-              <input type="text" placeholder="Nom" value={formData.lastName} onChange={(e) => setFormData((p) => ({ ...p, lastName: e.target.value }))} className="w-full bg-[#0B0F19] border border-[#1E293B] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#D4AF37]" required />
-              <input type="text" placeholder="Prénom" value={formData.firstName} onChange={(e) => setFormData((p) => ({ ...p, firstName: e.target.value }))} className="w-full bg-[#0B0F19] border border-[#1E293B] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#D4AF37]" required />
-            </div>
-            <input type="email" placeholder="Email" value={formData.email} onChange={(e) => setFormData((p) => ({ ...p, email: e.target.value }))} className="w-full bg-[#0B0F19] border border-[#1E293B] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#D4AF37]" required />
-            <div>
-              <label className="text-sm text-gray-400 mb-1 block">Pays</label>
-              <CountrySelect value={formData.dialCode} onChange={(dial) => setFormData((p) => ({ ...p, dialCode: dial }))} />
-            </div>
-            <div>
-              <label className="text-sm text-gray-400 mb-1 block">Numéro WhatsApp</label>
-              <div className="flex items-center">
-                <span className="bg-[#0B0F19] border border-[#1E293B] rounded-l-xl px-3 py-3 text-gray-400 border-r-0">{formData.dialCode}</span>
-                <input type="tel" placeholder="XX XX XX XX" value={formData.whatsapp} onChange={(e) => setFormData((p) => ({ ...p, whatsapp: e.target.value }))} className="w-full bg-[#0B0F19] border border-[#1E293B] rounded-r-xl px-4 py-3 text-white focus:outline-none focus:border-[#D4AF37]" required />
-              </div>
-            </div>
-            <div>
-              <label className="text-sm text-gray-400 mb-1 block">Mot de passe</label>
-              <div className="relative">
-                <input type={showPassword ? 'text' : 'password'} placeholder="6 caractères minimum" value={formData.password} onChange={(e) => setFormData((p) => ({ ...p, password: e.target.value }))} className="w-full bg-[#0B0F19] border border-[#1E293B] rounded-xl px-4 py-3 pr-10 text-white focus:outline-none focus:border-[#D4AF37]" required minLength={6} />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white">
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
-              </div>
-            </div>
-            <div>
-              <label className="text-sm text-gray-400 mb-1 block">Confirmer le mot de passe</label>
-              <input type="password" placeholder="Répéter le mot de passe" value={formData.confirmPassword} onChange={(e) => setFormData((p) => ({ ...p, confirmPassword: e.target.value }))} className="w-full bg-[#0B0F19] border border-[#1E293B] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#D4AF37]" required />
-            </div>
-            <button type="submit" className="w-full py-3 bg-[#D4AF37] text-[#0B0F19] font-semibold rounded-xl hover:bg-[#C5A028] transition">Continuer</button>
-          </div>
-        )}
+      <div className="max-w-2xl mx-auto relative z-10">
+        {/* Header */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center mb-12"
+        >
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ delay: 0.2, type: "spring" }}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-sm font-medium mb-6"
+          >
+            <Sparkles className="w-4 h-4" />
+            <span>Bourse Mamadou TOURÉ - Jusqu'à 50% de réduction</span>
+          </motion.div>
+          
+          <h2 className="text-3xl md:text-5xl font-bold text-white mb-4">
+            Votre avenir commence ici
+          </h2>
+          <p className="text-slate-400 text-lg max-w-xl mx-auto">
+            Rejoignez l'élite juridique. 
+            <span className="text-amber-400 font-semibold"> 90% de nos certifiés</span> décrochent un emploi dans les 3 mois.
+          </p>
+        </motion.div>
 
-        {/* Step 2 : Choix des certificats */}
-        {step === 2 && (
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-white mb-2">2. Choisissez vos certifications</h3>
-            <p className="text-gray-400 text-sm mb-4">Cochez les modules qui vous intéressent. Vous pouvez en prendre plusieurs.</p>
-            {certsLoading ? (
-              <p className="text-gray-400">Chargement des formations...</p>
-            ) : (
-              <div className="space-y-3 max-h-80 overflow-y-auto">
-                {certificates.map((cert) => {
-                  const discount = cert.price_normal > 0
-                    ? Math.round(((cert.price_normal - cert.price_bourse) / cert.price_normal) * 100)
-                    : 0;
-                  return (
-                    <label key={cert.id} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition ${formData.selectedCerts.includes(cert.id) ? 'border-[#D4AF37]/40 bg-[#D4AF37]/5' : 'border-[#1E293B] hover:border-[#D4AF37]/20'}`}>
-                      <input type="checkbox" checked={formData.selectedCerts.includes(cert.id)} onChange={() => toggleCert(cert.id)} className="accent-[#D4AF37]" />
-                      <div className="flex-1">
-                        <p className="text-white text-sm">{cert.title}</p>
-                        <p className="text-xs text-gray-500">
-                          {cert.price_bourse.toLocaleString()} FCFA (au lieu de {cert.price_normal.toLocaleString()})
-                        </p>
-                      </div>
-                      {discount > 0 && (
-                        <span className="text-green-400 text-xs font-semibold">-{discount}%</span>
-                      )}
+        {/* Progress Steps */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-300 ${
+                step >= 1 ? 'bg-blue-500 text-white' : 'bg-[#1e293b] text-slate-500'
+              }`}>
+                {step > 1 ? <Check className="w-4 h-4" /> : '1'}
+              </div>
+              <span className={`text-sm font-medium ${step >= 1 ? 'text-white' : 'text-slate-600'}`}>
+                Informations
+              </span>
+            </div>
+            <ChevronRight className="w-4 h-4 text-slate-700" />
+            <div className="flex items-center gap-2">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-300 ${
+                step === 2 ? 'bg-blue-500 text-white' : 'bg-[#1e293b] text-slate-500'
+              }`}>
+                2
+              </div>
+              <span className={`text-sm font-medium ${step === 2 ? 'text-white' : 'text-slate-600'}`}>
+                Formations
+              </span>
+            </div>
+          </div>
+          <div className="h-1 bg-[#1e293b] rounded-full overflow-hidden">
+            <motion.div
+              initial={{ width: '50%' }}
+              animate={{ width: `${progress}%` }}
+              className="h-full bg-gradient-to-r from-blue-500 to-blue-400 rounded-full"
+            />
+          </div>
+        </div>
+
+        {/* Form Card */}
+        <motion.div
+          key={step}
+          initial={{ opacity: 0, x: step === 1 ? -20 : 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.3 }}
+          className="bg-[#0f172a] border border-[#1e293b] rounded-2xl p-6 md:p-8 shadow-2xl shadow-black/20"
+        >
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (step === 1) setStep(2);
+              else if (step === 2) handleSubmit();
+            }}
+            className="space-y-5"
+          >
+            <AnimatePresence mode="wait">
+              {/* STEP 1: Personal Info */}
+              {step === 1 && (
+                <motion.div
+                  key="step1"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="space-y-5"
+                >
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
+                      <User className="w-5 h-5 text-blue-400" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-white">Qui êtes-vous ?</h3>
+                      <p className="text-sm text-slate-400">Ces informations restent confidentielles</p>
+                    </div>
+                  </div>
+
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">Nom</label>
+                      <input
+                        type="text"
+                        placeholder="Koné"
+                        value={formData.lastName}
+                        onChange={(e) => setFormData((p) => ({ ...p, lastName: e.target.value }))}
+                        className="w-full bg-[#020617] border border-[#1e293b] rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition-all"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">Prénom</label>
+                      <input
+                        type="text"
+                        placeholder="Awa"
+                        value={formData.firstName}
+                        onChange={(e) => setFormData((p) => ({ ...p, firstName: e.target.value }))}
+                        className="w-full bg-[#020617] border border-[#1e293b] rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition-all"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                      <Mail className="w-4 h-4 inline mr-1" />
+                      Email
                     </label>
-                  );
-                })}
-              </div>
-            )}
-            <div className="bg-[#0B0F19] border border-[#1E293B] rounded-xl p-4 space-y-2">
-              <div className="flex justify-between text-sm"><span className="text-gray-400">Total normal</span><span className="text-gray-500 line-through">{totalNormal.toLocaleString()} FCFA</span></div>
-              <div className="flex justify-between text-sm"><span className="text-gray-400">Prix Bourse</span><span className="text-[#D4AF37] font-bold">{totalBourse.toLocaleString()} FCFA</span></div>
-              <div className="flex justify-between text-sm"><span className="text-gray-400">Votre économie</span><span className="text-green-400 font-semibold">-{savings.toLocaleString()} FCFA ({savingsPercent}%)</span></div>
-            </div>
-            {error && <p className="text-red-400 text-sm">{error}</p>}
-            <div className="flex gap-4">
-              <button type="button" onClick={() => setStep(1)} className="flex-1 py-3 border border-[#1E293B] text-gray-400 rounded-xl hover:text-white transition">Retour</button>
-              <button type="submit" disabled={submitting || formData.selectedCerts.length === 0} className="flex-1 py-3 bg-[#D4AF37] text-[#0B0F19] font-semibold rounded-xl hover:bg-[#C5A028] transition disabled:opacity-50">
-                {submitting ? 'Inscription...' : 'Valider mon inscription'}
-              </button>
-            </div>
-          </div>
-        )}
-      </form>
+                    <input
+                      type="email"
+                      placeholder="awa.kone@email.com"
+                      value={formData.email}
+                      onChange={(e) => setFormData((p) => ({ ...p, email: e.target.value }))}
+                      className="w-full bg-[#020617] border border-[#1e293b] rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition-all"
+                      required
+                    />
+                  </div>
 
-      <p className="text-center text-sm text-gray-500 mt-6">
-        Déjà inscrit ?{' '}
-        <Link href="/login" className="text-[#D4AF37] hover:underline">
-          Connectez-vous à votre espace
-        </Link>
-      </p>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">Pays</label>
+                    <CountrySelect value={formData.dialCode} onChange={(dial) => setFormData((p) => ({ ...p, dialCode: dial }))} />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                      <Phone className="w-4 h-4 inline mr-1" />
+                      WhatsApp
+                    </label>
+                    <div className="flex">
+                      <span className="bg-[#020617] border border-r-0 border-[#1e293b] rounded-l-xl px-4 py-3 text-slate-400 text-sm">
+                        {formData.dialCode}
+                      </span>
+                      <input
+                        type="tel"
+                        placeholder="01 02 03 04 05"
+                        value={formData.whatsapp}
+                        onChange={(e) => setFormData((p) => ({ ...p, whatsapp: e.target.value }))}
+                        className="flex-1 bg-[#020617] border border-[#1e293b] rounded-r-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition-all"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                      <Lock className="w-4 h-4 inline mr-1" />
+                      Mot de passe
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        placeholder="Minimum 6 caractères"
+                        value={formData.password}
+                        onChange={(e) => setFormData((p) => ({ ...p, password: e.target.value }))}
+                        className="w-full bg-[#020617] border border-[#1e293b] rounded-xl px-4 py-3 pr-12 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition-all"
+                        required
+                        minLength={6}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
+                      >
+                        {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">Confirmer le mot de passe</label>
+                    <input
+                      type="password"
+                      placeholder="Répétez le mot de passe"
+                      value={formData.confirmPassword}
+                      onChange={(e) => setFormData((p) => ({ ...p, confirmPassword: e.target.value }))}
+                      className="w-full bg-[#020617] border border-[#1e293b] rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition-all"
+                      required
+                    />
+                  </div>
+
+                  <motion.button
+                    type="submit"
+                    whileHover={{ scale: 1.01 }}
+                    whileTap={{ scale: 0.99 }}
+                    className="w-full py-3.5 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20"
+                  >
+                    <span>Continuer</span>
+                    <ArrowRight className="w-5 h-5" />
+                  </motion.button>
+                </motion.div>
+              )}
+
+              {/* STEP 2: Choose Certificates */}
+              {step === 2 && (
+                <motion.div
+                  key="step2"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="space-y-5"
+                >
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center">
+                      <GraduationCap className="w-5 h-5 text-amber-400" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-white">Choisissez vos certifications</h3>
+                      <p className="text-sm text-slate-400">Sélectionnez une ou plusieurs formations</p>
+                    </div>
+                  </div>
+
+                  {certsLoading ? (
+                    <div className="space-y-3">
+                      {[1, 2, 3].map((i) => (
+                        <div key={i} className="animate-pulse bg-[#020617] rounded-xl p-4 border border-[#1e293b]">
+                          <div className="h-4 bg-slate-700 rounded w-3/4 mb-2" />
+                          <div className="h-3 bg-slate-700 rounded w-1/2" />
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="space-y-3 max-h-80 overflow-y-auto custom-scrollbar">
+                      {certificates.map((cert) => {
+                        const discount = cert.price_normal > 0
+                          ? Math.round(((cert.price_normal - cert.price_bourse) / cert.price_normal) * 100)
+                          : 0;
+                        const isSelected = formData.selectedCerts.includes(cert.id);
+
+                        return (
+                          <motion.label
+                            key={cert.id}
+                            whileHover={{ scale: 1.01 }}
+                            whileTap={{ scale: 0.99 }}
+                            className={`flex items-center gap-4 p-4 rounded-xl border cursor-pointer transition-all ${
+                              isSelected
+                                ? 'border-amber-500/50 bg-amber-500/5 shadow-lg shadow-amber-500/5'
+                                : 'border-[#1e293b] hover:border-amber-500/20 bg-[#020617]'
+                            }`}
+                          >
+                            <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all ${
+                              isSelected ? 'bg-amber-500 border-amber-500' : 'border-slate-600'
+                            }`}>
+                              {isSelected && <Check className="w-3 h-3 text-white" />}
+                            </div>
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => toggleCert(cert.id)}
+                              className="hidden"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-white text-sm font-medium truncate">{cert.title}</p>
+                              <p className="text-xs text-slate-500">
+                                {cert.price_bourse?.toLocaleString()} FCFA{' '}
+                                <span className="line-through text-slate-600">
+                                  {cert.price_normal?.toLocaleString()}
+                                </span>
+                              </p>
+                            </div>
+                            {discount > 0 && (
+                              <div className="px-2 py-1 rounded-full bg-green-500/10 border border-green-500/20">
+                                <span className="text-green-400 text-xs font-bold">-{discount}%</span>
+                              </div>
+                            )}
+                          </motion.label>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Price Summary */}
+                  {formData.selectedCerts.length > 0 && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="bg-[#020617] border border-[#1e293b] rounded-xl p-4 space-y-3"
+                    >
+                      <div className="flex justify-between text-sm">
+                        <span className="text-slate-400">Prix normal</span>
+                        <span className="text-slate-500 line-through">{totalNormal.toLocaleString()} FCFA</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-slate-400">Prix Bourse</span>
+                        <span className="text-amber-400 font-bold">{totalBourse.toLocaleString()} FCFA</span>
+                      </div>
+                      <div className="border-t border-[#1e293b] pt-3 flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                          <TrendingUp className="w-4 h-4 text-green-400" />
+                          <span className="text-sm text-slate-400">Votre économie</span>
+                        </div>
+                        <span className="text-green-400 font-bold">
+                          -{savings.toLocaleString()} FCFA ({savingsPercent}%)
+                        </span>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {/* Error Message */}
+                  <AnimatePresence>
+                    {error && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm flex items-start gap-2"
+                      >
+                        <Shield className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                        <span>{error}</span>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* Buttons */}
+                  <div className="flex gap-3">
+                    <motion.button
+                      type="button"
+                      onClick={() => setStep(1)}
+                      whileHover={{ scale: 1.01 }}
+                      whileTap={{ scale: 0.99 }}
+                      className="flex-1 py-3.5 border border-[#1e293b] text-slate-400 hover:text-white hover:border-slate-600 rounded-xl transition-all flex items-center justify-center gap-2"
+                    >
+                      <ArrowLeft className="w-4 h-4" />
+                      <span>Retour</span>
+                    </motion.button>
+                    <motion.button
+                      type="submit"
+                      disabled={submitting || formData.selectedCerts.length === 0}
+                      whileHover={{ scale: submitting ? 1 : 1.01 }}
+                      whileTap={{ scale: submitting ? 1 : 0.99 }}
+                      className="flex-[2] py-3.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 disabled:from-amber-500/50 disabled:to-amber-500/50 text-white font-semibold rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20"
+                    >
+                      {submitting ? (
+                        <>
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                          <span>Inscription en cours...</span>
+                        </>
+                      ) : (
+                        <>
+                          <CreditCard className="w-5 h-5" />
+                          <span>Valider mon inscription</span>
+                        </>
+                      )}
+                    </motion.button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </form>
+        </motion.div>
+
+        {/* Login Link */}
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.3 }}
+          className="text-center text-sm text-slate-500 mt-8"
+        >
+          Déjà inscrit ?{' '}
+          <Link href="/login" className="text-blue-400 hover:text-blue-300 font-medium transition-colors">
+            Connectez-vous à votre espace
+          </Link>
+        </motion.p>
+      </div>
+
+      {/* Custom Scrollbar Styles */}
+      <style jsx>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: #020617;
+          border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: #1e293b;
+          border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: #334155;
+        }
+      `}</style>
     </section>
   );
 }

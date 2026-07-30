@@ -13,7 +13,8 @@ export function UsersTable() {
     return <div style={{ padding: '20px', color: '#94a3b8' }}>Chargement des utilisateurs...</div>;
   }
 
-  // Helper pour normaliser les statuts (ex: "pending_payment", "PENDING_PAYMENT ", etc.)
+  const isStudent = (user: any) => user.role === 'STUDENT';
+
   const isPending = (status: string | null) => {
     if (!status) return false;
     const s = status.trim().toUpperCase();
@@ -26,78 +27,49 @@ export function UsersTable() {
     return s === 'PAID';
   };
 
-  // 🔍 LOGIQUE DE FILTRAGE SÉCURISÉE
+  // Filtrage : on n'applique le filtre de paiement qu'aux étudiants
   const filteredUsers = users.filter((user) => {
+    if (filter === 'ALL') return true;
+    if (!isStudent(user)) return false;
     if (filter === 'PENDING') return isPending(user.status);
     if (filter === 'PAID') return isPaid(user.status);
-    return true; // 'ALL'
+    return true;
   });
 
-  const pendingCount = users.filter((u) => isPending(u.status)).length;
-  const paidCount = users.filter((u) => isPaid(u.status)).length;
+  // Compteurs basés uniquement sur les étudiants
+  const pendingCount = users.filter((u) => isStudent(u) && isPending(u.status)).length;
+  const paidCount = users.filter((u) => isStudent(u) && isPaid(u.status)).length;
 
   return (
     <div style={{ background: '#0f172a', borderRadius: '12px', border: '1px solid #334155', padding: '24px', margin: '20px 0' }}>
-      
-      {/* HEADER & BARRE DE FILTRES */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
         <h2 style={{ color: '#fff', margin: 0, fontSize: '18px' }}>
-          👥 Liste des Inscrits ({filteredUsers.length} / {users.length})
+          👥 Liste des utilisateurs ({filteredUsers.length} / {users.length})
         </h2>
 
-        {/* BOUTONS DE FILTRAGE & ACTION */}
         <div style={{ display: 'flex', gap: '8px', background: '#1e293b', padding: '4px', borderRadius: '8px', flexWrap: 'wrap' }}>
-          <button
-            onClick={() => setFilter('ALL')}
-            style={{
-              padding: '6px 12px', borderRadius: '6px', border: 'none', cursor: 'pointer',
-              background: filter === 'ALL' ? '#3b82f6' : 'transparent', color: '#fff', fontSize: '12px'
-            }}
-          >
+          <button onClick={() => setFilter('ALL')} style={filter === 'ALL' ? activeBtn : btn}>
             Tous ({users.length})
           </button>
-
-          <button
-            onClick={() => setFilter('PENDING')}
-            style={{
-              padding: '6px 12px', borderRadius: '6px', border: 'none', cursor: 'pointer',
-              background: filter === 'PENDING' ? '#f59e0b' : 'transparent', color: '#fff', fontSize: '12px'
-            }}
-          >
-            ⏳ En attente ({pendingCount})
+          <button onClick={() => setFilter('PENDING')} style={filter === 'PENDING' ? activeBtn : btn}>
+            ⏳ Étudiants en attente ({pendingCount})
           </button>
-
-          <button
-            onClick={() => setFilter('PAID')}
-            style={{
-              padding: '6px 12px', borderRadius: '6px', border: 'none', cursor: 'pointer',
-              background: filter === 'PAID' ? '#22c55e' : 'transparent', color: '#fff', fontSize: '12px'
-            }}
-          >
-            ✅ Payés ({paidCount})
+          <button onClick={() => setFilter('PAID')} style={filter === 'PAID' ? activeBtn : btn}>
+            ✅ Étudiants payés ({paidCount})
           </button>
-
-          <button
-            onClick={() => setIsModalOpen(true)}
-            style={{
-              padding: '6px 12px', background: '#8b5cf6', color: '#fff', border: 'none',
-              borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px',
-              display: 'flex', alignItems: 'center', gap: '6px'
-            }}
-          >
+          <button onClick={() => setIsModalOpen(true)} style={{ padding: '6px 12px', background: '#8b5cf6', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
             ➕ Ajouter un Enseignant
           </button>
         </div>
       </div>
 
-      {/* TABLEAU */}
       <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', color: '#e2e8f0', fontSize: '14px' }}>
         <thead>
           <tr style={{ borderBottom: '1px solid #334155', color: '#94a3b8' }}>
             <th style={{ padding: '12px' }}>Nom complet</th>
             <th style={{ padding: '12px' }}>Email / Téléphone</th>
             <th style={{ padding: '12px' }}>Rôle</th>
-            <th style={{ padding: '12px' }}>Statut réel (Brut)</th>
+            <th style={{ padding: '12px' }}>Statut paiement</th>
             <th style={{ padding: '12px' }}>Action</th>
           </tr>
         </thead>
@@ -105,7 +77,7 @@ export function UsersTable() {
           {filteredUsers.length === 0 ? (
             <tr>
               <td colSpan={5} style={{ padding: '20px', textAlign: 'center', color: '#64748b' }}>
-                Aucun utilisateur ne correspond à ce filtre.
+                Aucun utilisateur trouvé.
               </td>
             </tr>
           ) : (
@@ -119,20 +91,25 @@ export function UsersTable() {
                 <td style={{ padding: '12px' }}>
                   <span style={{
                     padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold',
-                    background: user.role === 'TEACHER' ? '#8b5cf6' : '#0284c7', color: '#fff'
+                    background: user.role === 'TEACHER' ? '#8b5cf6' : user.role === 'ADMIN' ? '#dc2626' : '#0284c7',
+                    color: '#fff'
                   }}>
                     {user.role}
                   </span>
                 </td>
                 <td style={{ padding: '12px' }}>
-                  {isPaid(user.status) ? (
-                    <span style={{ color: '#22c55e', fontWeight: 'bold' }}>✅ Payé</span>
+                  {isStudent(user) ? (
+                    isPaid(user.status) ? (
+                      <span style={{ color: '#22c55e', fontWeight: 'bold' }}>✅ Payé</span>
+                    ) : (
+                      <span style={{ color: '#f59e0b', fontWeight: 'bold' }}>⏳ En attente</span>
+                    )
                   ) : (
-                    <span style={{ color: '#f59e0b', fontWeight: 'bold' }}>⏳ En attente ({user.status})</span>
+                    <span style={{ color: '#64748b' }}>--</span>
                   )}
                 </td>
                 <td style={{ padding: '12px' }}>
-                  {isPending(user.status) && (
+                  {isStudent(user) && isPending(user.status) && (
                     <button
                       onClick={() => validatePayment(user.id)}
                       style={{
@@ -150,8 +127,22 @@ export function UsersTable() {
         </tbody>
       </table>
 
-      {/* MODALE DE CRÉATION D'ENSEIGNANT */}
       <CreateTeacherModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
     </div>
   );
 }
+
+const btn = {
+  padding: '6px 12px',
+  borderRadius: '6px',
+  border: 'none',
+  cursor: 'pointer',
+  background: 'transparent',
+  color: '#fff',
+  fontSize: '12px',
+} as React.CSSProperties;
+
+const activeBtn = {
+  ...btn,
+  background: '#3b82f6',
+} as React.CSSProperties;

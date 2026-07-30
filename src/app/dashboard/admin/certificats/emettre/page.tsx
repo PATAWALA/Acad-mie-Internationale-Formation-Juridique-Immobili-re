@@ -15,28 +15,28 @@ export default function AdminEmissionPage() {
 
   const fetchEligibleStudents = async () => {
     setLoading(true);
-    // Récupérer tous les cours avec leurs assessments
     const { data: courses } = await supabase
       .from('courses')
-      .select('id, title, certificate_id, assessments(id)');
+      .select('id, title, certificate_id');
 
     if (!courses) { setLoading(false); return; }
 
     const eligible: any[] = [];
 
     for (const course of courses) {
-      const assessmentIds = course.assessments?.map((a: any) => a.id) ?? [];
+      const { data: assessments } = await supabase
+        .from('assessments')
+        .select('id')
+        .eq('course_id', course.id);
+      const assessmentIds = assessments?.map((a) => a.id) ?? [];
       if (assessmentIds.length === 0) continue;
 
-      // Soumissions des étudiants pour ces assessments
       const { data: submissions } = await supabase
         .from('submissions')
         .select('student_id, status')
         .in('assessment_id', assessmentIds);
-
       if (!submissions) continue;
 
-      // Grouper par étudiant
       const studentMap = new Map<string, { passed: number; total: number }>();
       for (const sub of submissions) {
         if (!studentMap.has(sub.student_id)) {
@@ -47,7 +47,6 @@ export default function AdminEmissionPage() {
         if (sub.status === 'PASSED') rec.passed++;
       }
 
-      // Filtrer ceux qui ont tout réussi
       for (const [studentId, rec] of studentMap.entries()) {
         if (rec.passed === assessmentIds.length && rec.total === assessmentIds.length) {
           const { data: profile } = await supabase
@@ -63,6 +62,13 @@ export default function AdminEmissionPage() {
             .eq('course_id', course.id)
             .maybeSingle();
 
+          // Récupérer les URLs des soumissions de cet étudiant pour ce cours
+          const { data: studentSubs } = await supabase
+            .from('submissions')
+            .select('submission_url, assessment_id, assessments(title)')
+            .eq('student_id', studentId)
+            .in('assessment_id', assessmentIds);
+
           eligible.push({
             studentId,
             studentName: profile?.full_name || 'Inconnu',
@@ -74,6 +80,7 @@ export default function AdminEmissionPage() {
             certUrl: existingCert?.certificate_url || '',
             issueDate: new Date().toLocaleDateString('fr-FR'),
             tempCertId: `CERT-${studentId.slice(0, 8).toUpperCase()}`,
+            submissions: studentSubs || [],
           });
         }
       }
@@ -122,14 +129,35 @@ export default function AdminEmissionPage() {
       ) : (
         <div style={{ display: 'grid', gap: '16px' }}>
           {eligibleStudents.map((item) => (
-            <div key={item.studentId + item.courseId} style={{ background: '#0f172a', border: '1px solid #1e293b', padding: '20px', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-              <div>
-                <h3 style={{ margin: '0 0 6px 0', fontSize: '16px', color: '#38bdf8' }}>{item.studentName} ({item.email})</h3>
-                <p style={{ margin: '0 0 4px 0', fontSize: '14px', color: '#cbd5e1' }}>Cours : <strong>{item.courseTitle}</strong></p>
+            <div key={item.studentId + item.courseId} style={{ background: '#0f172a', border: '1px solid #1e293b', padding: '20px', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
+              <div style={{ flex: 1 }}>
+                <h3 style={{ margin: '0 0 6px 0', fontSize: '16px', color: '#38bdf8' }}>
+                  {item.studentName} ({item.email})
+                </h3>
+                <p style={{ margin: '0 0 4px 0', fontSize: '14px', color: '#cbd5e1' }}>
+                  Cours : <strong>{item.courseTitle}</strong>
+                </p>
+                {/* Liens vers les copies */}
+                <div style={{ marginTop: '8px' }}>
+                  {item.submissions.map((sub: any) => (
+                    <a
+                      key={sub.assessment_id}
+                      href={sub.submission_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ display: 'inline-block', marginRight: '12px', color: '#38bdf8', fontSize: '13px', textDecoration: 'underline' }}
+                    >
+                      📄 {sub.assessments?.title || 'Copie'}
+                    </a>
+                  ))}
+                </div>
                 {item.hasCert && (
-                  <p style={{ fontSize: '13px', color: '#22c55e' }}>Déjà émis – <a href={item.certUrl} target="_blank" style={{ color: '#38bdf8' }}>Voir PDF</a></p>
+                  <p style={{ fontSize: '13px', color: '#22c55e', marginTop: '8px' }}>
+                    Certificat déjà émis – <a href={item.certUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#38bdf8' }}>Voir le PDF</a>
+                  </p>
                 )}
               </div>
+
               <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                 <button
                   onClick={() => setSelectedCert({ studentName: item.studentName, courseTitle: item.courseTitle, issueDate: item.issueDate, certificateId: item.tempCertId })}

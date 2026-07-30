@@ -3,14 +3,17 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { SubmissionModal } from './SubmissionModal';
+import ContentViewer from './ContentViewer';
+import SubmissionViewer from "./SubmissionViewer";
 
 interface CourseProgramProps {
   courses: any[];
   userStatus: string;
   passedAssessments: string[];
+  submissionsMap: Record<string, any>; // nouvelle prop
 }
 
-export function CourseProgram({ courses, userStatus, passedAssessments }: CourseProgramProps) {
+export function CourseProgram({ courses, userStatus, passedAssessments, submissionsMap }: CourseProgramProps) {
   const isPaid = userStatus?.trim().toUpperCase() === 'PAID';
   const [selectedAssessment, setSelectedAssessment] = useState<{ id: string; title: string } | null>(null);
 
@@ -24,7 +27,6 @@ export function CourseProgram({ courses, userStatus, passedAssessments }: Course
 
   return (
     <div style={{ display: 'grid', gap: '24px' }}>
-      {/* Bannière pour non-payés */}
       {!isPaid && (
         <div style={{ background: 'linear-gradient(135deg, #7c2d12 0%, #451a03 100%)', border: '2px solid #ea580c', borderRadius: '12px', padding: '24px', color: '#fff' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
@@ -55,7 +57,6 @@ export function CourseProgram({ courses, userStatus, passedAssessments }: Course
         </div>
       )}
 
-      {/* Bouton d'actualisation manuelle */}
       {isPaid && (
         <button
           onClick={() => window.location.reload()}
@@ -98,25 +99,60 @@ export function CourseProgram({ courses, userStatus, passedAssessments }: Course
                     </div>
                   )}
 
-                  {/* Leçons (grisées si verrouillées) */}
-                  <div style={{ display: 'grid', gap: '8px', opacity: isUnlocked ? 1 : 0.5 }}>
+                  {/* Leçons */}
+                  <div style={{ display: 'grid', gap: '12px', opacity: isUnlocked ? 1 : 0.5 }}>
                     {mod.lessons?.map((lesson: any) => (
-                      <div key={lesson.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#0f172a', padding: '10px 14px', borderRadius: '6px', fontSize: '13px' }}>
+                      <div key={lesson.id} style={{ background: '#0f172a', padding: '10px 14px', borderRadius: '6px', fontSize: '13px' }}>
                         <span>📖 {lesson.title} ({lesson.content_type})</span>
-                        {isPaid && lesson.content_url && isUnlocked ? (
-                          <a href={lesson.content_url} target="_blank" rel="noopener noreferrer" style={{ color: '#38bdf8', fontWeight: 'bold', textDecoration: 'none' }}>
-                            Ouvrir le support ↗
-                          </a>
+                        {isPaid && isUnlocked ? (
+                          <ContentViewer
+                            contentType={lesson.content_type}
+                            contentUrl={lesson.content_url}
+                            contentBody={lesson.content_body}
+                            title={lesson.title}
+                          />
                         ) : (
-                          <span style={{ color: '#ef4444', fontWeight: 'bold', fontSize: '12px' }}>
-                            🔒 Réservé aux membres payants
+                          <span style={{ color: '#ef4444', fontWeight: 'bold', fontSize: '12px', display: 'block', marginTop: '4px' }}>
+                            {!isPaid ? '🔒 Réservé aux membres payants' : '🔒 Module verrouillé'}
                           </span>
                         )}
                       </div>
                     ))}
                   </div>
 
-                  {/* Bouton de soumission TP (visible uniquement si débloqué et payé) */}
+                  {/* Évaluations : affichage des notes et feedback */}
+                  {mod.assessments?.length > 0 && (
+                    <div style={{ marginTop: '12px' }}>
+                      {mod.assessments.map((ass: any) => {
+                        const sub = submissionsMap[ass.id];
+                        return (
+                          <div key={ass.id} style={{ fontSize: '13px', marginBottom: '6px' }}>
+                            {!sub && isUnlocked && (
+                              <span style={{ color: '#94a3b8' }}>📝 {ass.title} (pas encore soumis)</span>
+                            )}
+                            {sub && sub.status === 'PENDING' && (
+                              <span style={{ color: '#f59e0b' }}>⏳ En attente de correction</span>
+                            )}
+                            {sub && sub.status !== 'PENDING' && (
+                              <div>
+                                <span style={{ color: sub.status === 'PASSED' ? '#22c55e' : '#ef4444', fontWeight: 'bold' }}>
+                                  {sub.status === 'PASSED' ? '✅ Validé' : '❌ Non validé'} — Note : {sub.grade}/20
+                                </span>
+                                {sub.feedback && (
+                                  <p style={{ color: '#94a3b8', margin: '4px 0 0' }}>💬 {sub.feedback}</p>
+                                )}
+                                <p style={{ margin: '4px 0 0' }}>
+                                  <SubmissionViewer submissionUrl={sub.submission_url} />
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Bouton de soumission (visible uniquement si débloqué, payé, et au moins un assessment) */}
                   {isPaid && isUnlocked && mod.assessments?.length > 0 && (
                     <button
                       onClick={() => setSelectedAssessment({ id: mod.assessments[0].id, title: mod.assessments[0].title })}

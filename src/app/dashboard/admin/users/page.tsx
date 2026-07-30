@@ -1,5 +1,5 @@
 import { createServerSupabase } from '@/lib/supabase/server';
-import { UserManagementTable } from '@/components/dashboard/admin/UserManagementTable';
+import { AdminUsersList } from '@/components/dashboard/admin/AdminUsersList'; // nouveau composant
 
 export default async function AdminUsersPage() {
   const supabase = await createServerSupabase();
@@ -11,7 +11,7 @@ export default async function AdminUsersPage() {
   return (
     <div style={{ padding: '24px', color: '#fff' }}>
       <h1 style={{ fontSize: '22px', marginBottom: '20px' }}>👥 Gestion des utilisateurs</h1>
-      <UserManagementTable users={users || []} />
+      <AdminUsersList users={users || []} />
     </div>
   );
 }

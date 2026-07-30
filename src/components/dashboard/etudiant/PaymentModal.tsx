@@ -29,6 +29,7 @@ export default function PaymentModal({ isOpen, onClose, onPay, amount, loading }
           Montant à payer : <strong>{amount.toLocaleString()} FCFA</strong>
         </p>
 
+        {/* Choix du moyen de paiement */}
         <div style={{ display: 'flex', gap: '10px', margin: '20px 0' }}>
           <button
             onClick={() => setSelectedMethod('wave')}
@@ -59,6 +60,7 @@ export default function PaymentModal({ isOpen, onClose, onPay, amount, loading }
           </button>
         </div>
 
+        {/* Boutons d'action */}
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
           <button
             onClick={onClose}

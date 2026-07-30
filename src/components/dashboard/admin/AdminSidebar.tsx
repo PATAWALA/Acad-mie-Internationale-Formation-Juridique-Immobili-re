@@ -28,24 +28,31 @@ export default function AdminSidebar() {
       <div style={{ fontWeight: 'bold', fontSize: '18px', marginBottom: '20px' }}>
         ⚙️ Admin Panel
       </div>
-      <Link href="/admin" style={linkStyle}>
-        📊 Tableau de bord
-      </Link>
-      <Link href="/admin/users" style={linkStyle}>
-        👥 Utilisateurs
-      </Link>
-      <Link href="/admin/cours" style={linkStyle}>
-        📚 Cours
-      </Link>
-      <Link href="/admin/certificats" style={linkStyle}>
-        🎓 Certificats
-      </Link>
-      <Link href="/admin/certificats/emettre" style={linkStyle}>
-        📜 Émettre certificats
-      </Link>
-      <Link href="/admin/questions" style={linkStyle}>
-        ❓ Support
-      </Link>
+      <Link href="/dashboard/admin" style={linkStyle}>
+  📊 Tableau de bord
+</Link>
+<Link href="/dashboard/admin/users" style={linkStyle}>
+  👥 Utilisateurs
+</Link>
+<Link href="/dashboard/admin/cours" style={linkStyle}>
+  📚 Cours
+</Link>
+<Link href="/dashboard/admin/certificats" style={linkStyle}>
+  🎓 Certificats
+</Link>
+<Link href="/dashboard/admin/certificats/emettre" style={linkStyle}>
+  📜 Émettre certificats
+</Link>
+
+<Link href="/dashboard/admin/assignations" style={linkStyle}>
+  👨‍🏫 Assignations
+</Link>
+<Link href="/dashboard/admin/questions" style={linkStyle}>
+  ❓ Support
+</Link>
+<Link href="/dashboard/admin/parametres" style={linkStyle}>
+  ⚙️ Paramètres
+</Link>
       <div style={{ marginTop: 'auto' }}>
         <button onClick={handleLogout} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '8px 0', textAlign: 'left', width: '100%' }}>
           🚪 Déconnexion

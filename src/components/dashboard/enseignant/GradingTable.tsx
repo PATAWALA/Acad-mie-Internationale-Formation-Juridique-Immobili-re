@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { GradeModal } from './GradeModal';
+import SubmissionViewer from './SubmissionViewer'; // <-- ajouté
 
 interface GradingTableProps {
   submissions: any[];
@@ -14,7 +15,7 @@ export function GradingTable({ submissions }: GradingTableProps) {
 
   const handleSuccess = () => {
     setSelectedSubmission(null);
-    router.refresh(); // Rafraîchit les données de la page serveur proprement
+    router.refresh();
   };
 
   return (
@@ -47,9 +48,7 @@ export function GradingTable({ submissions }: GradingTableProps) {
                   {sub.assessments?.title || 'Évaluation'}
                 </td>
                 <td style={{ padding: '12px' }}>
-                  <a href={sub.submission_url} target="_blank" rel="noreferrer" style={{ color: '#38bdf8' }}>
-                    Voir le lien ↗
-                  </a>
+                  <SubmissionViewer submissionUrl={sub.submission_url} />
                 </td>
                 <td style={{ padding: '12px', fontWeight: 'bold' }}>
                   {sub.grade !== null ? `${sub.grade} / 20` : '-'}
