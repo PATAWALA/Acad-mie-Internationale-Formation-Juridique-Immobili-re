@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClientComponent } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
@@ -15,6 +15,8 @@ import {
   X,
   ExternalLink,
   GripVertical,
+  Upload,
+  Loader2,
 } from 'lucide-react';
 
 interface Props {
@@ -27,7 +29,9 @@ export default function LessonEditor({ lesson, onUpdate }: Props) {
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(lesson.title);
   const [contentUrl, setContentUrl] = useState(lesson.content_url || '');
+  const [uploading, setUploading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const getTypeConfig = (type: string) => {
     const configs: Record<string, { icon: any; label: string; color: string; bg: string }> = {
@@ -41,6 +45,23 @@ export default function LessonEditor({ lesson, onUpdate }: Props) {
 
   const typeConfig = getTypeConfig(lesson.content_type);
   const TypeIcon = typeConfig.icon;
+
+  const handleFileUpload = async (file: File) => {
+    setUploading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `lessons/${lesson.module_id}/${lesson.id}_${Date.now()}.${fileExt}`;
+      const { error } = await supabase.storage.from('lessons').upload(fileName, file);
+      if (error) throw error;
+
+      const { data: publicUrlData } = supabase.storage.from('lessons').getPublicUrl(fileName);
+      setContentUrl(publicUrlData.publicUrl);
+    } catch (err: any) {
+      alert('Erreur upload : ' + err.message);
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleSave = async () => {
     const { error } = await supabase
@@ -89,19 +110,73 @@ export default function LessonEditor({ lesson, onUpdate }: Props) {
             />
           </div>
 
-          {(lesson.content_type === 'VIDEO' || lesson.content_type === 'PDF' || lesson.content_type === 'LINK') && (
+          {/* Gestion du contenu selon le type */}
+          {lesson.content_type === 'PDF' ? (
+            <div className="ml-11 space-y-2">
+              {/* Option 1 : Upload */}
+              <div>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept=".pdf"
+                  onChange={(e) => {
+                    if (e.target.files?.[0]) handleFileUpload(e.target.files[0]);
+                  }}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm
+                    bg-blue-500/10 text-blue-400 border border-blue-500/20
+                    hover:bg-blue-500/20 transition-colors disabled:opacity-50"
+                >
+                  {uploading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Upload en cours...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-4 h-4" />
+                      Uploader un PDF
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Option 2 : Lien */}
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-slate-700" />
+                </div>
+                <div className="relative flex justify-center text-xs">
+                  <span className="bg-slate-800/50 px-2 text-slate-500">ou</span>
+                </div>
+              </div>
+              <input
+                type="text"
+                value={contentUrl}
+                onChange={(e) => setContentUrl(e.target.value)}
+                placeholder="Coller un lien PDF externe"
+                className="w-full px-3 py-1.5 rounded-lg text-white text-sm
+                  bg-slate-900 border border-slate-700
+                  focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500
+                  placeholder-slate-500 transition-all duration-200"
+              />
+            </div>
+          ) : (lesson.content_type === 'VIDEO' || lesson.content_type === 'LINK') && (
             <div className="ml-11">
               <input
                 type="text"
                 value={contentUrl}
                 onChange={(e) => setContentUrl(e.target.value)}
                 placeholder="URL du contenu"
-                className={cn(
-                  "w-full px-3 py-1.5 rounded-lg text-white text-sm",
-                  "bg-slate-900 border border-slate-700",
-                  "focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500",
-                  "placeholder-slate-500 transition-all duration-200"
-                )}
+                className="w-full px-3 py-1.5 rounded-lg text-white text-sm
+                  bg-slate-900 border border-slate-700
+                  focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500
+                  placeholder-slate-500 transition-all duration-200"
               />
             </div>
           )}

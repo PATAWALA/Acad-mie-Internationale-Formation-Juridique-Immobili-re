@@ -3,15 +3,18 @@ import { createClient } from '@supabase/supabase-js';
 
 export async function POST(request: Request) {
   try {
-    const { email, password, fullName, phone } = await request.json();
+    const { email, password, fullName, phone, role } = await request.json();
 
     if (!email || !fullName) {
-  return NextResponse.json(
-    { error: "Le nom complet et l'email sont obligatoires." },
-    { status: 400 }
-  );
-}
+      return NextResponse.json(
+        { error: "Le nom complet et l'email sont obligatoires." },
+        { status: 400 }
+      );
+    }
 
+    // Rôle par défaut : TEACHER, peut être ADMIN
+    const finalRole = role || 'TEACHER';
+    
     // Un mot de passe par défaut si l'Admin n'en saisit pas
     const finalPassword = password && password.trim() !== '' ? password : 'Professeur2026!';
 
@@ -31,7 +34,7 @@ export async function POST(request: Request) {
       email,
       password: finalPassword,
       email_confirm: true, // Marque l'email comme déjà confirmé
-      user_metadata: { full_name: fullName, role: 'TEACHER' },
+      user_metadata: { full_name: fullName, role: finalRole },
     });
 
     if (authError) {
@@ -40,13 +43,13 @@ export async function POST(request: Request) {
 
     const userId = authData.user.id;
 
-    // 2. Insertion instantanée dans profiles
+    // 2. Insertion instantanée dans profiles avec le rôle dynamique
     const { error: profileError } = await supabaseAdmin.from('profiles').upsert({
       id: userId,
       email,
       full_name: fullName,
       phone: phone || null,
-      role: 'TEACHER',
+      role: finalRole,
       status: 'PAID',
       updated_at: new Date().toISOString(),
     });
