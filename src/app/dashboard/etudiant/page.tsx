@@ -14,6 +14,7 @@ function DashboardContent() {
   const supabase = createClientComponent();
   const [courses, setCourses] = useState<any[]>([]);
   const [passedAssessments, setPassedAssessments] = useState<string[]>([]);
+  const [submissionsMap, setSubmissionsMap] = useState<Record<string, any>>({});
   const [certificates, setCertificates] = useState<any[]>([]);
   const [enrollmentStatus, setEnrollmentStatus] = useState<string | null>(null);
 
@@ -50,11 +51,17 @@ function DashboardContent() {
         // Charger soumissions pour la progression
         const { data: submissions } = await supabase
           .from('submissions')
-          .select('assessment_id, status')
+          .select('assessment_id, status, grade, feedback, submission_url')
           .eq('student_id', profile.id);
+        
         if (submissions) {
           const passed = submissions.filter(s => s.status === 'PASSED').map(s => s.assessment_id);
           setPassedAssessments(passed);
+          
+          // Créer le map des soumissions
+          const map: Record<string, any> = {};
+          submissions.forEach(s => { map[s.assessment_id] = s; });
+          setSubmissionsMap(map);
         }
       } else {
         setCourses([]);
@@ -93,7 +100,12 @@ function DashboardContent() {
           <button onClick={() => window.location.reload()} style={{ marginBottom: '16px', padding: '6px 12px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
             🔄 Actualiser la progression
           </button>
-          <CourseProgram courses={courses} userStatus="PAID" passedAssessments={passedAssessments} />
+          <CourseProgram 
+            courses={courses} 
+            userStatus="PAID" 
+            passedAssessments={passedAssessments} 
+            submissionsMap={submissionsMap}
+          />
         </>
       )}
       {enrollmentStatus === 'PAID' && courses.length === 0 && (

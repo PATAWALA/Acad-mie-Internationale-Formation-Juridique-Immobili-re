@@ -103,11 +103,10 @@ export default function AdminAssignationsPage() {
     setRemovingId(null);
   };
 
-  // Callback après création d'un enseignant : rafraîchir la liste et pré-sélectionner
   const handleTeacherCreated = () => {
-    fetchTeachers();
-    setIsModalOpen(false);
-  };
+  fetchTeachers();
+  setIsModalOpen(false);
+};
 
   const groupedAssignments = assignments.reduce((acc: any, assignment) => {
     const certId = assignment.certificate_id;
@@ -363,7 +362,9 @@ export default function AdminAssignationsPage() {
       </motion.div>
 
       {/* Modal de création d'enseignant */}
-      <CreateTeacherModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+      <CreateTeacherModal isOpen={isModalOpen} onClose={() => {setIsModalOpen(false); fetchTeachers(); // Rafraîchir la liste des enseignants après fermeture
+  }} 
+/>
     </motion.div>
   );
 }
