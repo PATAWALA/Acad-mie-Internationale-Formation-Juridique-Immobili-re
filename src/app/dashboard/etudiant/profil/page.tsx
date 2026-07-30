@@ -25,7 +25,7 @@ export default function ProfilPage() {
     setMessage('');
     const updates: any = { full_name: fullName, phone };
 
-    const { error } = await supabase.from('profiles').update(updates).eq('id', profile?.id);
+    const { error } = await supabase.from('profiles').update(updates).eq('id', profile?.id ?? '');
     if (error) {
       setMessage('Erreur : ' + error.message);
     } else {

@@ -44,7 +44,7 @@ export default function SupportView() {
     setMessage(null);
 
     const { error } = await supabase.from('student_questions').insert({
-      student_id: profile?.id,
+      student_id: profile?.id ?? '',
       question: newQuestion.trim(),
     });
 

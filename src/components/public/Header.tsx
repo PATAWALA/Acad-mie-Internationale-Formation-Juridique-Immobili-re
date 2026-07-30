@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
-import { Menu, X, Award, LogIn, PenLine } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Menu, X, LogIn, PenLine } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 
 const navLinks = [
   { label: 'Programmes', href: '#certificates' },
@@ -13,6 +14,15 @@ const navLinks = [
 
 export default function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 20);
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const scrollToForm = () => {
     document.getElementById('registration-form')?.scrollIntoView({ behavior: 'smooth' });
@@ -20,52 +30,68 @@ export default function Header() {
   };
 
   return (
-    <header className="fixed top-0 inset-x-0 z-50 bg-[#0B0F19]/90 backdrop-blur-xl border-b border-[#1E293B]">
+    <header 
+      className={`fixed top-0 inset-x-0 z-50 transition-all duration-300 ${
+        isScrolled 
+          ? 'bg-[#0B0F19]/95 backdrop-blur-xl shadow-2xl shadow-black/40 border-b border-[#1E293B]' 
+          : 'bg-[#0B0F19]/90 backdrop-blur-xl border-b border-[#1E293B]'
+      }`}
+    >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between h-16 lg:h-20">
-        {/* Logo & Badge */}
-        <div className="flex items-center gap-3 flex-shrink-0">
-          <Link href="/" className="flex items-center gap-2">
-            <Award className="w-6 h-6 text-[#D4AF37]" />
-            <span className="text-white font-display text-base sm:text-lg lg:text-xl tracking-tight whitespace-nowrap">
-              Académie<span className="text-[#D4AF37]">Internationale</span>
+        {/* Logo */}
+        <Link href="/" className="flex items-center gap-3 flex-shrink-0 group">
+          <div className="relative w-10 h-10 rounded-lg overflow-hidden border border-[#1E293B] group-hover:border-[#D4AF37]/30 transition-colors">
+            <Image
+              src="/images/logo.jpeg"
+              alt="Académie Internationale"
+              fill
+              className="object-cover"
+              priority
+            />
+          </div>
+          <div className="flex flex-col">
+            <span className="text-white font-['Playfair_Display'] text-sm sm:text-base lg:text-lg leading-tight tracking-tight">
+              Académie
             </span>
-          </Link>
-          <span className="hidden md:inline-flex items-center gap-1 px-3 py-1 bg-[#D4AF37]/10 border border-[#D4AF37]/20 rounded-full text-xs text-[#D4AF37]">
-            🏆 Accréditation 2026
-          </span>
-        </div>
+            <span className="text-[#D4AF37] font-['Playfair_Display'] text-sm sm:text-base lg:text-lg leading-tight tracking-tight">
+              Internationale
+            </span>
+          </div>
+        </Link>
 
         {/* Desktop Navigation */}
-        <nav className="hidden lg:flex items-center gap-6 xl:gap-8">
+        <nav className="hidden lg:flex items-center gap-1">
           {navLinks.map((link) => (
             <a
               key={link.href}
               href={link.href}
-              className="text-sm text-gray-400 hover:text-white transition-colors whitespace-nowrap"
+              className="relative px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors whitespace-nowrap group"
             >
               {link.label}
+              <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-0 h-0.5 bg-[#D4AF37] group-hover:w-3/4 transition-all duration-300" />
             </a>
           ))}
 
-          <div className="flex items-center gap-3 ml-2">
-            {/* Bouton Espace Auditeur (connexion) */}
+          <div className="flex items-center gap-3 ml-6 pl-6 border-l border-[#1E293B]">
             <Link
               href="/login"
-              className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-300 hover:text-white transition-colors border border-transparent hover:border-[#D4AF37]/20 rounded-xl whitespace-nowrap"
+              className="flex items-center gap-1.5 px-4 py-2 text-sm text-gray-300 hover:text-white transition-colors border border-[#1E293B] hover:border-[#D4AF37]/30 rounded-xl whitespace-nowrap"
             >
               <LogIn className="w-4 h-4" />
               <span className="hidden xl:inline">Espace Auditeur</span>
               <span className="xl:hidden">Connexion</span>
             </Link>
 
-            {/* Bouton S'inscrire / Postuler */}
             <button
               onClick={scrollToForm}
-              className="flex items-center gap-1.5 px-4 py-2.5 bg-[#D4AF37] text-[#0B0F19] text-sm font-semibold rounded-xl hover:bg-[#C5A028] transition-all hover:shadow-lg hover:shadow-[#D4AF37]/20 whitespace-nowrap"
+              className="relative flex items-center gap-1.5 px-5 py-2.5 bg-gradient-to-r from-[#D4AF37] to-amber-500 text-[#0B0F19] text-sm font-semibold rounded-xl overflow-hidden group whitespace-nowrap shadow-lg shadow-[#D4AF37]/20 hover:shadow-[#D4AF37]/40 transition-shadow"
             >
-              <PenLine className="w-4 h-4" />
-              <span className="hidden xl:inline">S&apos;inscrire / Postuler</span>
-              <span className="xl:hidden">Bourse</span>
+              <span className="relative z-10 flex items-center gap-1.5">
+                <PenLine className="w-4 h-4" />
+                <span className="hidden xl:inline">S&apos;inscrire / Postuler</span>
+                <span className="xl:hidden">Bourse</span>
+              </span>
+              <div className="absolute inset-0 bg-gradient-to-r from-amber-400 to-[#D4AF37] opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
             </button>
           </div>
         </nav>
@@ -104,7 +130,7 @@ export default function Header() {
             </Link>
             <button
               onClick={scrollToForm}
-              className="flex items-center justify-center gap-2 w-full py-3 bg-[#D4AF37] text-[#0B0F19] font-semibold rounded-xl"
+              className="flex items-center justify-center gap-2 w-full py-3 bg-gradient-to-r from-[#D4AF37] to-amber-500 text-[#0B0F19] font-semibold rounded-xl shadow-lg"
             >
               <PenLine className="w-4 h-4" />
               S&apos;inscrire / Postuler

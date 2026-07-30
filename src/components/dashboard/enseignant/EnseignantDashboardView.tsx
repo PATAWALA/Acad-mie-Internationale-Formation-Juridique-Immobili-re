@@ -1,58 +1,49 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { createClientComponent } from '@/lib/supabase/client';
 import { GradingTable } from '@/components/dashboard/enseignant/GradingTable';
 import { fadeIn, stagger, scaleIn } from '@/lib/animations';
 import { cn } from '@/lib/utils';
-import { 
-  BookOpen, 
-  Clock, 
+import {
+  BookOpen,
+  Clock,
   CheckCircle2,
   TrendingUp,
-  Loader2 
+  Loader2,
+  FileText,
+  ChevronDown,
 } from 'lucide-react';
 
 interface Props {
   certId: number | 'all';
   profile: any;
+  onManageContent: (certId: number) => void;
+  assignedCertificates: { id: number; title: string }[];
+  onSelectCert: (certId: number) => void;
+  onShowAll: () => void;
 }
 
-export default function EnseignantDashboardView({ certId, profile }: Props) {
+export default function EnseignantDashboardView({
+  certId,
+  profile,
+  onManageContent,
+  assignedCertificates,
+  onSelectCert,
+  onShowAll,
+}: Props) {
   const supabase = createClientComponent();
   const [stats, setStats] = useState({ pending: 0, graded: 0, totalAssignments: 0 });
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [assignedCertificates, setAssignedCertificates] = useState<{ id: number; title: string }[]>([]);
+  const [showCertSelector, setShowCertSelector] = useState(false);
 
-  // Charger la liste des certificats assignés (pour affichage)
-  useEffect(() => {
-    if (!profile) return;
-    const loadAssignments = async () => {
-      const { data: teacherCerts } = await supabase
-        .from('certificate_teachers')
-        .select('certificate_id, certificates(title)')
-        .eq('teacher_id', profile.id);
-      if (teacherCerts) {
-        setAssignedCertificates(
-          teacherCerts.map((a: any) => ({
-            id: a.certificate_id,
-            title: a.certificates?.title || 'N/A',
-          }))
-        );
-      }
-    };
-    loadAssignments();
-  }, [profile]);
-
-  // Charger les soumissions filtrées par certificat
   useEffect(() => {
     if (!profile) return;
     const load = async () => {
       setLoading(true);
       try {
-        // 1. Récupérer les certificats assignés à l'enseignant
         const { data: teacherCerts } = await supabase
           .from('certificate_teachers')
           .select('certificate_id')
@@ -65,7 +56,6 @@ export default function EnseignantDashboardView({ certId, profile }: Props) {
           return;
         }
 
-        // 2. Déterminer les certificats à afficher (tous ou un seul)
         const targetCertIds = certId === 'all' ? allCertIds : allCertIds.filter((id) => id === certId);
         if (targetCertIds.length === 0) {
           setSubmissions([]);
@@ -74,7 +64,6 @@ export default function EnseignantDashboardView({ certId, profile }: Props) {
           return;
         }
 
-        // 3. Récupérer les cours pour ces certificats
         const { data: courses } = await supabase
           .from('courses')
           .select('id')
@@ -87,7 +76,6 @@ export default function EnseignantDashboardView({ certId, profile }: Props) {
           return;
         }
 
-        // 4. Récupérer les assessments pour ces cours
         const { data: assessments } = await supabase
           .from('assessments')
           .select('id')
@@ -100,7 +88,6 @@ export default function EnseignantDashboardView({ certId, profile }: Props) {
           return;
         }
 
-        // 5. Récupérer les soumissions
         const { data: subs } = await supabase
           .from('submissions')
           .select('id, submission_url, grade, feedback, status, created_at, student_id, assessment_id')
@@ -114,7 +101,6 @@ export default function EnseignantDashboardView({ certId, profile }: Props) {
           return;
         }
 
-        // 6. Récupérer les profils des étudiants séparément (évite les problèmes de jointure)
         const studentIds = [...new Set(subs.map((s: any) => s.student_id))];
         const { data: students } = await supabase
           .from('profiles')
@@ -122,7 +108,6 @@ export default function EnseignantDashboardView({ certId, profile }: Props) {
           .in('id', studentIds);
         const studentMap = new Map(students?.map((s: any) => [s.id, s]));
 
-        // 7. Récupérer les titres des assessments séparément
         const assessmentIdsUnique = [...new Set(subs.map((s: any) => s.assessment_id))];
         const { data: assessmentsData } = await supabase
           .from('assessments')
@@ -130,7 +115,6 @@ export default function EnseignantDashboardView({ certId, profile }: Props) {
           .in('id', assessmentIdsUnique);
         const assessmentMap = new Map(assessmentsData?.map((a: any) => [a.id, a]));
 
-        // 8. Fusionner manuellement les profils et les assessments dans les soumissions
         const enrichedSubs = subs.map((s: any) => ({
           ...s,
           profiles: studentMap.get(s.student_id) || null,
@@ -153,16 +137,13 @@ export default function EnseignantDashboardView({ certId, profile }: Props) {
     load();
   }, [certId, profile]);
 
-  const currentCertTitle = certId === 'all' 
-    ? null 
-    : assignedCertificates.find((c) => c.id === certId)?.title;
+  const currentCert = certId === 'all' ? null : assignedCertificates.find((c) => c.id === certId);
 
   const kpiCards = [
     {
       label: 'Formations assignées',
       value: stats.totalAssignments,
       icon: BookOpen,
-      color: 'from-blue-500 to-cyan-500',
       bgColor: 'bg-blue-500/10',
       textColor: 'text-blue-400',
       borderColor: 'border-blue-500/20',
@@ -171,7 +152,6 @@ export default function EnseignantDashboardView({ certId, profile }: Props) {
       label: 'En attente',
       value: stats.pending,
       icon: Clock,
-      color: 'from-amber-500 to-orange-500',
       bgColor: 'bg-amber-500/10',
       textColor: 'text-amber-400',
       borderColor: 'border-amber-500/20',
@@ -181,7 +161,6 @@ export default function EnseignantDashboardView({ certId, profile }: Props) {
       label: 'Corrigées',
       value: stats.graded,
       icon: CheckCircle2,
-      color: 'from-green-500 to-emerald-500',
       bgColor: 'bg-green-500/10',
       textColor: 'text-green-400',
       borderColor: 'border-green-500/20',
@@ -189,22 +168,118 @@ export default function EnseignantDashboardView({ certId, profile }: Props) {
   ];
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Header */}
-      <motion.div {...fadeIn} className="space-y-2">
-        <h1 className="text-2xl lg:text-3xl font-bold text-white">
-          👋 Bonjour, {profile?.full_name?.split(' ')[0] || 'Enseignant'}
-        </h1>
-        <p className="text-slate-400 flex items-center gap-2">
-          <TrendingUp className="w-4 h-4" />
-          {certId === 'all' ? (
-            "Vue d'ensemble de toutes vos formations"
-          ) : (
-            <span>
-              Formation : <span className="text-violet-400 font-medium">{currentCertTitle}</span>
-            </span>
-          )}
-        </p>
+      <motion.div {...fadeIn} className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl lg:text-3xl font-bold text-white">
+              👋 Bonjour, {profile?.full_name?.split(' ')[0] || 'Enseignant'}
+            </h1>
+            <p className="text-slate-400 flex items-center gap-2 mt-1">
+              <TrendingUp className="w-4 h-4" />
+              {certId === 'all'
+                ? "Vue d'ensemble de toutes vos formations"
+                : 'Tableau de bord de la formation'}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* Sélecteur de formation */}
+            <div className="relative">
+              <button
+                onClick={() => setShowCertSelector(!showCertSelector)}
+                className={cn(
+                  "flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200",
+                  "bg-slate-800 border border-slate-700 text-slate-300",
+                  "hover:border-slate-600 hover:text-white"
+                )}
+              >
+                <BookOpen className="w-4 h-4 text-slate-400" />
+                <span className="max-w-[160px] truncate">
+                  {currentCert ? currentCert.title : 'Toutes les formations'}
+                </span>
+                <ChevronDown className={cn(
+                  "w-4 h-4 text-slate-400 transition-transform",
+                  showCertSelector && "rotate-180"
+                )} />
+              </button>
+
+              <AnimatePresence>
+                {showCertSelector && (
+                  <>
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      onClick={() => setShowCertSelector(false)}
+                      className="fixed inset-0 z-40"
+                    />
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="absolute right-0 mt-2 w-72 max-h-80 overflow-y-auto bg-slate-800 border border-slate-700 rounded-xl shadow-xl z-50"
+                    >
+                      <div className="p-2">
+                        <button
+                          onClick={() => {
+                            onShowAll();
+                            setShowCertSelector(false);
+                          }}
+                          className={cn(
+                            "w-full text-left px-3 py-2 rounded-lg text-sm transition-colors",
+                            certId === 'all'
+                              ? "bg-violet-500/10 text-violet-400"
+                              : "text-slate-300 hover:bg-slate-700"
+                          )}
+                        >
+                          📊 Toutes les formations
+                        </button>
+                        <div className="my-1 border-t border-slate-700" />
+                        {assignedCertificates.map((cert) => (
+                          <button
+                            key={cert.id}
+                            onClick={() => {
+                              onSelectCert(cert.id);
+                              setShowCertSelector(false);
+                            }}
+                            className={cn(
+                              "w-full text-left px-3 py-2 rounded-lg text-sm transition-colors flex items-center gap-2",
+                              certId === cert.id
+                                ? "bg-violet-500/10 text-violet-400"
+                                : "text-slate-300 hover:bg-slate-700"
+                            )}
+                          >
+                            <BookOpen className="w-3.5 h-3.5 flex-shrink-0" />
+                            <span className="truncate">{cert.title}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Bouton Gérer les cours */}
+            {currentCert && (
+              <motion.button
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => onManageContent(certId as number)}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium
+                  bg-blue-500/10 text-blue-400 border border-blue-500/20
+                  hover:bg-blue-500/20 transition-all duration-200"
+              >
+                <FileText className="w-4 h-4" />
+                Gérer les cours
+              </motion.button>
+            )}
+          </div>
+        </div>
       </motion.div>
 
       {/* KPIs */}
@@ -226,7 +301,6 @@ export default function EnseignantDashboardView({ certId, profile }: Props) {
               "transition-shadow duration-300 hover:shadow-lg"
             )}
           >
-            {/* Fond dégradé subtil */}
             <div className="absolute top-0 right-0 w-32 h-32 opacity-5">
               <kpi.icon className="w-full h-full text-white" />
             </div>

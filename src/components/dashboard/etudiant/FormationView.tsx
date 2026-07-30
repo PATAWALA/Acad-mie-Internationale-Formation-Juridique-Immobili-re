@@ -5,8 +5,8 @@ import { createClientComponent } from '@/lib/supabase/client';
 import { useStudent } from '@/context/StudentContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  BookOpen, Lock, CheckCircle2, AlertCircle, 
-  RefreshCw, Loader2, ArrowLeft, CreditCard,
+  BookOpen, Lock, AlertCircle, 
+  RefreshCw, Loader2,  CreditCard,
   GraduationCap, ChevronRight
 } from 'lucide-react';
 import { CourseProgram } from './CourseProgram';
@@ -65,11 +65,14 @@ export default function FormationView({ certId, onPaymentSuccess }: FormationVie
           .eq('student_id', profile.id);
 
         const map: Record<string, any> = {};
-        subs?.forEach((s) => { map[s.assessment_id] = s; });
+        subs?.forEach((s) => { 
+          const aid = s.assessment_id ?? '';
+          if (aid) map[aid] = s; 
+        });
         setSubmissionsMap(map);
 
         // Déterminer les assessments validés
-        const passed = subs?.filter(s => s.status === 'PASSED').map(s => s.assessment_id) || [];
+        const passed = subs?.filter(s => s.status === 'PASSED' && s.assessment_id).map(s => s.assessment_id!) || [];
         setPassedAssessments(passed);
       }
 
@@ -96,10 +99,13 @@ export default function FormationView({ certId, onPaymentSuccess }: FormationVie
         .eq('student_id', profile.id);
       
       const map: Record<string, any> = {};
-      subs?.forEach((s) => { map[s.assessment_id] = s; });
+      subs?.forEach((s) => { 
+        const aid = s.assessment_id ?? '';
+        if (aid) map[aid] = s; 
+      });
       setSubmissionsMap(map);
       
-      const passed = subs?.filter(s => s.status === 'PASSED').map(s => s.assessment_id) || [];
+      const passed = subs?.filter(s => s.status === 'PASSED' && s.assessment_id).map(s => s.assessment_id!) || [];
       setPassedAssessments(passed);
     }
     setRefreshing(false);

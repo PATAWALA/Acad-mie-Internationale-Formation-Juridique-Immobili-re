@@ -39,7 +39,7 @@ export default function ProfilView() {
     const { error } = await supabase
       .from('profiles')
       .update(updates)
-      .eq('id', profile?.id);
+      .eq('id', profile?.id ?? '');
 
     if (error) {
       setMessage({ type: 'error', text: error.message });
@@ -49,8 +49,6 @@ export default function ProfilView() {
     }
     
     setSavingProfile(false);
-
-    // Effacer le message après 3 secondes
     setTimeout(() => setMessage(null), 3000);
   };
 
@@ -77,7 +75,6 @@ export default function ProfilView() {
     setTimeout(() => setMessage(null), 3000);
   };
 
-  // Statistiques du profil
   const createdDate = profile?.created_at 
     ? new Date(profile.created_at).toLocaleDateString('fr-FR', { 
         year: 'numeric', 

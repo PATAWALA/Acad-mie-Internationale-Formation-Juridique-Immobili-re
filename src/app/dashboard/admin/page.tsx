@@ -120,10 +120,12 @@ export default function AdminDashboardPage() {
               .in('assessment_id', assessmentIds);
             const studentMap = new Map<string, { passed: number; total: number }>();
             for (const sub of submissions ?? []) {
-              if (!studentMap.has(sub.student_id)) {
-                studentMap.set(sub.student_id, { passed: 0, total: 0 });
+              const sid = sub.student_id ?? '';
+              if (!sid) continue;
+              if (!studentMap.has(sid)) {
+                studentMap.set(sid, { passed: 0, total: 0 });
               }
-              const rec = studentMap.get(sub.student_id)!;
+              const rec = studentMap.get(sid)!;
               rec.total++;
               if (sub.status === 'PASSED') rec.passed++;
             }
@@ -154,7 +156,7 @@ export default function AdminDashboardPage() {
             .select('student_id')
             .eq('certificate_id', cert.id)
             .eq('payment_status', 'PAID');
-          const distinctPaidForCert = new Set(paidForCert?.map(p => p.student_id) ?? []).size;
+          const distinctPaidForCert = new Set(paidForCert?.map(p => p.student_id).filter(Boolean) ?? []).size;
 
           let completedForCert = 0;
           const { data: certCourses } = await supabase
@@ -175,8 +177,10 @@ export default function AdminDashboardPage() {
                 .in('assessment_id', certAssessmentIds);
               const map = new Map<string, { passed: number; total: number }>();
               for (const sub of certSubs ?? []) {
-                if (!map.has(sub.student_id)) map.set(sub.student_id, { passed: 0, total: 0 });
-                const rec = map.get(sub.student_id)!;
+                const sid = sub.student_id ?? '';
+                if (!sid) continue;
+                if (!map.has(sid)) map.set(sid, { passed: 0, total: 0 });
+                const rec = map.get(sid)!;
                 rec.total++;
                 if (sub.status === 'PASSED') rec.passed++;
               }
@@ -306,7 +310,6 @@ export default function AdminDashboardPage() {
               'group cursor-default'
             )}
           >
-            {/* Background gradient subtle */}
             <div
               className={cn(
                 'absolute top-0 right-0 w-24 h-24 -translate-y-1/2 translate-x-1/2 rounded-full opacity-10 blur-2xl group-hover:opacity-20 transition-opacity',

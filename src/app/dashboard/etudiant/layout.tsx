@@ -1,3 +1,4 @@
+// app/dashboard/etudiant/layout.tsx
 import { StudentProvider } from '@/context/StudentContext';
 import DashboardLayout from '@/components/dashboard/etudiant/DashboardLayout';
 

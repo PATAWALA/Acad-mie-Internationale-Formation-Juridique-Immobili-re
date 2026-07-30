@@ -1,10 +1,12 @@
-
 'use client';
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClientComponent } from '@/lib/supabase/client';
-import { Profile } from '@/types/database';
+import type { Tables } from '@/types/database';
+
+// Utiliser le type généré automatiquement
+type Profile = Tables<'profiles'>;
 
 interface StudentContextType {
   profile: Profile | null;
@@ -36,7 +38,7 @@ export function StudentProvider({ children }: { children: ReactNode }) {
         return router.push('/login');
       }
 
-      setProfile(data as Profile);
+      setProfile(data);
     } catch (err) {
       console.error('Erreur StudentContext:', err);
       router.push('/login');
@@ -74,7 +76,6 @@ export function StudentProvider({ children }: { children: ReactNode }) {
   );
 }
 
-// Hook personnalisé pour consommer le context facilement
 export function useStudent() {
   const context = useContext(StudentContext);
   if (!context) {

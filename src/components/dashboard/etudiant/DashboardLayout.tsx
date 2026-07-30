@@ -9,7 +9,7 @@ import Sidebar from './Sidebar';
 import HomeView from './HomeView';
 import FormationView from './FormationView';
 import CatalogueView from './CatalogueView';
-import MesFormationsView from './MesFormationsView'; // ← NOUVEAU
+import MesFormationsView from './MesFormationsView';
 import ProfilView from './ProfilView';
 import SupportView from './SupportForm';
 import PaymentModal from './PaymentModal';
@@ -28,14 +28,14 @@ export default function DashboardLayout() {
   const [currentTitle, setCurrentTitle] = useState('Tableau de bord');
 
   const refreshEnrollments = useCallback(async () => {
-    if (!profile) return;
-    const { data } = await supabase
-      .from('enrollments')
-      .select('id, certificate_id, payment_status, remaining_balance, certificates(title)')
-      .eq('student_id', profile.id)
-      .order('created_at', { ascending: true });
-    if (data) setEnrollments(data);
-  }, [profile, supabase]);
+  if (!profile) return;
+  const { data } = await supabase
+    .from('enrollments')
+    .select('id, certificate_id, payment_status, amount_paid, remaining_balance, certificates(title)')
+    .eq('student_id', profile.id)
+    .order('created_at', { ascending: true });
+  if (data) setEnrollments(data);
+}, [profile, supabase]);
 
   useEffect(() => {
     refreshEnrollments();
@@ -73,26 +73,14 @@ export default function DashboardLayout() {
   if (loading || !profile) {
     return (
       <div className="h-screen bg-[#020617] flex items-center justify-center">
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="flex flex-col items-center gap-4"
-        >
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-          >
-            <Loader2 className="w-10 h-10 text-blue-400" />
-          </motion.div>
-          <p className="text-slate-400 text-sm">Chargement...</p>
-        </motion.div>
+        <Loader2 className="w-10 h-10 text-blue-400 animate-spin" />
       </div>
     );
   }
 
   return (
     <div className="h-screen bg-[#020617] flex overflow-hidden">
-      {/* ===== SIDEBAR DESKTOP ===== */}
+      {/* SIDEBAR DESKTOP */}
       <div className="hidden lg:block flex-shrink-0">
         <Sidebar
           enrollments={enrollments}
@@ -112,7 +100,7 @@ export default function DashboardLayout() {
         />
       </div>
 
-      {/* ===== SIDEBAR MOBILE ===== */}
+      {/* SIDEBAR MOBILE */}
       <AnimatePresence>
         {sidebarOpen && (
           <>
@@ -127,7 +115,6 @@ export default function DashboardLayout() {
               initial={{ x: -280 }}
               animate={{ x: 0 }}
               exit={{ x: -280 }}
-              transition={{ type: "spring", damping: 25 }}
               className="lg:hidden fixed left-0 top-0 bottom-0 z-50"
             >
               <Sidebar
@@ -151,19 +138,15 @@ export default function DashboardLayout() {
         )}
       </AnimatePresence>
 
-      {/* ===== ZONE PRINCIPALE ===== */}
+      {/* ZONE PRINCIPALE */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* HEADER FIXE */}
+        {/* HEADER */}
         <header className="flex-shrink-0 bg-[#020617]/95 backdrop-blur-xl border-b border-[#1e293b]">
           <div className="flex items-center justify-between px-4 lg:px-8 py-4">
             <div className="flex items-center gap-3">
-              <motion.button
-                whileTap={{ scale: 0.9 }}
-                onClick={() => setSidebarOpen(true)}
-                className="lg:hidden p-2 -ml-2 hover:bg-[#1e293b] rounded-xl"
-              >
+              <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2">
                 <Menu className="w-5 h-5 text-white" />
-              </motion.button>
+              </button>
               <div>
                 <h1 className="text-lg lg:text-xl font-bold text-white">{currentTitle}</h1>
                 <p className="text-xs text-slate-400 hidden sm:block">{profile.full_name || profile.email}</p>
@@ -194,9 +177,17 @@ export default function DashboardLayout() {
                 exit={{ opacity: 0, y: -20 }}
                 transition={{ duration: 0.2 }}
               >
-                {currentView === 'home' && <HomeView enrollments={enrollments} profile={profile} />}
-                
-                {/* NOUVELLE VUE : Mes Formations */}
+                {/* ===== TABLEAU DE BORD ===== */}
+                {currentView === 'home' && (
+                  <HomeView 
+                    enrollments={enrollments} 
+                    profile={profile} 
+                    onSelectFormation={(certId) => navigate('formation', 'Formation', certId)}
+                    onPayClick={(enrollmentId, amount) => setPaymentModal({ enrollmentId, amount })}
+                  />
+                )}
+
+                {/* ===== MES FORMATIONS ===== */}
                 {currentView === 'mesformations' && (
                   <MesFormationsView
                     enrollments={enrollments}
@@ -204,8 +195,8 @@ export default function DashboardLayout() {
                     onPayClick={(enrollmentId, amount) => setPaymentModal({ enrollmentId, amount })}
                   />
                 )}
-                
-                {/* NOUVELLE VUE : Formations en attente */}
+
+                {/* ===== EN ATTENTE ===== */}
                 {currentView === 'pending' && (
                   <MesFormationsView
                     enrollments={enrollments.filter(e => e.payment_status !== 'PAID')}
@@ -213,10 +204,13 @@ export default function DashboardLayout() {
                     onPayClick={(enrollmentId, amount) => setPaymentModal({ enrollmentId, amount })}
                   />
                 )}
-                
+
+                {/* ===== VUE FORMATION ===== */}
                 {currentView === 'formation' && selectedCertId && (
                   <FormationView certId={selectedCertId} onPaymentSuccess={refreshEnrollments} />
                 )}
+
+                {/* ===== CATALOGUE ===== */}
                 {currentView === 'catalogue' && (
                   <CatalogueView
                     profile={profile}
@@ -225,7 +219,11 @@ export default function DashboardLayout() {
                     onRefresh={refreshEnrollments}
                   />
                 )}
+
+                {/* ===== PROFIL ===== */}
                 {currentView === 'profil' && <ProfilView />}
+
+                {/* ===== SUPPORT ===== */}
                 {currentView === 'support' && <SupportView />}
               </motion.div>
             </AnimatePresence>
@@ -233,7 +231,7 @@ export default function DashboardLayout() {
         </main>
       </div>
 
-      {/* Payment Modal */}
+      {/* MODAL PAIEMENT */}
       <AnimatePresence>
         {paymentModal && (
           <PaymentModal
