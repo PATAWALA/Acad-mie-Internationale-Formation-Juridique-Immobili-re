@@ -1,285 +1,272 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { createClientComponent } from '@/lib/supabase/client';
-import { useStudent } from '@/context/StudentContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, Loader2, GraduationCap } from 'lucide-react';
-import Sidebar from './Sidebar';
-import HomeView from './HomeView';
-import FormationView from './FormationView';
-import CatalogueView from './CatalogueView';
-import ProfilView from './ProfilView';
-import SupportView from './SupportForm';
-import PaymentModal from './PaymentModal';
+import { 
+  GraduationCap, Home, BookOpen, User, HelpCircle, 
+  LogOut, CreditCard, ChevronRight, Sparkles, AlertCircle,
+  CheckCircle2, Clock, ArrowRight
+} from 'lucide-react';
 
-type View = 'home' | 'formation' | 'catalogue' | 'profil' | 'support';
+interface SidebarProps {
+  enrollments: any[];
+  selectedCertId: number | null;
+  onSelectFormation: (certId: number) => void;
+  onAddFormation: () => void;
+  onGoHome: () => void;
+  onGoSupport: () => void;
+  onGoProfil: () => void;
+  onPayClick: (enrollmentId: number, amount: number) => void;
+  onLogout: () => void;
+}
 
-export default function DashboardLayout() {
-  const { profile, loading } = useStudent();
-  const supabase = createClientComponent();
-  const [currentView, setCurrentView] = useState<View>('home');
-  const [selectedCertId, setSelectedCertId] = useState<number | null>(null);
-  const [enrollments, setEnrollments] = useState<any[]>([]);
-  const [paymentModal, setPaymentModal] = useState<{ enrollmentId: number; amount: number } | null>(null);
-  const [payLoading, setPayLoading] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [currentTitle, setCurrentTitle] = useState('Tableau de bord');
-  const [scrolled, setScrolled] = useState(false);
-
-  const refreshEnrollments = useCallback(async () => {
-    if (!profile) return;
-    const { data } = await supabase
-      .from('enrollments')
-      .select('id, certificate_id, payment_status, remaining_balance, certificates(title)')
-      .eq('student_id', profile.id)
-      .order('created_at', { ascending: true });
-    if (data) setEnrollments(data);
-  }, [profile, supabase]);
-
-  useEffect(() => {
-    refreshEnrollments();
-  }, [refreshEnrollments]);
-
-  // Détecter le scroll pour l'ombre du header
-  useEffect(() => {
-    const handleScroll = (e: Event) => {
-      const target = e.target as HTMLDivElement;
-      setScrolled(target.scrollTop > 10);
-    };
-    
-    const mainContent = document.getElementById('main-content');
-    if (mainContent) {
-      mainContent.addEventListener('scroll', handleScroll);
-      return () => mainContent.removeEventListener('scroll', handleScroll);
-    }
-  }, []);
-
-  const navigate = (view: View, title: string, certId?: number) => {
-    setCurrentView(view);
-    setCurrentTitle(title);
-    if (certId) setSelectedCertId(certId);
-    else setSelectedCertId(null);
-    setSidebarOpen(false);
-  };
-
-  const handlePay = async (method: 'wave' | 'paypal' | 'bank') => {
-    if (!paymentModal) return;
-    setPayLoading(true);
-    const { error } = await supabase
-      .from('enrollments')
-      .update({
-        payment_status: 'PAID',
-        amount_paid: paymentModal.amount,
-        remaining_balance: 0,
-      })
-      .eq('id', paymentModal.enrollmentId);
-
-    if (!error) {
-      setPaymentModal(null);
-      await refreshEnrollments();
-    } else {
-      alert('Erreur : ' + error.message);
-    }
-    setPayLoading(false);
-  };
-
-  // Loading State
-  if (loading || !profile) {
-    return (
-      <div className="min-h-screen bg-[#020617] flex items-center justify-center">
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="flex flex-col items-center gap-4"
-        >
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-          >
-            <Loader2 className="w-10 h-10 text-blue-400" />
-          </motion.div>
-          <p className="text-slate-400 text-sm font-medium">Préparation de votre espace...</p>
-          <div className="flex gap-1">
-            {[0, 1, 2].map((i) => (
-              <motion.div
-                key={i}
-                className="w-2 h-2 bg-blue-500 rounded-full"
-                animate={{ y: [0, -8, 0] }}
-                transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.15 }}
-              />
-            ))}
-          </div>
-        </motion.div>
-      </div>
-    );
-  }
+export default function Sidebar({
+  enrollments,
+  selectedCertId,
+  onSelectFormation,
+  onAddFormation,
+  onGoHome,
+  onGoProfil,
+  onPayClick,
+  onGoSupport,
+  onLogout,
+}: SidebarProps) {
+  const paidEnrollments = enrollments.filter(e => e.payment_status === 'PAID');
+  const pendingEnrollments = enrollments.filter(e => e.payment_status !== 'PAID');
+  const totalPendingAmount = pendingEnrollments.reduce((sum, e) => sum + (e.remaining_balance || 0), 0);
 
   return (
-    <div className="h-screen bg-[#020617] flex overflow-hidden">
-      {/* ========== SIDEBAR FIXE ========== */}
-      {/* Desktop Sidebar */}
-      <div className="hidden lg:block flex-shrink-0 h-screen sticky top-0">
-        <Sidebar
-          enrollments={enrollments}
-          selectedCertId={selectedCertId}
-          onSelectFormation={(certId) => navigate('formation', 'Formation', certId)}
-          onAddFormation={() => navigate('catalogue', 'Catalogue')}
-          onGoHome={() => navigate('home', 'Tableau de bord')}
-          onGoProfil={() => navigate('profil', 'Mon Profil')}
-          onGoSupport={() => navigate('support', 'Support')}
-          onPayClick={(enrollmentId, amount) => setPaymentModal({ enrollmentId, amount })}
-          onLogout={async () => {
-            await supabase.auth.signOut();
-            window.location.href = '/login';
-          }}
-        />
+    <aside className="w-full lg:w-72 h-screen bg-[#0f172a] border-r border-[#1e293b] flex flex-col overflow-hidden">
+      {/* Logo */}
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="p-4 lg:p-6 border-b border-[#1e293b]"
+      >
+        <div className="flex items-center gap-3 cursor-pointer" onClick={onGoHome}>
+          <div className="w-9 h-9 lg:w-10 lg:h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/20 flex-shrink-0">
+            <GraduationCap className="w-4 h-4 lg:w-5 lg:h-5 text-white" />
+          </div>
+          <div className="min-w-0">
+            <h2 className="text-white font-bold text-xs lg:text-sm truncate">Académie</h2>
+            <p className="text-[10px] lg:text-xs text-slate-400 truncate">Espace Étudiant</p>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Quick Stats */}
+      <div className="px-3 lg:px-4 py-2 lg:py-3 border-b border-[#1e293b]">
+        <div className="grid grid-cols-2 gap-2">
+          <div className="bg-[#020617] rounded-xl p-2 lg:p-3 text-center">
+            <div className="flex items-center justify-center gap-1 mb-1">
+              <CheckCircle2 className="w-3 h-3 text-green-400" />
+              <p className="text-base lg:text-lg font-bold text-green-400">{paidEnrollments.length}</p>
+            </div>
+            <p className="text-[10px] lg:text-xs text-slate-500">Payées</p>
+          </div>
+          <div className="bg-[#020617] rounded-xl p-2 lg:p-3 text-center">
+            <div className="flex items-center justify-center gap-1 mb-1">
+              <Clock className="w-3 h-3 text-amber-400" />
+              <p className="text-base lg:text-lg font-bold text-amber-400">{pendingEnrollments.length}</p>
+            </div>
+            <p className="text-[10px] lg:text-xs text-slate-500">En attente</p>
+          </div>
+        </div>
       </div>
 
-      {/* Mobile Sidebar (Overlay) */}
-      <AnimatePresence>
-        {sidebarOpen && (
-          <>
-            {/* Overlay */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setSidebarOpen(false)}
-              className="lg:hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
-            />
-            
-            {/* Sidebar Mobile */}
-            <motion.div
-              initial={{ x: -280 }}
-              animate={{ x: 0 }}
-              exit={{ x: -280 }}
-              transition={{ type: "spring", damping: 25 }}
-              className="lg:hidden fixed left-0 top-0 bottom-0 z-50 w-72"
+      {/* Navigation */}
+      <nav className="flex-1 overflow-y-auto py-3 lg:py-4 px-2 lg:px-3 space-y-4 lg:space-y-6">
+        {/* Principal */}
+        <div>
+          <p className="px-2 lg:px-3 text-[10px] lg:text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 lg:mb-2">
+            Principal
+          </p>
+          <div className="space-y-0.5 lg:space-y-1">
+            <motion.button
+              whileHover={{ x: 4 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={onGoHome}
+              className="w-full flex items-center gap-2 lg:gap-3 px-2 lg:px-3 py-2 lg:py-2.5 rounded-xl text-slate-300 hover:text-white hover:bg-[#1e293b] transition-all group"
             >
-              <Sidebar
-                enrollments={enrollments}
-                selectedCertId={selectedCertId}
-                onSelectFormation={(certId) => navigate('formation', 'Formation', certId)}
-                onAddFormation={() => navigate('catalogue', 'Catalogue')}
-                onGoHome={() => navigate('home', 'Tableau de bord')}
-                onGoProfil={() => navigate('profil', 'Mon Profil')}
-                onGoSupport={() => navigate('support', 'Support')}
-                onPayClick={(enrollmentId, amount) => setPaymentModal({ enrollmentId, amount })}
-                onLogout={async () => {
-                  await supabase.auth.signOut();
-                  window.location.href = '/login';
-                }}
-              />
-            </motion.div>
-          </>
+              <Home className="w-3.5 h-3.5 lg:w-4 lg:h-4 group-hover:text-blue-400 transition-colors flex-shrink-0" />
+              <span className="text-xs lg:text-sm font-medium">Accueil</span>
+            </motion.button>
+
+            <motion.button
+              whileHover={{ x: 4 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={onAddFormation}
+              className="w-full flex items-center gap-2 lg:gap-3 px-2 lg:px-3 py-2 lg:py-2.5 rounded-xl text-slate-300 hover:text-white hover:bg-[#1e293b] transition-all group"
+            >
+              <BookOpen className="w-3.5 h-3.5 lg:w-4 lg:h-4 group-hover:text-blue-400 transition-colors flex-shrink-0" />
+              <span className="text-xs lg:text-sm font-medium">Catalogue</span>
+              <ChevronRight className="w-3 h-3 lg:w-4 lg:h-4 ml-auto opacity-0 group-hover:opacity-100 transition-all" />
+            </motion.button>
+          </div>
+        </div>
+
+        {/* Formations Payées */}
+        {paidEnrollments.length > 0 && (
+          <div>
+            <div className="flex items-center gap-2 px-2 lg:px-3 mb-1 lg:mb-2">
+              <CheckCircle2 className="w-3 h-3 lg:w-3.5 lg:h-3.5 text-green-400" />
+              <p className="text-[10px] lg:text-xs font-semibold text-green-400 uppercase tracking-wider">
+                Mes Formations
+              </p>
+            </div>
+            <div className="space-y-0.5 lg:space-y-1">
+              {paidEnrollments.map((enr, index) => {
+                const isActive = selectedCertId === enr.certificate_id;
+                return (
+                  <motion.button
+                    key={enr.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.05 }}
+                    whileHover={{ x: 4 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => onSelectFormation(enr.certificate_id)}
+                    className={`w-full flex items-center gap-2 lg:gap-3 px-2 lg:px-3 py-2 lg:py-2.5 rounded-xl transition-all text-left ${
+                      isActive
+                        ? 'bg-green-500/10 border border-green-500/20'
+                        : 'hover:bg-[#1e293b]'
+                    }`}
+                  >
+                    <div className="w-2 h-2 rounded-full bg-green-400 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-xs lg:text-sm font-medium truncate ${
+                        isActive ? 'text-green-400' : 'text-white'
+                      }`}>
+                        {enr.certificates?.title || `Formation #${enr.certificate_id}`}
+                      </p>
+                    </div>
+                    {isActive && <ChevronRight className="w-3 h-3 lg:w-4 lg:h-4 text-green-400 flex-shrink-0" />}
+                  </motion.button>
+                );
+              })}
+            </div>
+          </div>
         )}
-      </AnimatePresence>
 
-      {/* ========== ZONE PRINCIPALE (HEADER FIXE + CONTENU SCROLLABLE) ========== */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* ===== HEADER FIXE ===== */}
-        <motion.header
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className={`sticky top-0 z-30 bg-[#020617]/95 backdrop-blur-xl border-b transition-all ${
-            scrolled 
-              ? 'border-[#1e293b] shadow-lg shadow-black/10' 
-              : 'border-transparent'
-          }`}
-        >
-          <div className="flex items-center justify-between px-4 lg:px-8 py-3 lg:py-4">
-            <div className="flex items-center gap-3">
-              {/* Burger Menu Mobile */}
-              <motion.button
-                whileTap={{ scale: 0.9 }}
-                onClick={() => setSidebarOpen(true)}
-                className="lg:hidden p-2 -ml-2 hover:bg-[#1e293b] rounded-xl transition-colors"
-              >
-                <Menu className="w-5 h-5 text-white" />
-              </motion.button>
+        {/* Formations en Attente */}
+        {pendingEnrollments.length > 0 && (
+          <div>
+            <div className="flex items-center gap-2 px-2 lg:px-3 mb-1 lg:mb-2">
+              <AlertCircle className="w-3 h-3 lg:w-3.5 lg:h-3.5 text-amber-400" />
+              <p className="text-[10px] lg:text-xs font-semibold text-amber-400 uppercase tracking-wider">
+                Paiement Requis
+              </p>
+            </div>
 
-              {/* Logo Mobile */}
-              <div className="lg:hidden flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
-                  <GraduationCap className="w-4 h-4 text-white" />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="mx-2 lg:mx-3 mb-2 p-2 lg:p-3 bg-amber-500/5 border border-amber-500/10 rounded-xl"
+            >
+              <div className="flex items-start gap-2">
+                <Sparkles className="w-3 h-3 lg:w-4 lg:h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-[10px] lg:text-xs text-amber-300 font-medium">
+                    Votre bourse expire bientôt
+                  </p>
+                  <p className="text-[10px] lg:text-xs text-slate-400 mt-0.5">
+                    Total : <span className="text-white font-bold">{totalPendingAmount.toLocaleString()} FCFA</span>
+                  </p>
                 </div>
               </div>
+            </motion.div>
 
-              <div>
-                <h1 className="text-lg lg:text-xl font-bold text-white">
-                  {currentTitle}
-                </h1>
-                <p className="text-xs text-slate-400 hidden sm:block">
-                  {profile.full_name || profile.email}
-                </p>
-              </div>
-            </div>
+            <div className="space-y-1 lg:space-y-2">
+              {pendingEnrollments.map((enr, index) => (
+                <motion.div
+                  key={enr.id}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                  className="space-y-1"
+                >
+                  <div className="flex items-center gap-2 lg:gap-3 px-2 lg:px-3 py-2 lg:py-2.5 rounded-xl bg-[#020617] border border-[#1e293b]">
+                    <div className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs lg:text-sm text-slate-300 truncate">
+                        {enr.certificates?.title || `Formation #${enr.certificate_id}`}
+                      </p>
+                      <p className="text-[10px] lg:text-xs text-amber-400">
+                        {enr.remaining_balance?.toLocaleString()} FCFA
+                      </p>
+                    </div>
+                  </div>
 
-            {/* Right Side */}
-            <div className="flex items-center gap-3">
-              {/* Badge Formations Actives */}
-              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-green-500/10 border border-green-500/20 rounded-full">
-                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-                <span className="text-xs text-green-400 font-medium">
-                  {enrollments.filter(e => e.payment_status === 'PAID').length} actives
-                </span>
-              </div>
-
-              {/* User Avatar Mini */}
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white text-xs font-bold">
-                {profile?.full_name?.charAt(0) || 'E'}
-              </div>
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onPayClick(enr.id, enr.remaining_balance || 0);
+                    }}
+                    className="w-full ml-6 lg:ml-8 px-2 lg:px-3 py-1.5 lg:py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-[10px] lg:text-xs font-semibold rounded-lg flex items-center justify-center gap-1 lg:gap-2 shadow-lg shadow-amber-500/20 transition-all"
+                  >
+                    <CreditCard className="w-3 h-3 lg:w-3.5 lg:h-3.5" />
+                    Payer maintenant
+                    <ArrowRight className="w-3 h-3 lg:w-3.5 lg:h-3.5" />
+                  </motion.button>
+                </motion.div>
+              ))}
             </div>
           </div>
-        </motion.header>
-
-        {/* ===== CONTENU SCROLLABLE ===== */}
-        <main 
-          id="main-content"
-          className="flex-1 overflow-y-auto overflow-x-hidden"
-        >
-          <div className="p-4 lg:p-8">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={currentView + (selectedCertId || '')}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.3 }}
-              >
-                {currentView === 'home' && <HomeView enrollments={enrollments} profile={profile} />}
-                {currentView === 'formation' && selectedCertId && (
-                  <FormationView certId={selectedCertId} onPaymentSuccess={refreshEnrollments} />
-                )}
-                {currentView === 'catalogue' && (
-                  <CatalogueView
-                    profile={profile}
-                    enrollments={enrollments}
-                    onNavigateFormation={(certId) => navigate('formation', 'Formation', certId)}
-                    onRefresh={refreshEnrollments}
-                  />
-                )}
-                {currentView === 'profil' && <ProfilView />}
-                {currentView === 'support' && <SupportView />}
-              </motion.div>
-            </AnimatePresence>
-          </div>
-        </main>
-      </div>
-
-      {/* Payment Modal */}
-      <AnimatePresence>
-        {paymentModal && (
-          <PaymentModal
-            isOpen={!!paymentModal}
-            onClose={() => setPaymentModal(null)}
-            onPay={handlePay}
-            amount={paymentModal.amount}
-            loading={payLoading}
-          />
         )}
-      </AnimatePresence>
-    </div>
+
+        {/* Empty State */}
+        {enrollments.length === 0 && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="px-3 py-8 text-center"
+          >
+            <GraduationCap className="w-8 h-8 lg:w-10 lg:h-10 text-slate-600 mx-auto mb-2" />
+            <p className="text-xs text-slate-500 mb-1">Aucune formation</p>
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              onClick={onAddFormation}
+              className="text-[10px] lg:text-xs px-3 py-1.5 bg-blue-500/10 text-blue-400 rounded-lg hover:bg-blue-500/20 transition-colors"
+            >
+              + Découvrir le catalogue
+            </motion.button>
+          </motion.div>
+        )}
+      </nav>
+
+      {/* Bottom Actions */}
+      <div className="border-t border-[#1e293b] p-2 lg:p-3 space-y-0.5">
+        <motion.button
+          whileHover={{ x: 4 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={onGoProfil}
+          className="w-full flex items-center gap-2 lg:gap-3 px-2 lg:px-3 py-2 lg:py-2.5 rounded-xl text-slate-400 hover:text-white hover:bg-[#1e293b] transition-all group"
+        >
+          <User className="w-3.5 h-3.5 lg:w-4 lg:h-4 group-hover:text-blue-400 transition-colors flex-shrink-0" />
+          <span className="text-xs lg:text-sm">Mon Profil</span>
+        </motion.button>
+
+        <motion.button
+          whileHover={{ x: 4 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={onGoSupport}
+          className="w-full flex items-center gap-2 lg:gap-3 px-2 lg:px-3 py-2 lg:py-2.5 rounded-xl text-slate-400 hover:text-white hover:bg-[#1e293b] transition-all group"
+        >
+          <HelpCircle className="w-3.5 h-3.5 lg:w-4 lg:h-4 group-hover:text-blue-400 transition-colors flex-shrink-0" />
+          <span className="text-xs lg:text-sm">Support</span>
+        </motion.button>
+
+        <motion.button
+          whileHover={{ x: 4 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={onLogout}
+          className="w-full flex items-center gap-2 lg:gap-3 px-2 lg:px-3 py-2 lg:py-2.5 rounded-xl text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-all group"
+        >
+          <LogOut className="w-3.5 h-3.5 lg:w-4 lg:h-4 group-hover:text-red-400 transition-colors flex-shrink-0" />
+          <span className="text-xs lg:text-sm">Déconnexion</span>
+        </motion.button>
+      </div>
+    </aside>
   );
 }
