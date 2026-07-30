@@ -1,8 +1,18 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
 import { createClientComponent } from '@/lib/supabase/client';
 import { GradingTable } from '@/components/dashboard/enseignant/GradingTable';
+import { fadeIn, stagger, scaleIn } from '@/lib/animations';
+import { cn } from '@/lib/utils';
+import { 
+  BookOpen, 
+  Clock, 
+  CheckCircle2,
+  TrendingUp,
+  Loader2 
+} from 'lucide-react';
 
 interface Props {
   certId: number | 'all';
@@ -143,58 +153,127 @@ export default function EnseignantDashboardView({ certId, profile }: Props) {
     load();
   }, [certId, profile]);
 
+  const currentCertTitle = certId === 'all' 
+    ? null 
+    : assignedCertificates.find((c) => c.id === certId)?.title;
+
+  const kpiCards = [
+    {
+      label: 'Formations assignées',
+      value: stats.totalAssignments,
+      icon: BookOpen,
+      color: 'from-blue-500 to-cyan-500',
+      bgColor: 'bg-blue-500/10',
+      textColor: 'text-blue-400',
+      borderColor: 'border-blue-500/20',
+    },
+    {
+      label: 'En attente',
+      value: stats.pending,
+      icon: Clock,
+      color: 'from-amber-500 to-orange-500',
+      bgColor: 'bg-amber-500/10',
+      textColor: 'text-amber-400',
+      borderColor: 'border-amber-500/20',
+      pulse: stats.pending > 0,
+    },
+    {
+      label: 'Corrigées',
+      value: stats.graded,
+      icon: CheckCircle2,
+      color: 'from-green-500 to-emerald-500',
+      bgColor: 'bg-green-500/10',
+      textColor: 'text-green-400',
+      borderColor: 'border-green-500/20',
+    },
+  ];
+
   return (
-    <div>
-      <h1 style={{ fontSize: '24px', marginBottom: '8px' }}>
-        👋 Bonjour, {profile?.full_name || 'Enseignant'}
-      </h1>
-      <p style={{ color: '#94a3b8', marginBottom: '24px' }}>
-        {certId === 'all'
-          ? "Vue d'ensemble de toutes vos formations"
-          : `Formation sélectionnée : ${
-              assignedCertificates.find((c) => c.id === certId)?.title || ''
-            }`}
-      </p>
+    <div className="space-y-8">
+      {/* Header */}
+      <motion.div {...fadeIn} className="space-y-2">
+        <h1 className="text-2xl lg:text-3xl font-bold text-white">
+          👋 Bonjour, {profile?.full_name?.split(' ')[0] || 'Enseignant'}
+        </h1>
+        <p className="text-slate-400 flex items-center gap-2">
+          <TrendingUp className="w-4 h-4" />
+          {certId === 'all' ? (
+            "Vue d'ensemble de toutes vos formations"
+          ) : (
+            <span>
+              Formation : <span className="text-violet-400 font-medium">{currentCertTitle}</span>
+            </span>
+          )}
+        </p>
+      </motion.div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginBottom: '32px' }}>
-        <div style={kpiCard}>
-          <p style={kpiLabel}>📚 Formations assignées</p>
-          <p style={kpiValue}>{stats.totalAssignments}</p>
-        </div>
-        <div style={kpiCard}>
-          <p style={kpiLabel}>⏳ En attente</p>
-          <p style={{ ...kpiValue, color: '#f59e0b' }}>{stats.pending}</p>
-        </div>
-        <div style={kpiCard}>
-          <p style={kpiLabel}>✅ Corrigées</p>
-          <p style={{ ...kpiValue, color: '#22c55e' }}>{stats.graded}</p>
-        </div>
-      </div>
+      {/* KPIs */}
+      <motion.div
+        variants={stagger}
+        initial="initial"
+        animate="animate"
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+      >
+        {kpiCards.map((kpi) => (
+          <motion.div
+            key={kpi.label}
+            variants={scaleIn}
+            whileHover={{ y: -2, scale: 1.02 }}
+            className={cn(
+              "relative overflow-hidden rounded-xl border p-5",
+              "bg-slate-900/50 backdrop-blur-sm",
+              kpi.borderColor,
+              "transition-shadow duration-300 hover:shadow-lg"
+            )}
+          >
+            {/* Fond dégradé subtil */}
+            <div className="absolute top-0 right-0 w-32 h-32 opacity-5">
+              <kpi.icon className="w-full h-full text-white" />
+            </div>
 
-      {loading ? (
-        <p style={{ color: '#94a3b8' }}>Chargement des soumissions...</p>
-      ) : (
-        <GradingTable submissions={submissions} />
-      )}
+            <div className="relative flex items-start justify-between">
+              <div className="space-y-3">
+                <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center", kpi.bgColor)}>
+                  <kpi.icon className={cn("w-5 h-5", kpi.textColor)} />
+                </div>
+                <div>
+                  <p className="text-slate-400 text-sm font-medium">{kpi.label}</p>
+                  <div className="flex items-baseline gap-2 mt-1">
+                    <motion.span
+                      key={kpi.value}
+                      initial={{ scale: 1.5, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      className={cn("text-3xl font-bold", kpi.textColor)}
+                    >
+                      {loading ? (
+                        <Loader2 className="w-8 h-8 animate-spin" />
+                      ) : (
+                        kpi.value
+                      )}
+                    </motion.span>
+                    {kpi.pulse && (
+                      <motion.span
+                        animate={{ scale: [1, 1.1, 1] }}
+                        transition={{ duration: 2, repeat: Infinity }}
+                        className="w-2 h-2 bg-amber-400 rounded-full"
+                      />
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        ))}
+      </motion.div>
+
+      {/* Tableau des soumissions */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2, duration: 0.5 }}
+      >
+        <GradingTable submissions={submissions} loading={loading} />
+      </motion.div>
     </div>
   );
 }
-
-const kpiCard: React.CSSProperties = {
-  background: '#0f172a',
-  border: '1px solid #1e293b',
-  borderRadius: '12px',
-  padding: '20px',
-};
-
-const kpiLabel: React.CSSProperties = {
-  color: '#94a3b8',
-  fontSize: '13px',
-  marginBottom: '8px',
-};
-
-const kpiValue: React.CSSProperties = {
-  fontSize: '28px',
-  fontWeight: 'bold',
-  color: '#fff',
-};

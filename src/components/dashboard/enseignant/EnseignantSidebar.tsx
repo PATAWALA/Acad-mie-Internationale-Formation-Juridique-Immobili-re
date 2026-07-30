@@ -1,5 +1,17 @@
 'use client';
 
+import { motion } from 'framer-motion';
+import { cn } from '@/lib/utils';
+import { stagger, fadeIn } from '@/lib/animations';
+import {
+  LayoutDashboard,
+  BookOpen,
+  FileText,
+  LogOut,
+  GraduationCap,
+  ChevronRight,
+} from 'lucide-react';
+
 interface EnseignantSidebarProps {
   assignedCertificates: { id: number; title: string }[];
   selectedCertId: number | 'all';
@@ -8,7 +20,7 @@ interface EnseignantSidebarProps {
   onShowAll: () => void;
   onManageContent: (certId: number) => void;
   onLogout: () => void;
-  profile: any; // nouvelle prop
+  profile: any;
 }
 
 export default function EnseignantSidebar({
@@ -21,115 +33,156 @@ export default function EnseignantSidebar({
   onLogout,
   profile,
 }: EnseignantSidebarProps) {
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
   return (
-    <aside
-      style={{
-        width: '260px',
-        background: '#0f172a',
-        borderRight: '1px solid #1e293b',
-        padding: '20px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '12px',
-        minHeight: '100vh',
-        boxSizing: 'border-box',
-      }}
-    >
-      {/* En-tête personnalisé */}
-      <div style={{ fontWeight: 'bold', fontSize: '16px', marginBottom: '4px' }}>
-        👋 Bonjour, {profile?.full_name || 'Enseignant'}
-      </div>
-      <div style={{ fontSize: '13px', color: '#94a3b8', marginBottom: '20px' }}>
-        👨‍🏫 Espace professeur
-      </div>
-
-      {/* Tableau de bord */}
-      <div
-        onClick={onShowAll}
-        style={{
-          padding: '10px 12px',
-          borderRadius: '6px',
-          background: currentView === 'dashboard' && selectedCertId === 'all' ? '#1e3a8a' : 'transparent',
-          color: '#fff',
-          cursor: 'pointer',
-          fontSize: '14px',
-        }}
-      >
-        📊 Tableau de bord
-      </div>
-
-      {/* Liste des certificats */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>
-        {assignedCertificates.map((cert) => {
-          const isActive =
-            currentView === 'dashboard'
-              ? selectedCertId === cert.id
-              : selectedCertId === cert.id && currentView === 'content';
-          return (
-            <div key={cert.id} style={{ display: 'flex', flexDirection: 'column' }}>
-              <div
-                onClick={() => onSelectCert(cert.id)}
-                style={{
-                  padding: '10px 12px',
-                  borderRadius: '6px',
-                  background: isActive ? '#1e3a8a' : 'transparent',
-                  color: '#fff',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                }}
-              >
-                {cert.title}
-              </div>
-              {/* Bouton Gérer le contenu, visible seulement si ce certificat est sélectionné */}
-              {selectedCertId === cert.id && (
-                <button
-                  onClick={() => onManageContent(cert.id)}
-                  style={{
-                    marginLeft: '12px',
-                    marginTop: '4px',
-                    padding: '4px 10px',
-                    background: currentView === 'content' ? '#2563eb' : '#3b82f6',
-                    color: '#fff',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontSize: '12px',
-                    textAlign: 'left',
-                  }}
-                >
-                  📝 Gérer le contenu
-                </button>
-              )}
-            </div>
-          );
-        })}
-        {assignedCertificates.length === 0 && (
-          <div style={{ color: '#94a3b8', fontSize: '13px', padding: '12px', background: '#1e293b', borderRadius: '8px' }}>
-            <p style={{ margin: '0 0 8px' }}>📭 Aucune formation ne vous est assignée pour le moment.</p>
-            <p style={{ margin: 0, fontSize: '12px' }}>
-              Contactez l'administrateur pour qu'il vous associe à une formation.
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* Déconnexion */}
-      <div style={{ borderTop: '1px solid #1e293b', paddingTop: '12px', marginTop: 'auto' }}>
-        <button
-          onClick={onLogout}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: '#94a3b8',
-            cursor: 'pointer',
-            padding: '6px 0',
-            fontSize: '13px',
-            textAlign: 'left',
-            width: '100%',
-          }}
+    <aside className="w-[260px] h-full bg-slate-900 border-r border-slate-800 flex flex-col">
+      {/* Header avec avatar */}
+      <div className="p-5 border-b border-slate-800">
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center gap-3 mb-4"
         >
-          🚪 Déconnexion
-        </button>
+          <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-violet-500/20">
+            {getInitials(profile?.full_name || 'EN')}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-white font-semibold text-sm truncate">
+              👋 Bonjour, {profile?.full_name?.split(' ')[0] || 'Enseignant'}
+            </p>
+            <p className="text-slate-400 text-xs">👨‍🏫 Espace professeur</p>
+          </div>
+        </motion.div>
+      </div>
+
+      {/* Navigation */}
+      <nav className="flex-1 overflow-y-auto p-3 space-y-1">
+        {/* Tableau de bord */}
+        <motion.button
+          whileHover={{ scale: 1.01 }}
+          whileTap={{ scale: 0.99 }}
+          onClick={onShowAll}
+          className={cn(
+            "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
+            currentView === 'dashboard' && selectedCertId === 'all'
+              ? "bg-violet-500/10 text-violet-400 border border-violet-500/20"
+              : "text-slate-300 hover:bg-slate-800 hover:text-white"
+          )}
+        >
+          <LayoutDashboard className="w-4 h-4" />
+          <span>Tableau de bord</span>
+          {currentView === 'dashboard' && selectedCertId === 'all' && (
+            <ChevronRight className="w-4 h-4 ml-auto" />
+          )}
+        </motion.button>
+
+        {/* Séparateur */}
+        <div className="my-3 px-3">
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            Mes formations
+          </p>
+        </div>
+
+        {/* Liste des certificats */}
+        <motion.div
+          variants={stagger}
+          initial="initial"
+          animate="animate"
+          className="space-y-1"
+        >
+          {assignedCertificates.map((cert, index) => {
+            const isActive =
+              currentView === 'dashboard'
+                ? selectedCertId === cert.id
+                : selectedCertId === cert.id && currentView === 'content';
+
+            return (
+              <motion.div
+                key={cert.id}
+                variants={fadeIn}
+                custom={index}
+              >
+                <motion.button
+                  whileHover={{ scale: 1.01, x: 2 }}
+                  whileTap={{ scale: 0.99 }}
+                  onClick={() => onSelectCert(cert.id)}
+                  className={cn(
+                    "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group",
+                    isActive
+                      ? "bg-violet-500/10 text-violet-400 border border-violet-500/20"
+                      : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                  )}
+                >
+                  <BookOpen className={cn(
+                    "w-4 h-4 flex-shrink-0",
+                    isActive ? "text-violet-400" : "text-slate-500 group-hover:text-slate-300"
+                  )} />
+                  <span className="truncate text-left">{cert.title}</span>
+                </motion.button>
+
+                {/* Bouton Gérer le contenu */}
+                {selectedCertId === cert.id && (
+                  <motion.button
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => onManageContent(cert.id)}
+                    className={cn(
+                      "w-full flex items-center gap-2 ml-4 mt-1 px-3 py-2 rounded-lg text-xs font-medium transition-all duration-200",
+                      currentView === 'content'
+                        ? "bg-blue-500/20 text-blue-400 border border-blue-500/20"
+                        : "bg-slate-800/50 text-slate-400 hover:bg-blue-500/10 hover:text-blue-400 border border-transparent hover:border-blue-500/20"
+                    )}
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    <span>📝 Gérer le contenu</span>
+                  </motion.button>
+                )}
+              </motion.div>
+            );
+          })}
+        </motion.div>
+
+        {/* Message si vide */}
+        {assignedCertificates.length === 0 && (
+          <motion.div
+            {...fadeIn}
+            className="mx-3 p-4 bg-slate-800/50 border border-slate-700 rounded-xl text-center"
+          >
+            <div className="w-12 h-12 bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-3">
+              <BookOpen className="w-6 h-6 text-slate-500" />
+            </div>
+            <p className="text-slate-300 text-sm font-medium mb-1">
+              📭 Aucune formation
+            </p>
+            <p className="text-slate-500 text-xs leading-relaxed">
+              Contactez l&apos;administrateur pour qu&apos;il vous associe à une formation.
+            </p>
+          </motion.div>
+        )}
+      </nav>
+
+      {/* Footer - Déconnexion */}
+      <div className="p-3 border-t border-slate-800">
+        <motion.button
+          whileHover={{ scale: 1.01, backgroundColor: 'rgba(239, 68, 68, 0.1)' }}
+          whileTap={{ scale: 0.99 }}
+          onClick={onLogout}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-400 hover:text-red-400 transition-all duration-200"
+        >
+          <LogOut className="w-4 h-4" />
+          <span>🚪 Déconnexion</span>
+        </motion.button>
       </div>
     </aside>
   );

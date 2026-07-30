@@ -1,7 +1,21 @@
 'use client';
 
 import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAdmin } from '@/context/AdminContext';
+import { cn } from '@/lib/utils';
+import { scaleIn } from '@/lib/animations';
+import {
+  X,
+  UserPlus,
+  Mail,
+  Phone,
+  Lock,
+  User,
+  AlertCircle,
+  CheckCircle,
+  Loader2,
+} from 'lucide-react';
 
 export function CreateTeacherModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const { refreshUsers } = useAdmin();
@@ -11,8 +25,7 @@ export function CreateTeacherModal({ isOpen, onClose }: { isOpen: boolean; onClo
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-
-  if (!isOpen) return null;
+  const [success, setSuccess] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,15 +45,17 @@ export function CreateTeacherModal({ isOpen, onClose }: { isOpen: boolean; onClo
         throw new Error(data.error || 'Erreur lors de la création');
       }
 
-      alert(`✅ Compte Enseignant créé avec succès pour ${fullName} !`);
+      setSuccess(true);
       
-      // Réinitialisation et fermeture
-      setFullName('');
-      setEmail('');
-      setPhone('');
-      setPassword('');
-      refreshUsers();
-      onClose();
+      setTimeout(() => {
+        setFullName('');
+        setEmail('');
+        setPhone('');
+        setPassword('');
+        setSuccess(false);
+        refreshUsers();
+        onClose();
+      }, 1500);
     } catch (err: any) {
       setErrorMsg(err.message);
     } finally {
@@ -49,73 +64,195 @@ export function CreateTeacherModal({ isOpen, onClose }: { isOpen: boolean; onClo
   };
 
   return (
-    <div style={{
-      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-      background: 'rgba(0, 0, 0, 0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
-    }}>
-      <div style={{
-        background: '#0f172a', border: '1px solid #334155', borderRadius: '12px', padding: '28px', width: '100%', maxWidth: '480px', color: '#fff'
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <h3 style={{ margin: 0, fontSize: '18px' }}>👨‍🏫 Créer un nouveau Formateur / Enseignant</h3>
-          <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: '#94a3b8', fontSize: '20px', cursor: 'pointer' }}>✕</button>
-        </div>
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onClick={onClose}
+        >
+          <motion.div
+            variants={scaleIn}
+            initial="initial"
+            animate="animate"
+            exit="initial"
+            onClick={(e) => e.stopPropagation()}
+            className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg shadow-2xl shadow-black/50 overflow-hidden"
+          >
+            {/* Header */}
+            <div className="px-6 py-5 border-b border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-violet-500/10 rounded-xl">
+                  <UserPlus className="w-5 h-5 text-violet-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-white">
+                    Créer un Formateur
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Ajouter un nouvel enseignant à la plateforme
+                  </p>
+                </div>
+              </div>
+              <motion.button
+                whileHover={{ scale: 1.1, rotate: 90 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={onClose}
+                className="p-2 text-slate-500 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </motion.button>
+            </div>
 
-        {errorMsg && (
-          <div style={{ background: 'rgba(239, 68, 68, 0.2)', border: '1px solid #ef4444', color: '#f87171', padding: '10px', borderRadius: '6px', marginBottom: '16px', fontSize: '13px' }}>
-            {errorMsg}
-          </div>
-        )}
+            {/* Body */}
+            <div className="p-6">
+              {/* Success message */}
+              <AnimatePresence>
+                {success && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10, height: 0 }}
+                    animate={{ opacity: 1, y: 0, height: 'auto' }}
+                    exit={{ opacity: 0, y: -10, height: 0 }}
+                    className="mb-4"
+                  >
+                    <div className="flex items-center gap-3 p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-xl">
+                      <CheckCircle className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+                      <div>
+                        <p className="text-emerald-300 text-sm font-medium">
+                          Enseignant créé avec succès !
+                        </p>
+                        <p className="text-emerald-400/70 text-xs mt-0.5">
+                          {fullName} a été ajouté à la plateforme.
+                        </p>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          <div>
-            <label style={{ display: 'block', fontSize: '12px', color: '#94a3b8', marginBottom: '4px' }}>Nom complet *</label>
-            <input
-              type="text" required value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="ex: Prof. Kouassi Jean"
-              style={{ width: '100%', padding: '10px', borderRadius: '6px', background: '#1e293b', border: '1px solid #334155', color: '#fff' }}
-            />
-          </div>
+              {/* Error message */}
+              <AnimatePresence>
+                {errorMsg && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="mb-4"
+                  >
+                    <div className="flex items-center gap-3 p-4 bg-red-500/10 border border-red-500/30 rounded-xl">
+                      <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
+                      <p className="text-red-300 text-sm">{errorMsg}</p>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
-          <div>
-            <label style={{ display: 'block', fontSize: '12px', color: '#94a3b8', marginBottom: '4px' }}>Adresse Email *</label>
-            <input
-              type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="enseignant@academie.com"
-              style={{ width: '100%', padding: '10px', borderRadius: '6px', background: '#1e293b', border: '1px solid #334155', color: '#fff' }}
-            />
-          </div>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {/* Nom complet */}
+                <div>
+                  <label className="flex items-center gap-2 text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
+                    <User className="w-3.5 h-3.5" />
+                    Nom complet *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="ex: Prof. Kouassi Jean"
+                    className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm placeholder-slate-500 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/50 transition-all"
+                  />
+                </div>
 
-          <div>
-            <label style={{ display: 'block', fontSize: '12px', color: '#94a3b8', marginBottom: '4px' }}>Téléphone</label>
-            <input
-              type="text" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+225 0700000000"
-              style={{ width: '100%', padding: '10px', borderRadius: '6px', background: '#1e293b', border: '1px solid #334155', color: '#fff' }}
-            />
-          </div>
+                {/* Email */}
+                <div>
+                  <label className="flex items-center gap-2 text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
+                    <Mail className="w-3.5 h-3.5" />
+                    Adresse Email *
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="enseignant@academie.com"
+                    className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm placeholder-slate-500 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/50 transition-all"
+                  />
+                </div>
 
-          <div>
-            <label style={{ display: 'block', fontSize: '12px', color: '#94a3b8', marginBottom: '4px' }}>Mot de passe initial *</label>
-            <input
-              type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••"
-              style={{ width: '100%', padding: '10px', borderRadius: '6px', background: '#1e293b', border: '1px solid #334155', color: '#fff' }}
-            />
-          </div>
+                {/* Téléphone */}
+                <div>
+                  <label className="flex items-center gap-2 text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
+                    <Phone className="w-3.5 h-3.5" />
+                    Téléphone
+                  </label>
+                  <input
+                    type="text"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="+225 0700000000"
+                    className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm placeholder-slate-500 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/50 transition-all"
+                  />
+                </div>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
-            <button
-              type="button" onClick={onClose}
-              style={{ padding: '8px 16px', borderRadius: '6px', background: '#334155', color: '#fff', border: 'none', cursor: 'pointer' }}
-            >
-              Annuler
-            </button>
-            <button
-              type="submit" disabled={loading}
-              style={{ padding: '8px 16px', borderRadius: '6px', background: '#8b5cf6', color: '#fff', border: 'none', fontWeight: 'bold', cursor: 'pointer' }}
-            >
-              {loading ? 'Création en cours...' : 'Créer l\'Enseignant'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+                {/* Mot de passe */}
+                <div>
+                  <label className="flex items-center gap-2 text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
+                    <Lock className="w-3.5 h-3.5" />
+                    Mot de passe initial *
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm placeholder-slate-500 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/50 transition-all"
+                  />
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
+                  <motion.button
+                    type="button"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={onClose}
+                    className="px-4 py-2.5 bg-slate-800 text-slate-300 text-sm font-medium rounded-xl hover:bg-slate-700 transition-colors"
+                  >
+                    Annuler
+                  </motion.button>
+                  <motion.button
+                    type="submit"
+                    disabled={loading}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className={cn(
+                      'px-5 py-2.5 bg-violet-500 text-white text-sm font-medium rounded-xl transition-all flex items-center gap-2',
+                      'hover:bg-violet-600 shadow-lg shadow-violet-500/20',
+                      loading && 'opacity-70 cursor-not-allowed'
+                    )}
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Création en cours...
+                      </>
+                    ) : (
+                      <>
+                        <UserPlus className="w-4 h-4" />
+                        Créer l'Enseignant
+                      </>
+                    )}
+                  </motion.button>
+                </div>
+              </form>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }

@@ -2,8 +2,22 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { motion } from 'framer-motion';
 import { createClientComponent } from '@/lib/supabase/client';
 import { UsersTable } from '@/components/dashboard/admin/UsersTable';
+import { cn } from '@/lib/utils';
+import { fadeIn, slideIn, stagger } from '@/lib/animations';
+import {
+  GraduationCap,
+  Users,
+  DollarSign,
+  Clock,
+  CheckCircle,
+  Award,
+  TrendingUp,
+  TrendingDown,
+  Filter,
+} from 'lucide-react';
 
 export default function AdminDashboardPage() {
   const supabase = createClientComponent();
@@ -11,8 +25,8 @@ export default function AdminDashboardPage() {
   const [stats, setStats] = useState({
     totalStudents: 0,
     totalTeachers: 0,
-    paidStudents: 0,        // étudiants avec status = 'PAID'
-    pendingStudents: 0,     // étudiants avec status = 'PENDING_PAYMENT' ou 'PENDING'
+    paidStudents: 0,
+    pendingStudents: 0,
     revenue: 0,
     completedStudents: 0,
   });
@@ -52,7 +66,6 @@ export default function AdminDashboardPage() {
     if (!authorized) return;
     setLoadingStats(true);
     try {
-      // 1. Nombre total d'étudiants et d'enseignants
       const { count: studentsCount } = await supabase
         .from('profiles')
         .select('*', { count: 'exact', head: true })
@@ -63,7 +76,6 @@ export default function AdminDashboardPage() {
         .select('*', { count: 'exact', head: true })
         .eq('role', 'TEACHER');
 
-      // 2. Étudiants payés / en attente (basé sur profiles.status)
       const { count: paidCount } = await supabase
         .from('profiles')
         .select('*', { count: 'exact', head: true })
@@ -76,7 +88,6 @@ export default function AdminDashboardPage() {
         .eq('role', 'STUDENT')
         .or('status.eq.PENDING_PAYMENT,status.eq.PENDING');
 
-      // 3. Revenu total (somme des enrollments payés)
       let revenueQuery = supabase
         .from('enrollments')
         .select('amount_paid')
@@ -89,7 +100,6 @@ export default function AdminDashboardPage() {
       const { data: paidEnrollments } = await revenueQuery;
       const totalRevenue = paidEnrollments?.reduce((sum, enr) => sum + (enr.amount_paid || 0), 0) || 0;
 
-      // 4. Parcours validés (seulement si un certificat est sélectionné)
       let completedCount = 0;
       if (filterCertId !== 'all') {
         const { data: courses } = await supabase
@@ -135,12 +145,10 @@ export default function AdminDashboardPage() {
         completedStudents: completedCount,
       });
 
-      // 5. Progression par certificat (utilise les enrollments, mais c'est cohérent car on veut savoir qui a payé pour quel certificat)
       const { data: allCerts } = await supabase.from('certificates').select('id, title');
       const details = [];
       if (allCerts) {
         for (const cert of allCerts) {
-          // Étudiants distincts ayant payé pour ce certificat
           const { data: paidForCert } = await supabase
             .from('enrollments')
             .select('student_id')
@@ -148,7 +156,6 @@ export default function AdminDashboardPage() {
             .eq('payment_status', 'PAID');
           const distinctPaidForCert = new Set(paidForCert?.map(p => p.student_id) ?? []).size;
 
-          // Parcours validés pour ce certificat
           let completedForCert = 0;
           const { data: certCourses } = await supabase
             .from('courses')
@@ -202,108 +209,276 @@ export default function AdminDashboardPage() {
 
   if (!authorized) return null;
 
+  const kpiCards = [
+    {
+      label: 'Étudiants',
+      value: stats.totalStudents,
+      icon: GraduationCap,
+      color: 'blue',
+      loading: loadingStats,
+    },
+    {
+      label: 'Enseignants',
+      value: stats.totalTeachers,
+      icon: Users,
+      color: 'violet',
+      loading: loadingStats,
+    },
+    {
+      label: 'Revenu total',
+      value: `${stats.revenue.toLocaleString()} FCFA`,
+      icon: DollarSign,
+      color: 'emerald',
+      loading: loadingStats,
+    },
+    {
+      label: 'En attente',
+      value: stats.pendingStudents,
+      icon: Clock,
+      color: 'amber',
+      loading: loadingStats,
+      trend: 'down',
+    },
+    {
+      label: 'Payés',
+      value: stats.paidStudents,
+      icon: CheckCircle,
+      color: 'green',
+      loading: loadingStats,
+      trend: 'up',
+    },
+    ...(filterCertId !== 'all'
+      ? [
+          {
+            label: 'Parcours validés',
+            value: stats.completedStudents,
+            icon: Award,
+            color: 'purple' as const,
+            loading: loadingStats,
+          },
+        ]
+      : []),
+  ];
+
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h1 style={{ fontSize: '24px', margin: 0 }}>📊 Tableau de bord</h1>
+    <motion.div initial="initial" animate="animate" variants={stagger} className="space-y-8">
+      {/* Header */}
+      <motion.div variants={fadeIn} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <label style={{ color: '#94a3b8', marginRight: '8px', fontSize: '14px' }}>Filtrer par certificat :</label>
+          <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
+            Tableau de bord
+          </h1>
+          <p className="text-slate-400 text-sm mt-1">
+            Vue d'ensemble de la plateforme
+          </p>
+        </div>
+
+        {/* Filtre certificat */}
+        <div className="flex items-center gap-3 bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 hover:border-slate-700 transition-colors">
+          <Filter className="w-4 h-4 text-slate-500" />
           <select
             value={filterCertId}
             onChange={(e) => setFilterCertId(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-            style={{ padding: '8px', background: '#1e293b', border: '1px solid #334155', color: '#fff', borderRadius: '4px' }}
+            className="bg-transparent text-white text-sm font-medium outline-none cursor-pointer pr-8"
           >
-            <option value="all">Tous les certificats</option>
+            <option value="all" className="bg-slate-900">Tous les certificats</option>
             {certList.map((cert) => (
-              <option key={cert.id} value={cert.id}>{cert.title}</option>
+              <option key={cert.id} value={cert.id} className="bg-slate-900">
+                {cert.title}
+              </option>
             ))}
           </select>
         </div>
-      </div>
+      </motion.div>
 
-      {/* KPIs */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '32px' }}>
-        <div style={kpiCardStyle}>
-          <p style={kpiLabelStyle}>👨‍🎓 Étudiants</p>
-          <p style={kpiValueStyle}>{loadingStats ? '...' : stats.totalStudents}</p>
-        </div>
-        <div style={kpiCardStyle}>
-          <p style={kpiLabelStyle}>👨‍🏫 Enseignants</p>
-          <p style={kpiValueStyle}>{loadingStats ? '...' : stats.totalTeachers}</p>
-        </div>
-        <div style={kpiCardStyle}>
-          <p style={kpiLabelStyle}>💰 Revenu total</p>
-          <p style={kpiValueStyle}>{loadingStats ? '...' : stats.revenue.toLocaleString()} FCFA</p>
-        </div>
-        <div style={kpiCardStyle}>
-          <p style={kpiLabelStyle}>⏳ Étudiants en attente</p>
-          <p style={{ ...kpiValueStyle, color: '#f59e0b' }}>{loadingStats ? '...' : stats.pendingStudents}</p>
-        </div>
-        <div style={kpiCardStyle}>
-          <p style={kpiLabelStyle}>✅ Étudiants payés</p>
-          <p style={{ ...kpiValueStyle, color: '#22c55e' }}>{loadingStats ? '...' : stats.paidStudents}</p>
-        </div>
-        {filterCertId !== 'all' && (
-          <div style={kpiCardStyle}>
-            <p style={kpiLabelStyle}>🎓 Parcours validés</p>
-            <p style={{ ...kpiValueStyle, color: '#a78bfa' }}>{loadingStats ? '...' : stats.completedStudents}</p>
-          </div>
-        )}
-      </div>
+      {/* KPIs Grid */}
+      <motion.div
+        variants={stagger}
+        className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4"
+      >
+        {kpiCards.map((kpi, index) => (
+          <motion.div
+            key={kpi.label}
+            variants={fadeIn}
+            className={cn(
+              'relative overflow-hidden rounded-2xl border p-5 transition-all duration-300',
+              'bg-slate-900 border-slate-800 hover:border-slate-700 hover:shadow-lg hover:shadow-slate-900/50',
+              'group cursor-default'
+            )}
+          >
+            {/* Background gradient subtle */}
+            <div
+              className={cn(
+                'absolute top-0 right-0 w-24 h-24 -translate-y-1/2 translate-x-1/2 rounded-full opacity-10 blur-2xl group-hover:opacity-20 transition-opacity',
+                kpi.color === 'blue' && 'bg-blue-500',
+                kpi.color === 'violet' && 'bg-violet-500',
+                kpi.color === 'emerald' && 'bg-emerald-500',
+                kpi.color === 'amber' && 'bg-amber-500',
+                kpi.color === 'green' && 'bg-green-500',
+                kpi.color === 'purple' && 'bg-purple-500'
+              )}
+            />
+
+            <div className="relative">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
+                  {kpi.label}
+                </span>
+                {kpi.trend && (
+                  <span
+                    className={cn(
+                      'flex items-center gap-1 text-xs font-medium',
+                      kpi.trend === 'up' ? 'text-green-400' : 'text-amber-400'
+                    )}
+                  >
+                    {kpi.trend === 'up' ? (
+                      <TrendingUp className="w-3 h-3" />
+                    ) : (
+                      <TrendingDown className="w-3 h-3" />
+                    )}
+                  </span>
+                )}
+              </div>
+
+              {kpi.loading ? (
+                <div className="space-y-2">
+                  <div className="h-8 bg-slate-800 rounded-lg animate-pulse w-3/4" />
+                </div>
+              ) : (
+                <div className="flex items-end gap-2">
+                  <span
+                    className={cn(
+                      'text-2xl md:text-3xl font-bold tracking-tight',
+                      kpi.color === 'blue' && 'text-blue-400',
+                      kpi.color === 'violet' && 'text-violet-400',
+                      kpi.color === 'emerald' && 'text-emerald-400',
+                      kpi.color === 'amber' && 'text-amber-400',
+                      kpi.color === 'green' && 'text-green-400',
+                      kpi.color === 'purple' && 'text-purple-400'
+                    )}
+                  >
+                    {typeof kpi.value === 'number' ? kpi.value.toLocaleString() : kpi.value}
+                  </span>
+                  <kpi.icon className="w-8 h-8 text-slate-700 group-hover:text-slate-600 transition-colors mb-0.5" />
+                </div>
+              )}
+            </div>
+          </motion.div>
+        ))}
+      </motion.div>
 
       {/* Tableau de progression par certificat */}
       {filterCertId === 'all' && (
-        <div style={{ marginBottom: '32px' }}>
-          <h2 style={{ fontSize: '18px', marginBottom: '12px' }}>📋 Progression par certificat</h2>
+        <motion.div
+          variants={slideIn}
+          className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden"
+        >
+          <div className="px-6 py-4 border-b border-slate-800">
+            <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-violet-400" />
+              Progression par certificat
+            </h2>
+          </div>
+
           {loadingStats ? (
-            <p style={{ color: '#94a3b8' }}>Chargement...</p>
+            <div className="p-6 space-y-4">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="flex items-center gap-4 animate-pulse">
+                  <div className="flex-1 h-5 bg-slate-800 rounded-lg" />
+                  <div className="w-20 h-5 bg-slate-800 rounded-lg" />
+                  <div className="w-20 h-5 bg-slate-800 rounded-lg" />
+                  <div className="w-24 h-5 bg-slate-800 rounded-lg" />
+                </div>
+              ))}
+            </div>
           ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid #334155', color: '#94a3b8' }}>
-                  <th style={{ padding: '12px', textAlign: 'left' }}>Certificat</th>
-                  <th style={{ padding: '12px', textAlign: 'left' }}>Étudiants payés</th>
-                  <th style={{ padding: '12px', textAlign: 'left' }}>Parcours validés</th>
-                  <th style={{ padding: '12px', textAlign: 'left' }}>Taux de réussite</th>
-                </tr>
-              </thead>
-              <tbody>
-                {certDetails.map((cert) => (
-                  <tr key={cert.id} style={{ borderBottom: '1px solid #1e293b' }}>
-                    <td style={{ padding: '12px' }}>{cert.title}</td>
-                    <td style={{ padding: '12px' }}>{cert.paidCount}</td>
-                    <td style={{ padding: '12px', color: '#a78bfa' }}>{cert.completedCount}</td>
-                    <td style={{ padding: '12px' }}>
-                      {cert.paidCount > 0 ? Math.round((cert.completedCount / cert.paidCount) * 100) : 0}%
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-slate-800">
+                    <th className="text-left text-xs font-medium text-slate-400 uppercase tracking-wider px-6 py-3">
+                      Certificat
+                    </th>
+                    <th className="text-left text-xs font-medium text-slate-400 uppercase tracking-wider px-6 py-3">
+                      Étudiants payés
+                    </th>
+                    <th className="text-left text-xs font-medium text-slate-400 uppercase tracking-wider px-6 py-3">
+                      Parcours validés
+                    </th>
+                    <th className="text-left text-xs font-medium text-slate-400 uppercase tracking-wider px-6 py-3">
+                      Taux de réussite
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {certDetails.map((cert) => {
+                    const successRate =
+                      cert.paidCount > 0
+                        ? Math.round((cert.completedCount / cert.paidCount) * 100)
+                        : 0;
+                    return (
+                      <motion.tr
+                        key={cert.id}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors"
+                      >
+                        <td className="px-6 py-4">
+                          <span className="text-white font-medium">{cert.title}</span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="text-slate-300">{cert.paidCount}</span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="text-violet-400 font-medium">
+                            {cert.completedCount}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden max-w-[120px]">
+                              <motion.div
+                                initial={{ width: 0 }}
+                                animate={{ width: `${successRate}%` }}
+                                transition={{ duration: 0.8, ease: 'easeOut' }}
+                                className={cn(
+                                  'h-full rounded-full',
+                                  successRate >= 80
+                                    ? 'bg-emerald-500'
+                                    : successRate >= 50
+                                    ? 'bg-amber-500'
+                                    : 'bg-red-500'
+                                )}
+                              />
+                            </div>
+                            <span
+                              className={cn(
+                                'text-sm font-medium min-w-[3rem]',
+                                successRate >= 80
+                                  ? 'text-emerald-400'
+                                  : successRate >= 50
+                                  ? 'text-amber-400'
+                                  : 'text-red-400'
+                              )}
+                            >
+                              {successRate}%
+                            </span>
+                          </div>
+                        </td>
+                      </motion.tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
-        </div>
+        </motion.div>
       )}
 
-      <UsersTable />
-    </div>
+      {/* Users Table Section */}
+      <motion.div variants={fadeIn}>
+        <UsersTable />
+      </motion.div>
+    </motion.div>
   );
 }
-
-const kpiCardStyle: React.CSSProperties = {
-  background: '#0f172a',
-  border: '1px solid #1e293b',
-  borderRadius: '12px',
-  padding: '20px',
-};
-
-const kpiLabelStyle: React.CSSProperties = {
-  color: '#94a3b8',
-  fontSize: '13px',
-  marginBottom: '8px',
-};
-
-const kpiValueStyle: React.CSSProperties = {
-  fontSize: '28px',
-  fontWeight: 'bold',
-  color: '#fff',
-};

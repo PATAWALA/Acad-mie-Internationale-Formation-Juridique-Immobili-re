@@ -2,6 +2,13 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  Lock, Unlock, CheckCircle2, AlertCircle, 
+  Clock, FileText, Video, Link as LinkIcon, 
+  Send, ChevronDown, ChevronRight, Award,
+  BookOpen, Loader2, Eye, EyeOff
+} from 'lucide-react';
 import { SubmissionModal } from './SubmissionModal';
 import ContentViewer from './ContentViewer';
 import SubmissionViewer from "./SubmissionViewer";
@@ -10,181 +17,387 @@ interface CourseProgramProps {
   courses: any[];
   userStatus: string;
   passedAssessments: string[];
-  submissionsMap: Record<string, any>; // nouvelle prop
+  submissionsMap: Record<string, any>;
 }
 
 export function CourseProgram({ courses, userStatus, passedAssessments, submissionsMap }: CourseProgramProps) {
   const isPaid = userStatus?.trim().toUpperCase() === 'PAID';
   const [selectedAssessment, setSelectedAssessment] = useState<{ id: string; title: string } | null>(null);
+  const [expandedCourses, setExpandedCourses] = useState<Record<string, boolean>>({});
+  const [expandedModules, setExpandedModules] = useState<Record<string, boolean>>({});
+
+  const toggleCourse = (courseId: string) => {
+    setExpandedCourses(prev => ({ ...prev, [courseId]: !prev[courseId] }));
+  };
+
+  const toggleModule = (moduleId: string) => {
+    setExpandedModules(prev => ({ ...prev, [moduleId]: !prev[moduleId] }));
+  };
 
   if (!courses || courses.length === 0) {
     return (
-      <div style={{ background: '#0f172a', padding: '20px', borderRadius: '8px', color: '#94a3b8' }}>
-        Aucune formation disponible pour le moment.
-      </div>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="text-center py-12"
+      >
+        <BookOpen className="w-12 h-12 text-slate-600 mx-auto mb-4" />
+        <p className="text-slate-400">Aucune formation disponible pour le moment.</p>
+      </motion.div>
     );
   }
 
+  // Calculer la progression globale
+  const totalAssessments = courses.reduce((sum, course) => {
+    return sum + (course.modules?.reduce((mSum: number, mod: any) => {
+      return mSum + (mod.assessments?.length || 0);
+    }, 0) || 0);
+  }, 0);
+  
+  const progressPercent = totalAssessments > 0 
+    ? Math.round((passedAssessments.length / totalAssessments) * 100) 
+    : 0;
+
   return (
-    <div style={{ display: 'grid', gap: '24px' }}>
-      {!isPaid && (
-        <div style={{ background: 'linear-gradient(135deg, #7c2d12 0%, #451a03 100%)', border: '2px solid #ea580c', borderRadius: '12px', padding: '24px', color: '#fff' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-            <span style={{ fontSize: '28px' }}>🔒</span>
-            <h3 style={{ margin: 0, fontSize: '20px', color: '#fdba74' }}>Votre inscription est en attente de validation</h3>
-          </div>
-          <p style={{ margin: '0 0 16px 0', color: '#fed7aa', fontSize: '14px', lineHeight: '1.5' }}>
-            Vous avez fait le premier pas ! Pour débloquer immédiatement l'accès à tous les modules, télécharger les supports et obtenir votre <strong>Certificat de Fin de Formation</strong>, finalisez votre règlement dès maintenant.
-          </p>
-          <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
-            <Link
-              href="/checkout"
-              style={{
-                padding: '12px 24px',
-                background: '#ea580c',
-                color: '#fff',
-                borderRadius: '8px',
-                textDecoration: 'none',
-                fontWeight: 'bold',
-                fontSize: '14px',
-                boxShadow: '0 4px 12px rgba(234, 88, 12, 0.4)'
-              }}
-            >
-              🚀 Valider mon paiement & Débloquer mes accès
-            </Link>
-            <span style={{ fontSize: '12px', color: '#fdba74' }}>⚡ Accès instantané après validation</span>
-          </div>
-        </div>
-      )}
-
-      {isPaid && (
-        <button
-          onClick={() => window.location.reload()}
-          style={{
-            padding: '8px 16px',
-            background: '#3b82f6',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '6px',
-            cursor: 'pointer',
-            alignSelf: 'flex-start',
-            fontSize: '13px'
-          }}
+    <div className="space-y-6">
+      {/* Barre de progression globale */}
+      {isPaid && totalAssessments > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-[#0f172a] border border-[#1e293b] rounded-2xl p-4 lg:p-5"
         >
-          🔄 Actualiser ma progression
-        </button>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Award className="w-5 h-5 text-blue-400" />
+              <span className="text-sm font-medium text-white">Progression Globale</span>
+            </div>
+            <span className="text-sm font-bold text-blue-400">{progressPercent}%</span>
+          </div>
+          <div className="h-2 bg-[#1e293b] rounded-full overflow-hidden">
+            <motion.div
+              initial={{ width: 0 }}
+              animate={{ width: `${progressPercent}%` }}
+              transition={{ duration: 1, ease: "easeOut" }}
+              className="h-full bg-gradient-to-r from-blue-500 to-blue-400 rounded-full"
+            />
+          </div>
+          <p className="text-xs text-slate-500 mt-2">
+            {passedAssessments.length}/{totalAssessments} évaluations validées
+          </p>
+        </motion.div>
       )}
 
-      {courses.map((course) => (
-        <div key={course.id} style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', padding: '24px' }}>
-          <h3 style={{ color: '#38bdf8' }}>{course.title}</h3>
-          <p style={{ color: '#94a3b8' }}>{course.description}</p>
+      {/* Message Non Payé */}
+      {!isPaid && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-500/10 to-orange-500/10 border border-amber-500/20 p-6"
+        >
+          <div className="flex items-start gap-4">
+            <div className="p-2.5 bg-amber-500/10 rounded-xl flex-shrink-0">
+              <Lock className="w-5 h-5 text-amber-400" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-amber-400 mb-2">
+                Contenu Verrouillé
+              </h3>
+              <p className="text-sm text-slate-300 mb-4">
+                Finalisez votre paiement pour accéder à tous les modules, vidéos, PDF et évaluations.
+              </p>
+              <Link
+                href="/checkout"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold rounded-xl transition-colors"
+              >
+                Débloquer l'accès maintenant
+                <ChevronRight className="w-4 h-4" />
+              </Link>
+            </div>
+          </div>
+        </motion.div>
+      )}
 
-          <div style={{ display: 'grid', gap: '16px', marginTop: '16px' }}>
-            {course.modules?.map((mod: any, index: number, arr: any[]) => {
-              const isFirstModule = index === 0;
-              const prevModule = !isFirstModule ? arr[index - 1] : null;
-              const prevAssessmentId = prevModule?.assessments?.[0]?.id;
-              const isUnlocked = isFirstModule || (prevAssessmentId && passedAssessments.includes(prevAssessmentId));
-
-              return (
-                <div key={mod.id} style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: '8px', padding: '16px', opacity: isUnlocked ? 1 : 0.6 }}>
-                  <h4 style={{ margin: '0 0 10px 0', fontSize: '15px', color: '#f8fafc' }}>
-                    🗓️ Semaine {mod.week_number} : {mod.title}
-                  </h4>
-
-                  {!isUnlocked && (
-                    <div style={{ color: '#ef4444', marginBottom: '8px', fontSize: '13px' }}>
-                      🔒 Vous devez valider la semaine {mod.week_number - 1} pour accéder à celle-ci.
-                    </div>
-                  )}
-
-                  {/* Leçons */}
-                  <div style={{ display: 'grid', gap: '12px', opacity: isUnlocked ? 1 : 0.5 }}>
-                    {mod.lessons?.map((lesson: any) => (
-                      <div key={lesson.id} style={{ background: '#0f172a', padding: '10px 14px', borderRadius: '6px', fontSize: '13px' }}>
-                        <span>📖 {lesson.title} ({lesson.content_type})</span>
-                        {isPaid && isUnlocked ? (
-                          <ContentViewer
-                            contentType={lesson.content_type}
-                            contentUrl={lesson.content_url}
-                            contentBody={lesson.content_body}
-                            title={lesson.title}
-                          />
-                        ) : (
-                          <span style={{ color: '#ef4444', fontWeight: 'bold', fontSize: '12px', display: 'block', marginTop: '4px' }}>
-                            {!isPaid ? '🔒 Réservé aux membres payants' : '🔒 Module verrouillé'}
-                          </span>
-                        )}
-                      </div>
-                    ))}
+      {/* Liste des Cours */}
+      <div className="space-y-4">
+        {courses.map((course, courseIndex) => {
+          const isCourseExpanded = expandedCourses[course.id] ?? true;
+          
+          return (
+            <motion.div
+              key={course.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: courseIndex * 0.1 }}
+              className="bg-[#0f172a] border border-[#1e293b] rounded-2xl overflow-hidden"
+            >
+              {/* En-tête du cours */}
+              <button
+                onClick={() => toggleCourse(course.id)}
+                className="w-full flex items-center justify-between p-5 lg:p-6 hover:bg-[#1e293b]/50 transition-colors"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="p-2.5 bg-blue-500/10 rounded-xl">
+                    <BookOpen className="w-5 h-5 text-blue-400" />
                   </div>
+                  <div className="text-left">
+                    <h3 className="text-base lg:text-lg font-bold text-white">
+                      {course.title}
+                    </h3>
+                    {course.description && (
+                      <p className="text-xs lg:text-sm text-slate-400 mt-1 line-clamp-1">
+                        {course.description}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <motion.div
+                  animate={{ rotate: isCourseExpanded ? 180 : 0 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <ChevronDown className="w-5 h-5 text-slate-400" />
+                </motion.div>
+              </button>
 
-                  {/* Évaluations : affichage des notes et feedback */}
-                  {mod.assessments?.length > 0 && (
-                    <div style={{ marginTop: '12px' }}>
-                      {mod.assessments.map((ass: any) => {
-                        const sub = submissionsMap[ass.id];
+              {/* Modules */}
+              <AnimatePresence>
+                {isCourseExpanded && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="border-t border-[#1e293b]"
+                  >
+                    <div className="p-5 lg:p-6 space-y-3">
+                      {course.modules?.map((mod: any, index: number, arr: any[]) => {
+                        const isFirstModule = index === 0;
+                        const prevModule = !isFirstModule ? arr[index - 1] : null;
+                        const prevAssessmentId = prevModule?.assessments?.[0]?.id;
+                        const isUnlocked = isFirstModule || (prevAssessmentId && passedAssessments.includes(prevAssessmentId));
+                        const isModuleExpanded = expandedModules[mod.id] ?? isUnlocked;
+
                         return (
-                          <div key={ass.id} style={{ fontSize: '13px', marginBottom: '6px' }}>
-                            {!sub && isUnlocked && (
-                              <span style={{ color: '#94a3b8' }}>📝 {ass.title} (pas encore soumis)</span>
-                            )}
-                            {sub && sub.status === 'PENDING' && (
-                              <span style={{ color: '#f59e0b' }}>⏳ En attente de correction</span>
-                            )}
-                            {sub && sub.status !== 'PENDING' && (
-                              <div>
-                                <span style={{ color: sub.status === 'PASSED' ? '#22c55e' : '#ef4444', fontWeight: 'bold' }}>
-                                  {sub.status === 'PASSED' ? '✅ Validé' : '❌ Non validé'} — Note : {sub.grade}/20
-                                </span>
-                                {sub.feedback && (
-                                  <p style={{ color: '#94a3b8', margin: '4px 0 0' }}>💬 {sub.feedback}</p>
-                                )}
-                                <p style={{ margin: '4px 0 0' }}>
-                                  <SubmissionViewer submissionUrl={sub.submission_url} />
-                                </p>
+                          <div
+                            key={mod.id}
+                            className={`rounded-xl border transition-all ${
+                              isUnlocked
+                                ? 'bg-[#020617] border-[#1e293b]'
+                                : 'bg-[#020617]/50 border-[#1e293b]/50 opacity-75'
+                            }`}
+                          >
+                            {/* En-tête du module */}
+                            <button
+                              onClick={() => isUnlocked && toggleModule(mod.id)}
+                              className="w-full flex items-center justify-between p-4"
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className={`p-1.5 rounded-lg ${
+                                  isUnlocked ? 'bg-blue-500/10' : 'bg-slate-700/50'
+                                }`}>
+                                  {isUnlocked ? (
+                                    <Unlock className="w-4 h-4 text-blue-400" />
+                                  ) : (
+                                    <Lock className="w-4 h-4 text-slate-500" />
+                                  )}
+                                </div>
+                                <div className="text-left">
+                                  <h4 className="text-sm font-semibold text-white">
+                                    Semaine {mod.week_number} : {mod.title}
+                                  </h4>
+                                  <div className="flex items-center gap-3 mt-1">
+                                    <span className="text-xs text-slate-500 flex items-center gap-1">
+                                      <FileText className="w-3 h-3" />
+                                      {mod.lessons?.length || 0} leçons
+                                    </span>
+                                    {mod.assessments?.length > 0 && (
+                                      <span className="text-xs text-slate-500 flex items-center gap-1">
+                                        <Award className="w-3 h-3" />
+                                        {mod.assessments.length} évaluation(s)
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                              {isUnlocked && (
+                                <motion.div
+                                  animate={{ rotate: isModuleExpanded ? 180 : 0 }}
+                                  transition={{ duration: 0.2 }}
+                                >
+                                  <ChevronDown className="w-4 h-4 text-slate-400" />
+                                </motion.div>
+                              )}
+                            </button>
+
+                            {/* Contenu du module */}
+                            <AnimatePresence>
+                              {isModuleExpanded && isUnlocked && (
+                                <motion.div
+                                  initial={{ height: 0, opacity: 0 }}
+                                  animate={{ height: 'auto', opacity: 1 }}
+                                  exit={{ height: 0, opacity: 0 }}
+                                  className="border-t border-[#1e293b]"
+                                >
+                                  <div className="p-4 space-y-4">
+                                    {/* Leçons */}
+                                    {mod.lessons?.map((lesson: any) => (
+                                      <div
+                                        key={lesson.id}
+                                        className="bg-[#0f172a] rounded-xl p-4 border border-[#1e293b]"
+                                      >
+                                        <div className="flex items-center gap-2 mb-3">
+                                          {lesson.content_type === 'VIDEO' && (
+                                            <Video className="w-4 h-4 text-red-400" />
+                                          )}
+                                          {lesson.content_type === 'PDF' && (
+                                            <FileText className="w-4 h-4 text-blue-400" />
+                                          )}
+                                          {lesson.content_type === 'TEXT' && (
+                                            <FileText className="w-4 h-4 text-green-400" />
+                                          )}
+                                          {lesson.content_type === 'LINK' && (
+                                            <LinkIcon className="w-4 h-4 text-purple-400" />
+                                          )}
+                                          <span className="text-sm font-medium text-white">
+                                            {lesson.title}
+                                          </span>
+                                          <span className="text-xs text-slate-500 px-2 py-0.5 bg-[#1e293b] rounded-full">
+                                            {lesson.content_type}
+                                          </span>
+                                        </div>
+
+                                        {isPaid ? (
+                                          <ContentViewer
+                                            contentType={lesson.content_type}
+                                            contentUrl={lesson.content_url}
+                                            contentBody={lesson.content_body}
+                                            title={lesson.title}
+                                          />
+                                        ) : (
+                                          <div className="flex items-center gap-2 text-amber-400 text-sm">
+                                            <Lock className="w-4 h-4" />
+                                            Réservé aux membres payants
+                                          </div>
+                                        )}
+                                      </div>
+                                    ))}
+
+                                    {/* Évaluations */}
+                                    {mod.assessments?.map((ass: any) => {
+                                      const sub = submissionsMap[ass.id];
+                                      
+                                      return (
+                                        <div
+                                          key={ass.id}
+                                          className="bg-[#0f172a] rounded-xl p-4 border border-[#1e293b]"
+                                        >
+                                          <div className="flex items-center justify-between mb-3">
+                                            <div className="flex items-center gap-2">
+                                              <Award className="w-4 h-4 text-yellow-400" />
+                                              <span className="text-sm font-medium text-white">
+                                                {ass.title}
+                                              </span>
+                                            </div>
+                                            
+                                            {/* Statut */}
+                                            {sub ? (
+                                              sub.status === 'PENDING' ? (
+                                                <span className="inline-flex items-center gap-1 px-2 py-1 bg-amber-500/10 text-amber-400 rounded-full text-xs">
+                                                  <Clock className="w-3 h-3" />
+                                                  En attente
+                                                </span>
+                                              ) : sub.status === 'PASSED' ? (
+                                                <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-500/10 text-green-400 rounded-full text-xs">
+                                                  <CheckCircle2 className="w-3 h-3" />
+                                                  Validé • {sub.grade}/20
+                                                </span>
+                                              ) : (
+                                                <span className="inline-flex items-center gap-1 px-2 py-1 bg-red-500/10 text-red-400 rounded-full text-xs">
+                                                  <AlertCircle className="w-3 h-3" />
+                                                  Non validé • {sub.grade}/20
+                                                </span>
+                                              )
+                                            ) : (
+                                              <span className="text-xs text-slate-500">
+                                                Non soumis
+                                              </span>
+                                            )}
+                                          </div>
+
+                                          {/* Feedback */}
+                                          {sub?.feedback && (
+                                            <div className="mb-3 p-3 bg-blue-500/5 border border-blue-500/10 rounded-xl">
+                                              <p className="text-xs text-blue-400 font-medium mb-1">
+                                                Feedback du formateur :
+                                              </p>
+                                              <p className="text-sm text-slate-300">
+                                                {sub.feedback}
+                                              </p>
+                                            </div>
+                                          )}
+
+                                          {/* Lien vers la copie */}
+                                          {sub?.submission_url && (
+                                            <div className="mb-3">
+                                              <SubmissionViewer submissionUrl={sub.submission_url} />
+                                            </div>
+                                          )}
+
+                                          {/* Bouton Soumettre */}
+                                          {isPaid && !sub && (
+                                            <motion.button
+                                              whileHover={{ scale: 1.02 }}
+                                              whileTap={{ scale: 0.98 }}
+                                              onClick={() => setSelectedAssessment({ 
+                                                id: ass.id, 
+                                                title: ass.title 
+                                              })}
+                                              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white text-sm font-semibold rounded-xl shadow-lg shadow-green-500/20 transition-all"
+                                            >
+                                              <Send className="w-4 h-4" />
+                                              Soumettre mon travail
+                                            </motion.button>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+
+                            {/* Message module verrouillé */}
+                            {!isUnlocked && (
+                              <div className="px-4 pb-4">
+                                <div className="flex items-center gap-2 text-xs text-slate-500">
+                                  <Lock className="w-3 h-3" />
+                                  Validez la semaine {mod.week_number - 1} pour débloquer
+                                </div>
                               </div>
                             )}
                           </div>
                         );
                       })}
                     </div>
-                  )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+          );
+        })}
+      </div>
 
-                  {/* Bouton de soumission (visible uniquement si débloqué, payé, et au moins un assessment) */}
-                  {isPaid && isUnlocked && mod.assessments?.length > 0 && (
-                    <button
-                      onClick={() => setSelectedAssessment({ id: mod.assessments[0].id, title: mod.assessments[0].title })}
-                      style={{
-                        marginTop: '12px',
-                        padding: '8px 16px',
-                        background: '#22c55e',
-                        color: '#fff',
-                        border: 'none',
-                        borderRadius: '6px',
-                        cursor: 'pointer',
-                        fontWeight: 'bold'
-                      }}
-                    >
-                      📤 Soumettre le TP de cette semaine
-                    </button>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      ))}
-
-      {selectedAssessment && (
-        <SubmissionModal
-          isOpen={!!selectedAssessment}
-          onClose={() => setSelectedAssessment(null)}
-          assessmentId={selectedAssessment.id}
-          userStatus={userStatus}
-        />
-      )}
+      {/* Modal de soumission */}
+      <AnimatePresence>
+        {selectedAssessment && (
+          <SubmissionModal
+            isOpen={!!selectedAssessment}
+            onClose={() => setSelectedAssessment(null)}
+            assessmentId={selectedAssessment.id}
+            userStatus={userStatus}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
