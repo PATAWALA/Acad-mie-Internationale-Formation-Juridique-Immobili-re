@@ -36,7 +36,8 @@ export default function AdminEmissionPage() {
     setLoading(true);
     const { data: courses } = await supabase
       .from('courses')
-      .select('id, title, certificate_id');
+      .select('id, title, certificate_id')
+      .returns<any[]>();
 
     if (!courses) {
       setLoading(false);
@@ -45,22 +46,24 @@ export default function AdminEmissionPage() {
 
     const eligible: any[] = [];
 
-    for (const course of courses as any[]) {
+    for (const course of courses) {
       const { data: assessments } = await supabase
         .from('assessments')
         .select('id')
-        .eq('course_id', course.id);
-      const assessmentIds = assessments?.map((a: any) => a.id) ?? [];
+        .eq('course_id', course.id)
+        .returns<any[]>();
+      const assessmentIds = assessments?.map((a) => a.id) ?? [];
       if (assessmentIds.length === 0) continue;
 
       const { data: submissions } = await supabase
         .from('submissions')
         .select('student_id, status')
-        .in('assessment_id', assessmentIds);
+        .in('assessment_id', assessmentIds)
+        .returns<any[]>();
       if (!submissions) continue;
 
       const studentMap = new Map<string, { passed: number; total: number }>();
-      for (const sub of submissions as any[]) {
+      for (const sub of submissions) {
         if (!studentMap.has(sub.student_id)) {
           studentMap.set(sub.student_id, { passed: 0, total: 0 });
         }
@@ -88,17 +91,21 @@ export default function AdminEmissionPage() {
             .from('submissions')
             .select('submission_url, assessment_id, assessments(title)')
             .eq('student_id', studentId)
-            .in('assessment_id', assessmentIds);
+            .in('assessment_id', assessmentIds)
+            .returns<any[]>();
+
+          const safeProfile = profile as any;
+          const safeExistingCert = existingCert as any;
 
           eligible.push({
             studentId,
-            studentName: profile?.full_name || 'Inconnu',
-            email: profile?.email || '',
+            studentName: safeProfile?.full_name || 'Inconnu',
+            email: safeProfile?.email || '',
             courseId: course.id,
             courseTitle: course.title,
             certificateId: course.certificate_id,
-            hasCert: !!existingCert,
-            certUrl: existingCert?.certificate_url || '',
+            hasCert: !!safeExistingCert,
+            certUrl: safeExistingCert?.certificate_url || '',
             issueDate: new Date().toLocaleDateString('fr-FR', {
               day: 'numeric',
               month: 'long',
@@ -135,7 +142,7 @@ export default function AdminEmissionPage() {
             student_id: studentId,
             course_id: courseId,
             certificate_url: publicUrlData.publicUrl,
-          } as any,
+          },
           { onConflict: 'student_id,course_id' }
         );
       if (insertError) throw insertError;
