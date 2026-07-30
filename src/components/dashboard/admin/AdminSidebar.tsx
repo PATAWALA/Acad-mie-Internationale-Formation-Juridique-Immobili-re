@@ -19,7 +19,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useAdmin } from '@/context/AdminContext';
 
 const navItems = [
   { href: '/dashboard/admin', label: 'Tableau de bord', icon: LayoutDashboard },
@@ -36,7 +36,7 @@ export default function AdminSidebar() {
   const supabase = createClientComponent();
   const router = useRouter();
   const pathname = usePathname();
-  const [collapsed, setCollapsed] = useState(false);
+  const { collapsed, setCollapsed } = useAdmin();
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -49,12 +49,12 @@ export default function AdminSidebar() {
       animate={{ x: 0, opacity: 1 }}
       transition={{ duration: 0.4, ease: 'easeOut' }}
       className={cn(
-        'relative flex flex-col bg-slate-900 border-r border-slate-800 min-h-screen transition-all duration-300',
+        'fixed left-0 top-0 h-screen z-40 flex flex-col bg-slate-900 border-r border-slate-800 transition-all duration-300',
         collapsed ? 'w-[72px]' : 'w-[260px]'
       )}
     >
       {/* Header */}
-      <div className="flex items-center justify-between p-5 border-b border-slate-800">
+      <div className="flex items-center justify-between p-5 border-b border-slate-800 flex-shrink-0">
         {!collapsed && (
           <motion.div
             initial={{ opacity: 0 }}
@@ -78,14 +78,14 @@ export default function AdminSidebar() {
         )}
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="text-slate-500 hover:text-slate-300 transition-colors p-1 rounded-lg hover:bg-slate-800"
+          className="text-slate-500 hover:text-slate-300 transition-colors p-1 rounded-lg hover:bg-slate-800 flex-shrink-0"
         >
           {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
         </button>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+      {/* Navigation - scrollable */}
+      <nav className="flex-1 p-3 space-y-1 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
         <motion.div variants={stagger} initial="initial" animate="animate" className="space-y-1">
           {navItems.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
@@ -134,7 +134,7 @@ export default function AdminSidebar() {
       </nav>
 
       {/* Footer */}
-      <div className="p-3 border-t border-slate-800">
+      <div className="p-3 border-t border-slate-800 flex-shrink-0">
         <button
           onClick={handleLogout}
           className={cn(

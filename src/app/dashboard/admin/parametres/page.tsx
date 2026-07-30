@@ -1,362 +1,384 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClientComponent } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
-import { fadeIn, stagger } from '@/lib/animations';
+import { fadeIn } from '@/lib/animations';
 import {
-  MessageCircle,
-  Clock,
-  CheckCircle,
-  Send,
-  Loader2,
+  Settings,
   User,
-  Calendar,
-  Filter,
-  Inbox,
+  Phone,
+  Mail,
+  Lock,
+  Save,
+  Loader2,
+  CheckCircle,
+  AlertCircle,
+  Shield,
+  Key,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 
-export default function AdminQuestionsPage() {
-  const supabase = createClientComponent();
-  const [questions, setQuestions] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'ALL' | 'PENDING' | 'ANSWERED'>('PENDING');
-  const [answerInput, setAnswerInput] = useState<{ [key: number]: string }>({});
-  const [responding, setResponding] = useState<number | null>(null);
-  const [expandedId, setExpandedId] = useState<number | null>(null);
+type Tab = 'profile' | 'security';
 
-  const fetchQuestions = async () => {
-    setLoading(true);
-    const { data } = await supabase
-      .from('student_questions')
-      .select('*, student:student_id (full_name, email)')
-      .order('created_at', { ascending: false });
-    if (data) setQuestions(data);
-    setLoading(false);
-  };
+export default function AdminParametresPage() {
+  const supabase = createClientComponent();
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState<Tab>('profile');
+  const [profile, setProfile] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [savingPassword, setSavingPassword] = useState(false);
 
   useEffect(() => {
-    fetchQuestions();
+    const fetchProfile = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { router.push('/login'); return; }
+
+      const { data: prof } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (!prof || (prof.role !== 'ADMIN' && prof.role !== 'SUPER_ADMIN')) {
+        router.push('/dashboard/etudiant');
+        return;
+      }
+
+      const safeProf = prof as any;
+      setProfile(safeProf);
+      setFullName(safeProf.full_name || '');
+      setPhone(safeProf.phone || '');
+      setLoading(false);
+    };
+    fetchProfile();
   }, []);
 
-  const handleRespond = async (questionId: number) => {
-    const answer = answerInput[questionId]?.trim();
-    if (!answer) return;
-    setResponding(questionId);
+  const handleUpdateProfile = async () => {
+    setSavingProfile(true);
+    setMessage(null);
     const { error } = await supabase
-      .from('student_questions')
-      .update({ answer, status: 'ANSWERED' })
-      .eq('id', questionId);
-    if (!error) {
-      setAnswerInput((prev) => ({ ...prev, [questionId]: '' }));
-      fetchQuestions();
+      .from('profiles')
+      .update({ full_name: fullName, phone })
+      .eq('id', profile.id);
+    setSavingProfile(false);
+    if (error) {
+      setMessage({ type: 'error', text: error.message });
     } else {
-      alert('Erreur : ' + error.message);
+      setMessage({ type: 'success', text: 'Profil mis à jour avec succès.' });
+      setTimeout(() => setMessage(null), 3000);
     }
-    setResponding(null);
   };
 
-  const filtered = questions.filter((q) => {
-    if (filter === 'PENDING') return q.status === 'PENDING';
-    if (filter === 'ANSWERED') return q.status === 'ANSWERED';
-    return true;
-  });
+  const handleChangePassword = async () => {
+    if (password.length < 6) {
+      setMessage({ type: 'error', text: 'Minimum 6 caractères requis.' });
+      return;
+    }
+    setSavingPassword(true);
+    setMessage(null);
+    const { error } = await supabase.auth.updateUser({ password });
+    setSavingPassword(false);
+    if (error) {
+      setMessage({ type: 'error', text: error.message });
+    } else {
+      setMessage({ type: 'success', text: 'Mot de passe changé avec succès.' });
+      setPassword('');
+      setTimeout(() => setMessage(null), 3000);
+    }
+  };
 
-  const pendingCount = questions.filter((q) => q.status === 'PENDING').length;
-  const answeredCount = questions.filter((q) => q.status === 'ANSWERED').length;
+  if (loading) {
+    return (
+      <div className="max-w-2xl mx-auto">
+        <div className="animate-pulse space-y-6">
+          <div className="h-8 bg-slate-800 rounded-lg w-1/2" />
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
+            <div className="h-6 bg-slate-800 rounded-lg w-1/3" />
+            <div className="space-y-3">
+              <div className="h-12 bg-slate-800 rounded-xl" />
+              <div className="h-12 bg-slate-800 rounded-xl" />
+              <div className="h-10 bg-slate-800 rounded-xl w-32" />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-  const filters = [
-    { key: 'ALL', label: 'Toutes', count: questions.length, color: 'slate' },
-    { key: 'PENDING', label: 'En attente', count: pendingCount, color: 'amber' },
-    { key: 'ANSWERED', label: 'Répondues', count: answeredCount, color: 'emerald' },
+  const tabs = [
+    { key: 'profile' as Tab, label: 'Mon profil', icon: User },
+    { key: 'security' as Tab, label: 'Sécurité', icon: Lock },
   ];
 
   return (
-    <motion.div initial="initial" animate="animate" variants={stagger} className="space-y-6">
+    <motion.div initial="initial" animate="animate" variants={fadeIn} className="max-w-2xl mx-auto space-y-6">
       {/* Header */}
-      <motion.div variants={fadeIn}>
+      <div>
         <div className="flex items-center gap-3 mb-2">
-          <div className="p-2 bg-amber-500/10 rounded-xl">
-            <MessageCircle className="w-5 h-5 text-amber-400" />
+          <div className="p-2 bg-slate-700 rounded-xl">
+            <Settings className="w-5 h-5 text-slate-300" />
           </div>
           <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
-            Support Étudiants
+            Paramètres
           </h1>
         </div>
         <p className="text-slate-400 text-sm ml-14">
-          Répondez aux questions des étudiants et suivez les conversations.
+          Gérez votre profil administrateur et votre sécurité.
         </p>
-      </motion.div>
+      </div>
 
-      {/* Filtres */}
-      <motion.div variants={fadeIn} className="flex items-center gap-2 flex-wrap">
-        <Filter className="w-4 h-4 text-slate-500 mr-1" />
-        {filters.map((f) => (
-          <motion.button
-            key={f.key}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setFilter(f.key as any)}
+      {/* Message */}
+      <AnimatePresence>
+        {message && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+          >
+            <div className={cn(
+              'flex items-center gap-3 p-4 rounded-xl border',
+              message.type === 'success'
+                ? 'bg-emerald-500/10 border-emerald-500/30'
+                : 'bg-red-500/10 border-red-500/30'
+            )}>
+              {message.type === 'success' ? (
+                <CheckCircle className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+              ) : (
+                <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
+              )}
+              <p className={cn('text-sm', message.type === 'success' ? 'text-emerald-300' : 'text-red-300')}>
+                {message.text}
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Onglets */}
+      <div className="flex gap-1 bg-slate-900 border border-slate-800 rounded-xl p-1">
+        {tabs.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
             className={cn(
-              'flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 border',
-              filter === f.key
-                ? f.color === 'amber'
-                  ? 'bg-amber-500/20 border-amber-500/50 text-amber-300'
-                  : f.color === 'emerald'
-                  ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300'
-                  : 'bg-slate-700 border-slate-600 text-white'
-                : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white'
+              'flex items-center gap-2 flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200',
+              activeTab === tab.key
+                ? 'bg-slate-800 text-white shadow-sm'
+                : 'text-slate-400 hover:text-white'
             )}
           >
-            {f.key === 'PENDING' && <Clock className="w-3 h-3" />}
-            {f.key === 'ANSWERED' && <CheckCircle className="w-3 h-3" />}
-            {f.key === 'ALL' && <Inbox className="w-3 h-3" />}
-            {f.label}
-            <span
-              className={cn(
-                'px-1.5 py-0.5 rounded-full text-[10px] font-bold',
-                filter === f.key
-                  ? 'bg-white/10 text-white'
-                  : 'bg-slate-700 text-slate-400'
-              )}
-            >
-              {f.count}
-            </span>
-          </motion.button>
+            <tab.icon className="w-4 h-4" />
+            {tab.label}
+          </button>
         ))}
-      </motion.div>
+      </div>
 
-      {/* Liste des questions */}
-      {loading ? (
-        <div className="space-y-4">
-          {[1, 2, 3].map((i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: i * 0.1 }}
-              className="bg-slate-900 border border-slate-800 rounded-2xl p-6 animate-pulse"
-            >
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 bg-slate-800 rounded-full" />
-                <div className="space-y-2 flex-1">
-                  <div className="h-4 bg-slate-800 rounded-lg w-1/4" />
-                  <div className="h-3 bg-slate-800 rounded-lg w-1/6" />
+      {/* Contenu des onglets */}
+      <AnimatePresence mode="wait">
+        {activeTab === 'profile' && (
+          <motion.div
+            key="profile"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden"
+          >
+            <div className="px-6 py-4 border-b border-slate-800 flex items-center gap-3">
+              <div className="p-2 bg-blue-500/10 rounded-lg">
+                <User className="w-4 h-4 text-blue-400" />
+              </div>
+              <div>
+                <h2 className="text-sm font-semibold text-white">Informations personnelles</h2>
+                <p className="text-xs text-slate-500 mt-0.5">Modifiez vos informations de profil</p>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-5">
+              {/* Avatar + Email */}
+              <div className="flex items-center gap-4 p-4 bg-slate-800/30 rounded-xl">
+                <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-violet-500 flex items-center justify-center flex-shrink-0 shadow-lg shadow-blue-500/20">
+                  <span className="text-xl font-bold text-white">
+                    {(profile?.full_name || 'A')[0].toUpperCase()}
+                  </span>
                 </div>
-                <div className="w-20 h-6 bg-slate-800 rounded-full" />
-              </div>
-              <div className="space-y-2">
-                <div className="h-4 bg-slate-800 rounded-lg w-3/4" />
-                <div className="h-4 bg-slate-800 rounded-lg w-1/2" />
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      ) : filtered.length === 0 ? (
-        <motion.div
-          variants={fadeIn}
-          className="text-center py-16 bg-slate-900 border border-slate-800 rounded-2xl"
-        >
-          <div className="w-20 h-20 mx-auto mb-4 bg-slate-800 rounded-2xl flex items-center justify-center">
-            <Inbox className="w-10 h-10 text-slate-600" />
-          </div>
-          <h3 className="text-lg font-semibold text-white mb-1">
-            {filter === 'ALL'
-              ? 'Aucune question'
-              : filter === 'PENDING'
-              ? 'Aucune question en attente'
-              : 'Aucune question répondue'}
-          </h3>
-          <p className="text-slate-400 text-sm">
-            {filter === 'PENDING'
-              ? 'Toutes les questions ont été traitées. 👍'
-              : 'Les questions des étudiants apparaîtront ici.'}
-          </p>
-        </motion.div>
-      ) : (
-        <motion.div variants={stagger} className="space-y-4">
-          <AnimatePresence>
-            {filtered.map((q) => (
-              <motion.div
-                key={q.id}
-                variants={fadeIn}
-                initial="initial"
-                animate="animate"
-                exit={{ opacity: 0, y: -10 }}
-                className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden hover:border-slate-700 transition-all duration-300"
-              >
-                {/* En-tête de la question */}
-                <div
-                  className="p-5 cursor-pointer"
-                  onClick={() => setExpandedId(expandedId === q.id ? null : q.id)}
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-start gap-3 flex-1 min-w-0">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500/20 to-orange-500/20 flex items-center justify-center flex-shrink-0">
-                        <span className="text-sm font-bold text-amber-300">
-                          {(q.student?.full_name || '?')[0].toUpperCase()}
-                        </span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="text-white font-medium text-sm truncate">
-                            {q.student?.full_name || q.student?.email || 'Anonyme'}
-                          </h3>
-                          <span
-                            className={cn(
-                              'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border flex-shrink-0',
-                              q.status === 'ANSWERED'
-                                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                                : 'bg-amber-500/10 text-amber-400 border-amber-500/30'
-                            )}
-                          >
-                            {q.status === 'ANSWERED' ? (
-                              <>
-                                <CheckCircle className="w-3 h-3" />
-                                Répondu
-                              </>
-                            ) : (
-                              <>
-                                <Clock className="w-3 h-3" />
-                                En attente
-                              </>
-                            )}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-1 text-xs text-slate-500">
-                          <Calendar className="w-3 h-3" />
-                          {new Date(q.created_at).toLocaleDateString('fr-FR', {
-                            day: 'numeric',
-                            month: 'long',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </div>
-                      </div>
-                    </div>
-
-                    <motion.div
-                      animate={{ rotate: expandedId === q.id ? 180 : 0 }}
-                      className="text-slate-500 flex-shrink-0 mt-2"
-                    >
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M19 9l-7 7-7-7"
-                        />
-                      </svg>
-                    </motion.div>
+                <div>
+                  <h3 className="text-white font-semibold">{profile?.full_name || 'Administrateur'}</h3>
+                  <div className="flex items-center gap-1.5 text-sm text-slate-400 mt-0.5">
+                    <Mail className="w-3.5 h-3.5" />
+                    <span>{profile?.email}</span>
                   </div>
-
-                  {/* Aperçu de la question */}
-                  <div className="ml-13 mt-3">
-                    <p className="text-sm text-slate-300 line-clamp-2">
-                      {q.question}
-                    </p>
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <Shield className="w-3 h-3 text-violet-400" />
+                    <span className="text-[10px] font-bold text-violet-400 uppercase tracking-wider">
+                      {profile?.role === 'SUPER_ADMIN' ? 'Super Admin' : 'Administrateur'}
+                    </span>
                   </div>
                 </div>
+              </div>
 
-                {/* Contenu étendu */}
-                <AnimatePresence>
-                  {expandedId === q.id && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.3 }}
-                      className="overflow-hidden"
-                    >
-                      <div className="px-5 pb-5 border-t border-slate-800">
-                        {/* Question complète */}
-                        <div className="mt-4 p-4 bg-slate-800/50 rounded-xl">
-                          <div className="flex items-center gap-2 mb-2">
-                            <User className="w-3.5 h-3.5 text-slate-400" />
-                            <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
-                              Question de l'étudiant
-                            </span>
-                          </div>
-                          <p className="text-sm text-white whitespace-pre-wrap leading-relaxed">
-                            {q.question}
-                          </p>
-                        </div>
+              <div>
+                <label className="flex items-center gap-2 text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
+                  <User className="w-3.5 h-3.5" />
+                  Nom complet
+                </label>
+                <input
+                  type="text"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50 transition-all"
+                />
+              </div>
 
-                        {/* Réponse existante */}
-                        {q.answer && (
-                          <div className="mt-3 p-4 bg-emerald-500/5 border border-emerald-500/20 rounded-xl">
-                            <div className="flex items-center gap-2 mb-2">
-                              <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
-                              <span className="text-xs font-medium text-emerald-400 uppercase tracking-wider">
-                                Votre réponse
-                              </span>
-                            </div>
-                            <p className="text-sm text-emerald-100 whitespace-pre-wrap leading-relaxed">
-                              {q.answer}
-                            </p>
-                          </div>
-                        )}
+              <div>
+                <label className="flex items-center gap-2 text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
+                  <Phone className="w-3.5 h-3.5" />
+                  Téléphone
+                </label>
+                <input
+                  type="text"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="+225 0700000000"
+                  className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50 transition-all"
+                />
+              </div>
 
-                        {/* Zone de réponse */}
-                        {q.status !== 'ANSWERED' && (
-                          <div className="mt-4 space-y-3">
-                            <textarea
-                              rows={3}
-                              placeholder="Rédigez votre réponse..."
-                              value={answerInput[q.id] || ''}
-                              onChange={(e) =>
-                                setAnswerInput((prev) => ({
-                                  ...prev,
-                                  [q.id]: e.target.value,
-                                }))
-                              }
-                              className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm placeholder-slate-500 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/50 transition-all resize-none"
-                            />
-                            <div className="flex justify-end">
-                              <motion.button
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.98 }}
-                                onClick={() => handleRespond(q.id)}
-                                disabled={responding === q.id || !answerInput[q.id]?.trim()}
-                                className={cn(
-                                  'inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all',
-                                  answerInput[q.id]?.trim()
-                                    ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-lg shadow-amber-500/20'
-                                    : 'bg-slate-800 text-slate-500 cursor-not-allowed',
-                                  responding === q.id && 'opacity-70'
-                                )}
-                              >
-                                {responding === q.id ? (
-                                  <>
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                    Envoi...
-                                  </>
-                                ) : (
-                                  <>
-                                    <Send className="w-4 h-4" />
-                                    Répondre
-                                  </>
-                                )}
-                              </motion.button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </motion.div>
+              <div className="pt-2">
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={handleUpdateProfile}
+                  disabled={savingProfile}
+                  className={cn(
+                    'inline-flex items-center gap-2 px-5 py-2.5 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-xl transition-all shadow-lg shadow-blue-500/20',
+                    savingProfile && 'opacity-70 cursor-not-allowed'
                   )}
-                </AnimatePresence>
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </motion.div>
-      )}
+                >
+                  {savingProfile ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Sauvegarde...</>
+                  ) : (
+                    <><Save className="w-4 h-4" /> Mettre à jour le profil</>
+                  )}
+                </motion.button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {activeTab === 'security' && (
+          <motion.div
+            key="security"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden"
+          >
+            <div className="px-6 py-4 border-b border-slate-800 flex items-center gap-3">
+              <div className="p-2 bg-amber-500/10 rounded-lg">
+                <Lock className="w-4 h-4 text-amber-400" />
+              </div>
+              <div>
+                <h2 className="text-sm font-semibold text-white">Changer le mot de passe</h2>
+                <p className="text-xs text-slate-500 mt-0.5">Utilisez un mot de passe fort et unique</p>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-5">
+              <div>
+                <label className="flex items-center gap-2 text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
+                  <Key className="w-3.5 h-3.5" />
+                  Nouveau mot de passe
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full px-4 py-2.5 pr-12 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/50 transition-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                {password.length > 0 && password.length < 6 && (
+                  <p className="text-xs text-amber-400 mt-2 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    Minimum 6 caractères requis
+                  </p>
+                )}
+              </div>
+
+              {/* Indicateur de force */}
+              {password.length > 0 && (
+                <div className="space-y-1">
+                  <div className="flex gap-1">
+                    {[1, 2, 3, 4].map((level) => (
+                      <div
+                        key={level}
+                        className={cn(
+                          'h-1 flex-1 rounded-full transition-all duration-300',
+                          password.length >= 8 && level <= 4 ? 'bg-emerald-500' :
+                          password.length >= 6 && level <= 3 ? 'bg-amber-500' :
+                          password.length >= 4 && level <= 2 ? 'bg-orange-500' :
+                          password.length >= 1 && level <= 1 ? 'bg-red-500' :
+                          'bg-slate-700'
+                        )}
+                      />
+                    ))}
+                  </div>
+                  <p className={cn(
+                    'text-[10px]',
+                    password.length >= 8 ? 'text-emerald-400' :
+                    password.length >= 6 ? 'text-amber-400' :
+                    password.length >= 1 ? 'text-red-400' : 'text-slate-500'
+                  )}>
+                    {password.length >= 8 ? 'Mot de passe fort' :
+                     password.length >= 6 ? 'Mot de passe moyen' :
+                     password.length >= 1 ? 'Mot de passe faible' : ''}
+                  </p>
+                </div>
+              )}
+
+              <div className="pt-2">
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={handleChangePassword}
+                  disabled={savingPassword || password.length < 6}
+                  className={cn(
+                    'inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all',
+                    password.length >= 6
+                      ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-lg shadow-amber-500/20'
+                      : 'bg-slate-800 text-slate-500 cursor-not-allowed',
+                    savingPassword && 'opacity-70'
+                  )}
+                >
+                  {savingPassword ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Changement...</>
+                  ) : (
+                    <><Key className="w-4 h-4" /> Changer le mot de passe</>
+                  )}
+                </motion.button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }

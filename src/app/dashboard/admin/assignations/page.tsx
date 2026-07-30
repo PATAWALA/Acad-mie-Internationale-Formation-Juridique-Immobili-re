@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClientComponent } from '@/lib/supabase/client';
+import { CreateTeacherModal } from '@/components/dashboard/admin/CreateTeacherModal';
 import { cn } from '@/lib/utils';
 import { fadeIn, stagger } from '@/lib/animations';
 import {
@@ -15,6 +16,7 @@ import {
   AlertCircle,
   Link2,
   Unlink,
+  UserPlus,
 } from 'lucide-react';
 
 export default function AdminAssignationsPage() {
@@ -28,6 +30,7 @@ export default function AdminAssignationsPage() {
   const [assigning, setAssigning] = useState(false);
   const [removingId, setRemovingId] = useState<number | null>(null);
   const [error, setError] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const fetchAssignments = async () => {
     const { data, error } = await supabase
@@ -36,19 +39,23 @@ export default function AdminAssignationsPage() {
     if (data) setAssignments(data);
   };
 
+  const fetchTeachers = async () => {
+    const { data: teachs } = await supabase
+      .from('profiles')
+      .select('id, full_name, email')
+      .eq('role', 'TEACHER')
+      .order('full_name');
+    if (teachs) setTeachers(teachs);
+  };
+
   useEffect(() => {
     const loadData = async () => {
       const { data: certs } = await supabase
         .from('certificates')
         .select('id, title')
         .order('title');
-      const { data: teachs } = await supabase
-        .from('profiles')
-        .select('id, full_name, email')
-        .eq('role', 'TEACHER')
-        .order('full_name');
       if (certs) setCertificates(certs);
-      if (teachs) setTeachers(teachs);
+      await fetchTeachers();
       await fetchAssignments();
       setLoading(false);
     };
@@ -96,6 +103,12 @@ export default function AdminAssignationsPage() {
     setRemovingId(null);
   };
 
+  // Callback après création d'un enseignant : rafraîchir la liste et pré-sélectionner
+  const handleTeacherCreated = () => {
+    fetchTeachers();
+    setIsModalOpen(false);
+  };
+
   const groupedAssignments = assignments.reduce((acc: any, assignment) => {
     const certId = assignment.certificate_id;
     if (!acc[certId]) {
@@ -111,18 +124,31 @@ export default function AdminAssignationsPage() {
   return (
     <motion.div initial="initial" animate="animate" variants={stagger} className="space-y-6">
       {/* Header */}
-      <motion.div variants={fadeIn}>
-        <div className="flex items-center gap-3 mb-2">
-          <div className="p-2 bg-violet-500/10 rounded-xl">
-            <UserCheck className="w-5 h-5 text-violet-400" />
+      <motion.div variants={fadeIn} className="flex items-center justify-between">
+        <div>
+          <div className="flex items-center gap-3 mb-2">
+            <div className="p-2 bg-violet-500/10 rounded-xl">
+              <UserCheck className="w-5 h-5 text-violet-400" />
+            </div>
+            <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
+              Assignations
+            </h1>
           </div>
-          <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
-            Assignations
-          </h1>
+          <p className="text-slate-400 text-sm ml-14">
+            Assignez des enseignants aux certificats pour qu&apos;ils puissent corriger les travaux.
+          </p>
         </div>
-        <p className="text-slate-400 text-sm ml-14">
-          Assignez des enseignants aux certificats pour qu&apos;ils puissent corriger les travaux.
-        </p>
+        
+        {/* BOUTON AJOUTER UN ENSEIGNANT */}
+        <motion.button
+          whileHover={{ scale: 1.03 }}
+          whileTap={{ scale: 0.97 }}
+          onClick={() => setIsModalOpen(true)}
+          className="inline-flex items-center gap-2 px-4 py-2.5 bg-violet-500 hover:bg-violet-600 text-white text-sm font-medium rounded-xl transition-colors shadow-lg shadow-violet-500/20"
+        >
+          <UserPlus className="w-4 h-4" />
+          Ajouter un Enseignant
+        </motion.button>
       </motion.div>
 
       {/* Formulaire d'assignation */}
@@ -272,7 +298,6 @@ export default function AdminAssignationsPage() {
                 animate={{ opacity: 1, y: 0 }}
                 className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden"
               >
-                {/* En-tête du groupe */}
                 <div className="px-5 py-3 bg-slate-800/50 border-b border-slate-800 flex items-center gap-3">
                   <GraduationCap className="w-4 h-4 text-emerald-400" />
                   <h3 className="text-sm font-semibold text-white">
@@ -283,7 +308,6 @@ export default function AdminAssignationsPage() {
                   </span>
                 </div>
 
-                {/* Liste des enseignants */}
                 <div className="p-4 space-y-2">
                   {group.teachers.map((assignment: any) => (
                     <motion.div
@@ -337,6 +361,9 @@ export default function AdminAssignationsPage() {
           </div>
         )}
       </motion.div>
+
+      {/* Modal de création d'enseignant */}
+      <CreateTeacherModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
     </motion.div>
   );
 }

@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { createClientComponent } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
 import { fadeIn, stagger } from '@/lib/animations';
+import { CreateTeacherModal } from './CreateTeacherModal';
 import {
   GraduationCap,
   Users,
@@ -14,7 +15,7 @@ import {
   Filter,
   Trash2,
   AlertTriangle,
-  X,
+  UserPlus,
 } from 'lucide-react';
 
 interface Props {
@@ -28,6 +29,7 @@ export function AdminUsersList({ users }: Props) {
   const [roleFilter, setRoleFilter] = useState<'ALL' | 'STUDENT' | 'TEACHER'>('ALL');
   const [paymentFilter, setPaymentFilter] = useState<'ALL' | 'PAID' | 'PENDING'>('ALL');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const handleDelete = async (userId: string) => {
     setDeletingId(userId);
@@ -99,55 +101,68 @@ export function AdminUsersList({ users }: Props) {
         ))}
       </div>
 
-      {/* Filtres */}
-      <motion.div variants={fadeIn} className="flex flex-wrap items-center gap-2">
-        <Filter className="w-4 h-4 text-slate-500 mr-1" />
-        
-        {/* Filtres rôle */}
-        {(['ALL', 'STUDENT', 'TEACHER'] as const).map((role) => (
-          <motion.button
-            key={role}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => {
-              setRoleFilter(role);
-              if (role !== 'STUDENT') setPaymentFilter('ALL');
-            }}
-            className={cn(
-              'px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 border',
-              roleFilter === role
-                ? 'bg-blue-500/20 border-blue-500/50 text-blue-300'
-                : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white'
-            )}
-          >
-            {role === 'ALL' ? 'Tous' : role === 'STUDENT' ? 'Étudiants' : 'Enseignants'}
-          </motion.button>
-        ))}
+      {/* Filtres + Bouton Ajouter Enseignant */}
+      <motion.div variants={fadeIn} className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <Filter className="w-4 h-4 text-slate-500 mr-1" />
+          
+          {/* Filtres rôle */}
+          {(['ALL', 'STUDENT', 'TEACHER'] as const).map((role) => (
+            <motion.button
+              key={role}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => {
+                setRoleFilter(role);
+                if (role !== 'STUDENT') setPaymentFilter('ALL');
+              }}
+              className={cn(
+                'px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 border',
+                roleFilter === role
+                  ? 'bg-blue-500/20 border-blue-500/50 text-blue-300'
+                  : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white'
+              )}
+            >
+              {role === 'ALL' ? 'Tous' : role === 'STUDENT' ? 'Étudiants' : 'Enseignants'}
+            </motion.button>
+          ))}
 
-        {/* Séparateur */}
-        <div className="w-px h-5 bg-slate-700 mx-2" />
+          {/* Séparateur */}
+          <div className="w-px h-5 bg-slate-700 mx-2" />
 
-        {/* Filtres paiement */}
-        {(['ALL', 'PAID', 'PENDING'] as const).map((status) => (
-          <motion.button
-            key={status}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setPaymentFilter(status)}
-            className={cn(
-              'px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 border',
-              paymentFilter === status
-                ? status === 'PAID'
-                  ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300'
-                  : status === 'PENDING'
-                  ? 'bg-amber-500/20 border-amber-500/50 text-amber-300'
-                  : 'bg-slate-700 border-slate-600 text-white'
-                : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white'
-            )}
-          >
-            {status === 'ALL' ? 'Tous statuts' : status === 'PAID' ? 'Payés' : 'En attente'}
-          </motion.button>
-        ))}
+          {/* Filtres paiement */}
+          {(['ALL', 'PAID', 'PENDING'] as const).map((status) => (
+            <motion.button
+              key={status}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setPaymentFilter(status)}
+              className={cn(
+                'px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 border',
+                paymentFilter === status
+                  ? status === 'PAID'
+                    ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300'
+                    : status === 'PENDING'
+                    ? 'bg-amber-500/20 border-amber-500/50 text-amber-300'
+                    : 'bg-slate-700 border-slate-600 text-white'
+                  : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white'
+              )}
+            >
+              {status === 'ALL' ? 'Tous statuts' : status === 'PAID' ? 'Payés' : 'En attente'}
+            </motion.button>
+          ))}
+        </div>
+
+        {/* BOUTON AJOUTER UN ENSEIGNANT */}
+        <motion.button
+          whileHover={{ scale: 1.03 }}
+          whileTap={{ scale: 0.97 }}
+          onClick={() => setIsModalOpen(true)}
+          className="inline-flex items-center gap-2 px-4 py-2.5 bg-violet-500 hover:bg-violet-600 text-white text-sm font-medium rounded-xl transition-colors shadow-lg shadow-violet-500/20"
+        >
+          <UserPlus className="w-4 h-4" />
+          Ajouter un Enseignant
+        </motion.button>
       </motion.div>
 
       {/* Tableau */}
@@ -320,6 +335,9 @@ export function AdminUsersList({ users }: Props) {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Modal de création d'enseignant */}
+      <CreateTeacherModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
     </motion.div>
   );
 }

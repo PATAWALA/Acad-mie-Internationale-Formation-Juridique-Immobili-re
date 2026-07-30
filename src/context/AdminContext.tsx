@@ -6,6 +6,8 @@ import { createClientComponent } from '@/lib/supabase/client';
 interface AdminContextType {
   users: any[];
   loading: boolean;
+  collapsed: boolean;
+  setCollapsed: (collapsed: boolean) => void;
   validatePayment: (userId: string) => Promise<void>;
   refreshUsers: () => Promise<void>;
 }
@@ -16,6 +18,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   const supabase = createClientComponent();
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [collapsed, setCollapsed] = useState(false); // ← ajouté
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -37,7 +40,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       .eq('id', userId);
 
     if (!error) {
-      await fetchUsers(); // rafraîchir la liste
+      await fetchUsers();
     } else {
       alert('Erreur : ' + error.message);
     }
@@ -48,7 +51,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AdminContext.Provider value={{ users, loading, validatePayment, refreshUsers: fetchUsers }}>
+    <AdminContext.Provider value={{ users, loading, collapsed, setCollapsed, validatePayment, refreshUsers: fetchUsers }}>
       {children}
     </AdminContext.Provider>
   );
