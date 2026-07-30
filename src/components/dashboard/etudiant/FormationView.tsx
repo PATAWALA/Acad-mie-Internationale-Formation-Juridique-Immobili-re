@@ -1,13 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { createClientComponent } from '@/lib/supabase/client';
 import { useStudent } from '@/context/StudentContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   BookOpen, Lock, AlertCircle, 
-  RefreshCw, Loader2,  CreditCard,
-  GraduationCap, ChevronRight
+  RefreshCw, Loader2, CreditCard,
+  GraduationCap, ChevronRight, Trophy,
+  CheckCircle2, Award
 } from 'lucide-react';
 import { CourseProgram } from './CourseProgram';
 import { StudentCertificates } from './StudentCertificates';
@@ -27,71 +28,112 @@ export default function FormationView({ certId, onPaymentSuccess }: FormationVie
   const [submissionsMap, setSubmissionsMap] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  
+  // Stats du certificat
+  const [certStats, setCertStats] = useState({
+    totalCourses: 0,
+    completedCourses: 0,
+    totalAssessments: 0,
+    passedCount: 0,
+    isFullyCompleted: false,
+    progressPercent: 0,
+  });
 
-  useEffect(() => {
+  const computeCertStats = useCallback((coursesData: any[], passed: string[]) => {
+    let totalCourses = coursesData.length;
+    let completedCourses = 0;
+    let totalAssessments = 0;
+    let passedCount = passed.length;
+
+    for (const course of coursesData) {
+      const courseAssessments = course.modules?.reduce((sum: number, mod: any) => {
+        return sum + (mod.assessments?.length || 0);
+      }, 0) || 0;
+      totalAssessments += courseAssessments;
+      
+      // Vérifier si tous les assessments de ce cours sont validés
+      const courseAssessmentIds = course.modules?.flatMap((mod: any) => 
+        mod.assessments?.map((ass: any) => ass.id) || []
+      ) || [];
+      const allPassed = courseAssessmentIds.length > 0 && 
+        courseAssessmentIds.every((id: string) => passed.includes(id));
+      if (allPassed) completedCourses++;
+    }
+
+    const progressPercent = totalAssessments > 0 
+      ? Math.round((passedCount / totalAssessments) * 100) 
+      : 0;
+
+    setCertStats({
+      totalCourses,
+      completedCourses,
+      totalAssessments,
+      passedCount,
+      isFullyCompleted: completedCourses === totalCourses && totalCourses > 0,
+      progressPercent,
+    });
+  }, []);
+
+  const loadData = useCallback(async () => {
     if (!profile) return;
     
-    const load = async () => {
-      setLoading(true);
-      
-      // Récupérer l'enrollment et son statut
-      const { data: enr } = await supabase
-        .from('enrollments')
-        .select('payment_status')
-        .eq('student_id', profile.id)
-        .eq('certificate_id', certId)
-        .maybeSingle();
-
-      if (!enr) {
-        setEnrollmentStatus(null);
-        setLoading(false);
-        return;
-      }
-      setEnrollmentStatus(enr.payment_status);
-
-      if (enr.payment_status === 'PAID') {
-        // Charger les cours
-        const { data: coursesData } = await supabase
-          .from('courses')
-          .select('id, title, description, modules(id, title, week_number, lessons(id, title, content_type, content_url, content_body), assessments(id, title, description, type, max_score))')
-          .eq('certificate_id', certId)
-          .order('id');
-        setCourses(coursesData || []);
-
-        // Charger les soumissions
-        const { data: subs } = await supabase
-          .from('submissions')
-          .select('assessment_id, submission_url, status, grade, feedback')
-          .eq('student_id', profile.id);
-
-        const map: Record<string, any> = {};
-        subs?.forEach((s) => { 
-          const aid = s.assessment_id ?? '';
-          if (aid) map[aid] = s; 
-        });
-        setSubmissionsMap(map);
-
-        // Déterminer les assessments validés
-        const passed = subs?.filter(s => s.status === 'PASSED' && s.assessment_id).map(s => s.assessment_id!) || [];
-        setPassedAssessments(passed);
-      }
-
-      // Certificats déjà émis
-      const { data: certs } = await supabase
-        .from('issued_certificates')
-        .select('id, certificate_url')
-        .eq('student_id', profile.id);
-      if (certs) setCertificates(certs);
-
-      setLoading(false);
-    };
+    setLoading(true);
     
-    load();
-  }, [certId, profile, supabase]);
+    const { data: enr } = await supabase
+      .from('enrollments')
+      .select('payment_status')
+      .eq('student_id', profile.id)
+      .eq('certificate_id', certId)
+      .maybeSingle();
+
+    if (!enr) {
+      setEnrollmentStatus(null);
+      setLoading(false);
+      return;
+    }
+    setEnrollmentStatus(enr.payment_status);
+
+    if (enr.payment_status === 'PAID') {
+      const { data: coursesData } = await supabase
+        .from('courses')
+        .select('id, title, description, modules(id, title, week_number, lessons(id, title, content_type, content_url, content_body), assessments(id, title, description, type, max_score))')
+        .eq('certificate_id', certId)
+        .order('id');
+      setCourses(coursesData || []);
+
+      const { data: subs } = await supabase
+        .from('submissions')
+        .select('assessment_id, submission_url, status, grade, feedback')
+        .eq('student_id', profile.id);
+
+      const map: Record<string, any> = {};
+      subs?.forEach((s) => { 
+        const aid = s.assessment_id ?? '';
+        if (aid) map[aid] = s; 
+      });
+      setSubmissionsMap(map);
+
+      const passed = subs?.filter(s => s.status === 'PASSED' && s.assessment_id).map(s => s.assessment_id!) || [];
+      setPassedAssessments(passed);
+
+      computeCertStats(coursesData || [], passed);
+    }
+
+    const { data: certs } = await supabase
+      .from('issued_certificates')
+      .select('id, certificate_url')
+      .eq('student_id', profile.id);
+    if (certs) setCertificates(certs);
+
+    setLoading(false);
+  }, [certId, profile, supabase, computeCertStats]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    // Recharger les soumissions
     if (profile) {
       const { data: subs } = await supabase
         .from('submissions')
@@ -107,11 +149,11 @@ export default function FormationView({ certId, onPaymentSuccess }: FormationVie
       
       const passed = subs?.filter(s => s.status === 'PASSED' && s.assessment_id).map(s => s.assessment_id!) || [];
       setPassedAssessments(passed);
+      computeCertStats(courses, passed);
     }
     setRefreshing(false);
   };
 
-  // Loading State
   if (loading) {
     return (
       <div className="space-y-6">
@@ -130,7 +172,6 @@ export default function FormationView({ certId, onPaymentSuccess }: FormationVie
     );
   }
 
-  // Non inscrit
   if (!enrollmentStatus) {
     return (
       <motion.div
@@ -165,6 +206,29 @@ export default function FormationView({ certId, onPaymentSuccess }: FormationVie
         )}
       </AnimatePresence>
 
+      {/* Alerte Certificat disponible */}
+      {enrollmentStatus === 'PAID' && certStats.isFullyCompleted && (
+        <motion.div
+          initial={{ opacity: 0, y: -10, scale: 0.95 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-yellow-500/10 border border-amber-500/30 p-5"
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-amber-500/10 rounded-xl">
+              <Trophy className="w-5 h-5 text-amber-400" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-amber-400">
+                🎉 Tous les cours sont validés !
+              </p>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Votre certificat sera disponible dans votre espace après validation par l'administration.
+              </p>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
       {/* Barre d'actions */}
       <motion.div
         initial={{ opacity: 0 }}
@@ -178,26 +242,38 @@ export default function FormationView({ certId, onPaymentSuccess }: FormationVie
           </h2>
           <p className="text-sm text-slate-400 mt-1">
             {enrollmentStatus === 'PAID' 
-              ? `${courses.length} cours disponibles` 
+              ? `${certStats.totalCourses} cours • ${certStats.passedCount}/${certStats.totalAssessments} évaluations validées` 
               : 'Paiement requis'}
           </p>
         </div>
 
         {enrollmentStatus === 'PAID' && (
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className="flex items-center gap-2 px-4 py-2.5 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-500/50 text-white text-sm font-medium rounded-xl transition-all shadow-lg shadow-blue-500/20"
-          >
-            {refreshing ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <RefreshCw className="w-4 h-4" />
+          <div className="flex items-center gap-3">
+            {/* Indicateur de progression */}
+            {certStats.totalAssessments > 0 && (
+              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-blue-500/10 border border-blue-500/20 rounded-full">
+                <Award className="w-4 h-4 text-blue-400" />
+                <span className="text-xs text-blue-400 font-bold">
+                  {certStats.progressPercent}%
+                </span>
+              </div>
             )}
-            Actualiser ma progression
-          </motion.button>
+            
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="flex items-center gap-2 px-4 py-2.5 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-500/50 text-white text-sm font-medium rounded-xl transition-all shadow-lg shadow-blue-500/20"
+            >
+              {refreshing ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <RefreshCw className="w-4 h-4" />
+              )}
+              Actualiser
+            </motion.button>
+          </div>
         )}
       </motion.div>
 
@@ -211,7 +287,6 @@ export default function FormationView({ certId, onPaymentSuccess }: FormationVie
             exit={{ opacity: 0, scale: 0.95 }}
             className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-500/10 to-orange-500/10 border border-amber-500/20 p-6 lg:p-8"
           >
-            {/* Glow Background */}
             <div className="absolute top-0 right-0 w-48 h-48 bg-amber-500/5 rounded-full blur-3xl" />
             
             <div className="relative z-10">

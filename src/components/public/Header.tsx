@@ -7,7 +7,7 @@ import Image from 'next/image';
 
 const navLinks = [
   { label: 'Programmes', href: '#certificates' },
-  { label: 'Bourse', href: '#bourse' },
+  { label: 'Bourse', href: '#faculty' },
   { label: 'Témoignages', href: '#testimonials' },
   { label: 'Corps enseignant', href: '#faculty' },
 ];

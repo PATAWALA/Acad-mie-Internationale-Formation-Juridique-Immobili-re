@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { createClientComponent } from '@/lib/supabase/client';
 import { useStudent } from '@/context/StudentContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, Loader2 } from 'lucide-react';
+import { Menu, Loader2, Trophy, Award } from 'lucide-react';
 import Sidebar from './Sidebar';
 import HomeView from './HomeView';
 import FormationView from './FormationView';
@@ -26,20 +26,76 @@ export default function DashboardLayout() {
   const [payLoading, setPayLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [currentTitle, setCurrentTitle] = useState('Tableau de bord');
+  
+  // Stats globales
+  const [globalStats, setGlobalStats] = useState({
+    completedCourses: 0,
+    totalCourses: 0,
+    hasCertificatAvailable: false,
+  });
 
   const refreshEnrollments = useCallback(async () => {
-  if (!profile) return;
-  const { data } = await supabase
-    .from('enrollments')
-    .select('id, certificate_id, payment_status, amount_paid, remaining_balance, certificates(title)')
-    .eq('student_id', profile.id)
-    .order('created_at', { ascending: true });
-  if (data) setEnrollments(data);
-}, [profile, supabase]);
+    if (!profile) return;
+    const { data } = await supabase
+      .from('enrollments')
+      .select('id, certificate_id, payment_status, amount_paid, remaining_balance, certificates(title)')
+      .eq('student_id', profile.id)
+      .order('created_at', { ascending: true });
+    if (data) setEnrollments(data);
+  }, [profile, supabase]);
+
+  // Calculer les stats globales
+  const computeGlobalStats = useCallback(async () => {
+    if (!profile) return;
+    const paidEnrollments = enrollments.filter(e => e.payment_status === 'PAID');
+    let totalCourses = 0;
+    let completedCourses = 0;
+
+    for (const enr of paidEnrollments) {
+      const { data: courses } = await supabase
+        .from('courses')
+        .select('id')
+        .eq('certificate_id', enr.certificate_id);
+      
+      if (courses) {
+        for (const course of courses) {
+          totalCourses++;
+          // Vérifier si tous les assessments du cours sont PASSED
+          const { data: assessments } = await supabase
+            .from('assessments')
+            .select('id')
+            .eq('course_id', course.id);
+          const assessmentIds = assessments?.map(a => a.id) ?? [];
+          
+          if (assessmentIds.length > 0) {
+            const { data: submissions } = await supabase
+              .from('submissions')
+              .select('status')
+              .eq('student_id', profile.id)
+              .in('assessment_id', assessmentIds);
+            
+            if (submissions && submissions.every(s => s.status === 'PASSED') && submissions.length === assessmentIds.length) {
+              completedCourses++;
+            }
+          }
+        }
+      }
+    }
+
+    setGlobalStats({
+      completedCourses,
+      totalCourses,
+      hasCertificatAvailable: completedCourses > 0 && completedCourses === totalCourses && totalCourses > 0,
+    });
+  }, [profile, enrollments, supabase]);
 
   useEffect(() => {
     refreshEnrollments();
   }, [refreshEnrollments]);
+
+  useEffect(() => {
+    computeGlobalStats();
+  }, [enrollments, computeGlobalStats]);
 
   const navigate = (view: View, title: string, certId?: number) => {
     setCurrentView(view);
@@ -153,12 +209,36 @@ export default function DashboardLayout() {
               </div>
             </div>
             <div className="flex items-center gap-3">
+              {/* Badge Certificat disponible */}
+              {globalStats.hasCertificatAvailable && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 border border-amber-500/30 rounded-full"
+                >
+                  <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                  <span className="text-xs text-amber-400 font-bold">Certificat disponible</span>
+                </motion.div>
+              )}
+              
+              {/* Badge cours terminés */}
+              {globalStats.totalCourses > 0 && (
+                <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-blue-500/10 border border-blue-500/20 rounded-full">
+                  <Award className="w-3.5 h-3.5 text-blue-400" />
+                  <span className="text-xs text-blue-400 font-medium">
+                    {globalStats.completedCourses}/{globalStats.totalCourses} cours
+                  </span>
+                </div>
+              )}
+              
+              {/* Badge formations actives */}
               <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-green-500/10 border border-green-500/20 rounded-full">
                 <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
                 <span className="text-xs text-green-400 font-medium">
                   {enrollments.filter(e => e.payment_status === 'PAID').length} actives
                 </span>
               </div>
+              
               <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white text-xs font-bold">
                 {profile?.full_name?.charAt(0) || 'E'}
               </div>
