@@ -45,12 +45,12 @@ export default function AdminEmissionPage() {
 
     const eligible: any[] = [];
 
-    for (const course of courses) {
+    for (const course of courses as any[]) {
       const { data: assessments } = await supabase
         .from('assessments')
         .select('id')
         .eq('course_id', course.id);
-      const assessmentIds = assessments?.map((a) => a.id) ?? [];
+      const assessmentIds = assessments?.map((a: any) => a.id) ?? [];
       if (assessmentIds.length === 0) continue;
 
       const { data: submissions } = await supabase
@@ -60,7 +60,7 @@ export default function AdminEmissionPage() {
       if (!submissions) continue;
 
       const studentMap = new Map<string, { passed: number; total: number }>();
-      for (const sub of submissions) {
+      for (const sub of submissions as any[]) {
         if (!studentMap.has(sub.student_id)) {
           studentMap.set(sub.student_id, { passed: 0, total: 0 });
         }
@@ -135,7 +135,7 @@ export default function AdminEmissionPage() {
             student_id: studentId,
             course_id: courseId,
             certificate_url: publicUrlData.publicUrl,
-          },
+          } as any,
           { onConflict: 'student_id,course_id' }
         );
       if (insertError) throw insertError;
