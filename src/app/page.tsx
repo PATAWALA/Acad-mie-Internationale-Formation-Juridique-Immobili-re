@@ -6,6 +6,7 @@ import SocialProofSection from '@/components/public/SocialProofSection';
 import FacultySection from '@/components/public/FacultySection';
 import DynamicRegistrationForm from '@/components/public/DynamicRegistrationForm';
 import StickyMobileCTA from '@/components/public/StickyMobileCTA';
+import Footer from '@/components/public/Footer';
 
 export default function HomePage() {
   return (
@@ -17,6 +18,7 @@ export default function HomePage() {
       <SocialProofSection />
       <FacultySection />
       <DynamicRegistrationForm />
+      <Footer />
       <StickyMobileCTA />
     </main>
   );

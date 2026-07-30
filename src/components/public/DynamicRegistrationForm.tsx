@@ -195,23 +195,22 @@ export default function RegistrationForm() {
     }
   };
 
-  // Progress bar percentage
   const progress = step === 1 ? 50 : 100;
 
   return (
-    <section id="registration-form" className="min-h-screen bg-[#020617] py-12 md:py-20 px-4">
+    <section id="registration-form" className="relative py-12 md:py-20 px-4">
       {/* Background Effects */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-20 right-0 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl" />
         <div className="absolute bottom-0 left-0 w-96 h-96 bg-amber-500/5 rounded-full blur-3xl" />
       </div>
 
-      <div className="max-w-2xl mx-auto relative z-10">
+      <div className="max-w-xl mx-auto relative z-10">
         {/* Header */}
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-12"
+          className="text-center mb-10"
         >
           <motion.div
             initial={{ scale: 0 }}
@@ -220,14 +219,14 @@ export default function RegistrationForm() {
             className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-sm font-medium mb-6"
           >
             <Sparkles className="w-4 h-4" />
-            <span>Bourse Mamadou TOURÉ - Jusqu'à 50% de réduction</span>
+            <span>Bourse Mamadou TOURÉ - Jusqu&apos;à 50% de réduction</span>
           </motion.div>
           
-          <h2 className="text-3xl md:text-5xl font-bold text-white mb-4">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white mb-4 font-['Playfair_Display']">
             Votre avenir commence ici
           </h2>
-          <p className="text-slate-400 text-lg max-w-xl mx-auto">
-            Rejoignez l'élite juridique. 
+          <p className="text-slate-400 text-sm sm:text-base max-w-md mx-auto">
+            Rejoignez l&apos;élite juridique. 
             <span className="text-amber-400 font-semibold"> 90% de nos certifiés</span> décrochent un emploi dans les 3 mois.
           </p>
         </motion.div>
@@ -236,23 +235,23 @@ export default function RegistrationForm() {
         <div className="mb-8">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-300 ${
+              <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-semibold transition-all duration-300 ${
                 step >= 1 ? 'bg-blue-500 text-white' : 'bg-[#1e293b] text-slate-500'
               }`}>
-                {step > 1 ? <Check className="w-4 h-4" /> : '1'}
+                {step > 1 ? <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : '1'}
               </div>
-              <span className={`text-sm font-medium ${step >= 1 ? 'text-white' : 'text-slate-600'}`}>
+              <span className={`text-xs sm:text-sm font-medium hidden sm:inline ${step >= 1 ? 'text-white' : 'text-slate-600'}`}>
                 Informations
               </span>
             </div>
-            <ChevronRight className="w-4 h-4 text-slate-700" />
+            <ChevronRight className="w-4 h-4 text-slate-700 flex-shrink-0" />
             <div className="flex items-center gap-2">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-300 ${
+              <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-semibold transition-all duration-300 ${
                 step === 2 ? 'bg-blue-500 text-white' : 'bg-[#1e293b] text-slate-500'
               }`}>
                 2
               </div>
-              <span className={`text-sm font-medium ${step === 2 ? 'text-white' : 'text-slate-600'}`}>
+              <span className={`text-xs sm:text-sm font-medium hidden sm:inline ${step === 2 ? 'text-white' : 'text-slate-600'}`}>
                 Formations
               </span>
             </div>
@@ -272,7 +271,7 @@ export default function RegistrationForm() {
           initial={{ opacity: 0, x: step === 1 ? -20 : 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.3 }}
-          className="bg-[#0f172a] border border-[#1e293b] rounded-2xl p-6 md:p-8 shadow-2xl shadow-black/20"
+          className="bg-[#0f172a] border border-[#1e293b] rounded-2xl p-5 sm:p-6 md:p-8 shadow-2xl shadow-black/20"
         >
           <form
             onSubmit={(e) => {
@@ -280,7 +279,7 @@ export default function RegistrationForm() {
               if (step === 1) setStep(2);
               else if (step === 2) handleSubmit();
             }}
-            className="space-y-5"
+            className="space-y-4 sm:space-y-5"
           >
             <AnimatePresence mode="wait">
               {/* STEP 1: Personal Info */}
@@ -290,46 +289,46 @@ export default function RegistrationForm() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  className="space-y-5"
+                  className="space-y-4 sm:space-y-5"
                 >
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
-                      <User className="w-5 h-5 text-blue-400" />
+                  <div className="flex items-center gap-3 mb-4 sm:mb-6">
+                    <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-blue-500/10 flex items-center justify-center flex-shrink-0">
+                      <User className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
                     </div>
                     <div>
-                      <h3 className="text-lg font-semibold text-white">Qui êtes-vous ?</h3>
-                      <p className="text-sm text-slate-400">Ces informations restent confidentielles</p>
+                      <h3 className="text-base sm:text-lg font-semibold text-white">Qui êtes-vous ?</h3>
+                      <p className="text-xs sm:text-sm text-slate-400">Ces informations restent confidentielles</p>
                     </div>
                   </div>
 
-                  <div className="grid sm:grid-cols-2 gap-4">
+                  <div className="grid sm:grid-cols-2 gap-3 sm:gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">Nom</label>
+                      <label className="block text-sm font-medium text-slate-300 mb-1.5">Nom</label>
                       <input
                         type="text"
                         placeholder="Koné"
                         value={formData.lastName}
                         onChange={(e) => setFormData((p) => ({ ...p, lastName: e.target.value }))}
-                        className="w-full bg-[#020617] border border-[#1e293b] rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition-all"
+                        className="w-full bg-[#020617] border border-[#1e293b] rounded-xl px-3 py-2.5 sm:px-4 sm:py-3 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition-all"
                         required
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">Prénom</label>
+                      <label className="block text-sm font-medium text-slate-300 mb-1.5">Prénom</label>
                       <input
                         type="text"
                         placeholder="Awa"
                         value={formData.firstName}
                         onChange={(e) => setFormData((p) => ({ ...p, firstName: e.target.value }))}
-                        className="w-full bg-[#020617] border border-[#1e293b] rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition-all"
+                        className="w-full bg-[#020617] border border-[#1e293b] rounded-xl px-3 py-2.5 sm:px-4 sm:py-3 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition-all"
                         required
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                      <Mail className="w-4 h-4 inline mr-1" />
+                    <label className="block text-sm font-medium text-slate-300 mb-1.5">
+                      <Mail className="w-3.5 h-3.5 sm:w-4 sm:h-4 inline mr-1" />
                       Email
                     </label>
                     <input
@@ -337,23 +336,23 @@ export default function RegistrationForm() {
                       placeholder="awa.kone@email.com"
                       value={formData.email}
                       onChange={(e) => setFormData((p) => ({ ...p, email: e.target.value }))}
-                      className="w-full bg-[#020617] border border-[#1e293b] rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition-all"
+                      className="w-full bg-[#020617] border border-[#1e293b] rounded-xl px-3 py-2.5 sm:px-4 sm:py-3 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition-all"
                       required
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Pays</label>
+                    <label className="block text-sm font-medium text-slate-300 mb-1.5">Pays</label>
                     <CountrySelect value={formData.dialCode} onChange={(dial) => setFormData((p) => ({ ...p, dialCode: dial }))} />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                      <Phone className="w-4 h-4 inline mr-1" />
+                    <label className="block text-sm font-medium text-slate-300 mb-1.5">
+                      <Phone className="w-3.5 h-3.5 sm:w-4 sm:h-4 inline mr-1" />
                       WhatsApp
                     </label>
-                    <div className="flex">
-                      <span className="bg-[#020617] border border-r-0 border-[#1e293b] rounded-l-xl px-4 py-3 text-slate-400 text-sm">
+                    <div className="flex items-stretch">
+                      <span className="inline-flex items-center bg-[#020617] border border-r-0 border-[#1e293b] rounded-l-xl px-2.5 sm:px-3 py-2.5 sm:py-3 text-slate-400 text-xs sm:text-sm whitespace-nowrap flex-shrink-0">
                         {formData.dialCode}
                       </span>
                       <input
@@ -361,15 +360,15 @@ export default function RegistrationForm() {
                         placeholder="01 02 03 04 05"
                         value={formData.whatsapp}
                         onChange={(e) => setFormData((p) => ({ ...p, whatsapp: e.target.value }))}
-                        className="flex-1 bg-[#020617] border border-[#1e293b] rounded-r-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition-all"
+                        className="flex-1 min-w-0 bg-[#020617] border border-[#1e293b] rounded-r-xl px-3 py-2.5 sm:py-3 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition-all"
                         required
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                      <Lock className="w-4 h-4 inline mr-1" />
+                    <label className="block text-sm font-medium text-slate-300 mb-1.5">
+                      <Lock className="w-3.5 h-3.5 sm:w-4 sm:h-4 inline mr-1" />
                       Mot de passe
                     </label>
                     <div className="relative">
@@ -378,7 +377,7 @@ export default function RegistrationForm() {
                         placeholder="Minimum 6 caractères"
                         value={formData.password}
                         onChange={(e) => setFormData((p) => ({ ...p, password: e.target.value }))}
-                        className="w-full bg-[#020617] border border-[#1e293b] rounded-xl px-4 py-3 pr-12 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition-all"
+                        className="w-full bg-[#020617] border border-[#1e293b] rounded-xl px-3 py-2.5 sm:px-4 sm:py-3 pr-10 sm:pr-12 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition-all"
                         required
                         minLength={6}
                       />
@@ -387,19 +386,19 @@ export default function RegistrationForm() {
                         onClick={() => setShowPassword(!showPassword)}
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
                       >
-                        {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                        {showPassword ? <EyeOff className="w-4 h-4 sm:w-5 sm:h-5" /> : <Eye className="w-4 h-4 sm:w-5 sm:h-5" />}
                       </button>
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Confirmer le mot de passe</label>
+                    <label className="block text-sm font-medium text-slate-300 mb-1.5">Confirmer le mot de passe</label>
                     <input
                       type="password"
                       placeholder="Répétez le mot de passe"
                       value={formData.confirmPassword}
                       onChange={(e) => setFormData((p) => ({ ...p, confirmPassword: e.target.value }))}
-                      className="w-full bg-[#020617] border border-[#1e293b] rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition-all"
+                      className="w-full bg-[#020617] border border-[#1e293b] rounded-xl px-3 py-2.5 sm:px-4 sm:py-3 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition-all"
                       required
                     />
                   </div>
@@ -408,10 +407,10 @@ export default function RegistrationForm() {
                     type="submit"
                     whileHover={{ scale: 1.01 }}
                     whileTap={{ scale: 0.99 }}
-                    className="w-full py-3.5 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20"
+                    className="w-full py-3 sm:py-3.5 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-xl transition-all flex items-center justify-center gap-2 text-sm sm:text-base shadow-lg shadow-blue-500/20"
                   >
                     <span>Continuer</span>
-                    <ArrowRight className="w-5 h-5" />
+                    <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
                   </motion.button>
                 </motion.div>
               )}
@@ -423,29 +422,29 @@ export default function RegistrationForm() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  className="space-y-5"
+                  className="space-y-4 sm:space-y-5"
                 >
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center">
-                      <GraduationCap className="w-5 h-5 text-amber-400" />
+                  <div className="flex items-center gap-3 mb-4 sm:mb-6">
+                    <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-amber-500/10 flex items-center justify-center flex-shrink-0">
+                      <GraduationCap className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400" />
                     </div>
                     <div>
-                      <h3 className="text-lg font-semibold text-white">Choisissez vos certifications</h3>
-                      <p className="text-sm text-slate-400">Sélectionnez une ou plusieurs formations</p>
+                      <h3 className="text-base sm:text-lg font-semibold text-white">Choisissez vos certifications</h3>
+                      <p className="text-xs sm:text-sm text-slate-400">Sélectionnez une ou plusieurs formations</p>
                     </div>
                   </div>
 
                   {certsLoading ? (
-                    <div className="space-y-3">
+                    <div className="space-y-2 sm:space-y-3">
                       {[1, 2, 3].map((i) => (
-                        <div key={i} className="animate-pulse bg-[#020617] rounded-xl p-4 border border-[#1e293b]">
+                        <div key={i} className="animate-pulse bg-[#020617] rounded-xl p-3 sm:p-4 border border-[#1e293b]">
                           <div className="h-4 bg-slate-700 rounded w-3/4 mb-2" />
                           <div className="h-3 bg-slate-700 rounded w-1/2" />
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <div className="space-y-3 max-h-80 overflow-y-auto custom-scrollbar">
+                    <div className="space-y-2 sm:space-y-3 max-h-64 sm:max-h-80 overflow-y-auto custom-scrollbar">
                       {certificates.map((cert) => {
                         const discount = cert.price_normal > 0
                           ? Math.round(((cert.price_normal - cert.price_bourse) / cert.price_normal) * 100)
@@ -457,16 +456,16 @@ export default function RegistrationForm() {
                             key={cert.id}
                             whileHover={{ scale: 1.01 }}
                             whileTap={{ scale: 0.99 }}
-                            className={`flex items-center gap-4 p-4 rounded-xl border cursor-pointer transition-all ${
+                            className={`flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl border cursor-pointer transition-all ${
                               isSelected
                                 ? 'border-amber-500/50 bg-amber-500/5 shadow-lg shadow-amber-500/5'
                                 : 'border-[#1e293b] hover:border-amber-500/20 bg-[#020617]'
                             }`}
                           >
-                            <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all ${
+                            <div className={`w-4 h-4 sm:w-5 sm:h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all ${
                               isSelected ? 'bg-amber-500 border-amber-500' : 'border-slate-600'
                             }`}>
-                              {isSelected && <Check className="w-3 h-3 text-white" />}
+                              {isSelected && <Check className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white" />}
                             </div>
                             <input
                               type="checkbox"
@@ -475,7 +474,7 @@ export default function RegistrationForm() {
                               className="hidden"
                             />
                             <div className="flex-1 min-w-0">
-                              <p className="text-white text-sm font-medium truncate">{cert.title}</p>
+                              <p className="text-white text-xs sm:text-sm font-medium truncate">{cert.title}</p>
                               <p className="text-xs text-slate-500">
                                 {cert.price_bourse?.toLocaleString()} FCFA{' '}
                                 <span className="line-through text-slate-600">
@@ -484,7 +483,7 @@ export default function RegistrationForm() {
                               </p>
                             </div>
                             {discount > 0 && (
-                              <div className="px-2 py-1 rounded-full bg-green-500/10 border border-green-500/20">
+                              <div className="px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full bg-green-500/10 border border-green-500/20 flex-shrink-0">
                                 <span className="text-green-400 text-xs font-bold">-{discount}%</span>
                               </div>
                             )}
@@ -499,22 +498,22 @@ export default function RegistrationForm() {
                     <motion.div
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="bg-[#020617] border border-[#1e293b] rounded-xl p-4 space-y-3"
+                      className="bg-[#020617] border border-[#1e293b] rounded-xl p-3 sm:p-4 space-y-2 sm:space-y-3"
                     >
-                      <div className="flex justify-between text-sm">
+                      <div className="flex justify-between text-xs sm:text-sm">
                         <span className="text-slate-400">Prix normal</span>
                         <span className="text-slate-500 line-through">{totalNormal.toLocaleString()} FCFA</span>
                       </div>
-                      <div className="flex justify-between text-sm">
+                      <div className="flex justify-between text-xs sm:text-sm">
                         <span className="text-slate-400">Prix Bourse</span>
                         <span className="text-amber-400 font-bold">{totalBourse.toLocaleString()} FCFA</span>
                       </div>
-                      <div className="border-t border-[#1e293b] pt-3 flex justify-between items-center">
-                        <div className="flex items-center gap-2">
-                          <TrendingUp className="w-4 h-4 text-green-400" />
-                          <span className="text-sm text-slate-400">Votre économie</span>
+                      <div className="border-t border-[#1e293b] pt-2 sm:pt-3 flex justify-between items-center">
+                        <div className="flex items-center gap-1.5 sm:gap-2">
+                          <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-400" />
+                          <span className="text-xs sm:text-sm text-slate-400">Votre économie</span>
                         </div>
-                        <span className="text-green-400 font-bold">
+                        <span className="text-green-400 font-bold text-xs sm:text-sm">
                           -{savings.toLocaleString()} FCFA ({savingsPercent}%)
                         </span>
                       </div>
@@ -528,42 +527,44 @@ export default function RegistrationForm() {
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: 'auto' }}
                         exit={{ opacity: 0, height: 0 }}
-                        className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm flex items-start gap-2"
+                        className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-xs sm:text-sm flex items-start gap-2"
                       >
-                        <Shield className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                        <Shield className="w-3.5 h-3.5 sm:w-4 sm:h-4 mt-0.5 flex-shrink-0" />
                         <span>{error}</span>
                       </motion.div>
                     )}
                   </AnimatePresence>
 
                   {/* Buttons */}
-                  <div className="flex gap-3">
+                  <div className="flex gap-2 sm:gap-3">
                     <motion.button
                       type="button"
                       onClick={() => setStep(1)}
                       whileHover={{ scale: 1.01 }}
                       whileTap={{ scale: 0.99 }}
-                      className="flex-1 py-3.5 border border-[#1e293b] text-slate-400 hover:text-white hover:border-slate-600 rounded-xl transition-all flex items-center justify-center gap-2"
+                      className="flex-1 py-2.5 sm:py-3.5 border border-[#1e293b] text-slate-400 hover:text-white hover:border-slate-600 rounded-xl transition-all flex items-center justify-center gap-1.5 sm:gap-2 text-sm"
                     >
-                      <ArrowLeft className="w-4 h-4" />
-                      <span>Retour</span>
+                      <ArrowLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                      <span className="hidden sm:inline">Retour</span>
                     </motion.button>
                     <motion.button
                       type="submit"
                       disabled={submitting || formData.selectedCerts.length === 0}
                       whileHover={{ scale: submitting ? 1 : 1.01 }}
                       whileTap={{ scale: submitting ? 1 : 0.99 }}
-                      className="flex-[2] py-3.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 disabled:from-amber-500/50 disabled:to-amber-500/50 text-white font-semibold rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20"
+                      className="flex-[2] py-2.5 sm:py-3.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 disabled:from-amber-500/50 disabled:to-amber-500/50 text-white font-semibold rounded-xl transition-all flex items-center justify-center gap-1.5 sm:gap-2 text-sm sm:text-base shadow-lg shadow-amber-500/20"
                     >
                       {submitting ? (
                         <>
-                          <Loader2 className="w-5 h-5 animate-spin" />
-                          <span>Inscription en cours...</span>
+                          <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
+                          <span className="hidden sm:inline">Inscription en cours...</span>
+                          <span className="sm:hidden">Patientez...</span>
                         </>
                       ) : (
                         <>
-                          <CreditCard className="w-5 h-5" />
-                          <span>Valider mon inscription</span>
+                          <CreditCard className="w-4 h-4 sm:w-5 sm:h-5" />
+                          <span className="hidden sm:inline">Valider mon inscription</span>
+                          <span className="sm:hidden">Valider</span>
                         </>
                       )}
                     </motion.button>
@@ -579,7 +580,7 @@ export default function RegistrationForm() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.3 }}
-          className="text-center text-sm text-slate-500 mt-8"
+          className="text-center text-xs sm:text-sm text-slate-500 mt-6 sm:mt-8 pb-20 lg:pb-0"
         >
           Déjà inscrit ?{' '}
           <Link href="/login" className="text-blue-400 hover:text-blue-300 font-medium transition-colors">
@@ -591,7 +592,7 @@ export default function RegistrationForm() {
       {/* Custom Scrollbar Styles */}
       <style jsx>{`
         .custom-scrollbar::-webkit-scrollbar {
-          width: 6px;
+          width: 4px;
         }
         .custom-scrollbar::-webkit-scrollbar-track {
           background: #020617;
