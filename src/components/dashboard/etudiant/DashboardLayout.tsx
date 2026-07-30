@@ -4,16 +4,17 @@ import { useState, useEffect, useCallback } from 'react';
 import { createClientComponent } from '@/lib/supabase/client';
 import { useStudent } from '@/context/StudentContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, Loader2 } from 'lucide-react';
+import { Menu, Loader2 } from 'lucide-react';
 import Sidebar from './Sidebar';
 import HomeView from './HomeView';
 import FormationView from './FormationView';
 import CatalogueView from './CatalogueView';
+import MesFormationsView from './MesFormationsView'; // ← NOUVEAU
 import ProfilView from './ProfilView';
 import SupportView from './SupportForm';
 import PaymentModal from './PaymentModal';
 
-type View = 'home' | 'formation' | 'catalogue' | 'profil' | 'support';
+type View = 'home' | 'formation' | 'catalogue' | 'mesformations' | 'pending' | 'profil' | 'support';
 
 export default function DashboardLayout() {
   const { profile, loading } = useStudent();
@@ -69,10 +70,9 @@ export default function DashboardLayout() {
     setPayLoading(false);
   };
 
-  // Loading State
   if (loading || !profile) {
     return (
-      <div className="min-h-screen bg-[#020617] flex items-center justify-center">
+      <div className="h-screen bg-[#020617] flex items-center justify-center">
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -84,48 +84,26 @@ export default function DashboardLayout() {
           >
             <Loader2 className="w-10 h-10 text-blue-400" />
           </motion.div>
-          <p className="text-slate-400 text-sm font-medium">Préparation de votre espace...</p>
-          <div className="flex gap-1">
-            {[0, 1, 2].map((i) => (
-              <motion.div
-                key={i}
-                className="w-2 h-2 bg-blue-500 rounded-full"
-                animate={{ y: [0, -8, 0] }}
-                transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.15 }}
-              />
-            ))}
-          </div>
+          <p className="text-slate-400 text-sm">Chargement...</p>
         </motion.div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#020617] flex">
-      {/* Mobile Menu Button */}
-      <motion.button
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        onClick={() => setSidebarOpen(!sidebarOpen)}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2.5 bg-[#0f172a] border border-[#1e293b] rounded-xl text-white hover:border-blue-500/50 transition-all shadow-lg"
-      >
-        {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-      </motion.button>
-
-      {/* Sidebar */}
-      <div className={`
-        fixed lg:static inset-y-0 left-0 z-40 transform transition-transform duration-300 ease-in-out
-        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-        lg:translate-x-0 lg:flex
-      `}>
+    <div className="h-screen bg-[#020617] flex overflow-hidden">
+      {/* ===== SIDEBAR DESKTOP ===== */}
+      <div className="hidden lg:block flex-shrink-0">
         <Sidebar
           enrollments={enrollments}
           selectedCertId={selectedCertId}
           onSelectFormation={(certId) => navigate('formation', 'Formation', certId)}
-          onAddFormation={() => navigate('catalogue', 'Catalogue')}
+          onAddFormation={() => navigate('catalogue', 'Catalogue des formations')}
           onGoHome={() => navigate('home', 'Tableau de bord')}
+          onGoMesFormations={() => navigate('mesformations', 'Mes formations')}
+          onGoPending={() => navigate('pending', 'Formations en attente')}
           onGoProfil={() => navigate('profil', 'Mon Profil')}
-          onGoSupport={() => navigate('support', 'Support')}
+          onGoSupport={() => navigate('support', 'Aide & Support')}
           onPayClick={(enrollmentId, amount) => setPaymentModal({ enrollmentId, amount })}
           onLogout={async () => {
             await supabase.auth.signOut();
@@ -134,73 +112,126 @@ export default function DashboardLayout() {
         />
       </div>
 
-      {/* Mobile Overlay */}
+      {/* ===== SIDEBAR MOBILE ===== */}
       <AnimatePresence>
         {sidebarOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="lg:hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-30"
-            onClick={() => setSidebarOpen(false)}
-          />
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSidebarOpen(false)}
+              className="lg:hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
+            />
+            <motion.div
+              initial={{ x: -280 }}
+              animate={{ x: 0 }}
+              exit={{ x: -280 }}
+              transition={{ type: "spring", damping: 25 }}
+              className="lg:hidden fixed left-0 top-0 bottom-0 z-50"
+            >
+              <Sidebar
+                enrollments={enrollments}
+                selectedCertId={selectedCertId}
+                onSelectFormation={(certId) => navigate('formation', 'Formation', certId)}
+                onAddFormation={() => navigate('catalogue', 'Catalogue des formations')}
+                onGoHome={() => navigate('home', 'Tableau de bord')}
+                onGoMesFormations={() => navigate('mesformations', 'Mes formations')}
+                onGoPending={() => navigate('pending', 'Formations en attente')}
+                onGoProfil={() => navigate('profil', 'Mon Profil')}
+                onGoSupport={() => navigate('support', 'Aide & Support')}
+                onPayClick={(enrollmentId, amount) => setPaymentModal({ enrollmentId, amount })}
+                onLogout={async () => {
+                  await supabase.auth.signOut();
+                  window.location.href = '/login';
+                }}
+              />
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
 
-      {/* Main Content */}
-      <main className="flex-1 min-h-screen overflow-y-auto">
-        {/* Top Bar */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="sticky top-0 z-20 bg-[#020617]/80 backdrop-blur-xl border-b border-[#1e293b] px-4 lg:px-8 py-4"
-        >
-          <div className="flex items-center justify-between">
-            <div className="ml-12 lg:ml-0">
-              <h1 className="text-xl font-bold text-white">{currentTitle}</h1>
-              <p className="text-sm text-slate-400 mt-0.5">
-                {profile.full_name || profile.email}
-              </p>
+      {/* ===== ZONE PRINCIPALE ===== */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* HEADER FIXE */}
+        <header className="flex-shrink-0 bg-[#020617]/95 backdrop-blur-xl border-b border-[#1e293b]">
+          <div className="flex items-center justify-between px-4 lg:px-8 py-4">
+            <div className="flex items-center gap-3">
+              <motion.button
+                whileTap={{ scale: 0.9 }}
+                onClick={() => setSidebarOpen(true)}
+                className="lg:hidden p-2 -ml-2 hover:bg-[#1e293b] rounded-xl"
+              >
+                <Menu className="w-5 h-5 text-white" />
+              </motion.button>
+              <div>
+                <h1 className="text-lg lg:text-xl font-bold text-white">{currentTitle}</h1>
+                <p className="text-xs text-slate-400 hidden sm:block">{profile.full_name || profile.email}</p>
+              </div>
             </div>
             <div className="flex items-center gap-3">
               <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-green-500/10 border border-green-500/20 rounded-full">
                 <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
                 <span className="text-xs text-green-400 font-medium">
-                  {enrollments.filter(e => e.payment_status === 'PAID').length} formations actives
+                  {enrollments.filter(e => e.payment_status === 'PAID').length} actives
                 </span>
+              </div>
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white text-xs font-bold">
+                {profile?.full_name?.charAt(0) || 'E'}
               </div>
             </div>
           </div>
-        </motion.div>
+        </header>
 
-        {/* Page Content */}
-        <div className="p-4 lg:p-8">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={currentView + (selectedCertId || '')}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
-            >
-              {currentView === 'home' && <HomeView enrollments={enrollments} profile={profile} />}
-              {currentView === 'formation' && selectedCertId && (
-                <FormationView certId={selectedCertId} onPaymentSuccess={refreshEnrollments} />
-              )}
-              {currentView === 'catalogue' && (
-                <CatalogueView
-                  profile={profile}
-                  enrollments={enrollments}
-                  onNavigateFormation={(certId) => navigate('formation', 'Formation', certId)}
-                  onRefresh={refreshEnrollments}
-                />
-              )}
-              {currentView === 'profil' && <ProfilView />}
-              {currentView === 'support' && <SupportView />}
-            </motion.div>
-          </AnimatePresence>
-        </div>
-      </main>
+        {/* CONTENU SCROLLABLE */}
+        <main className="flex-1 overflow-y-auto">
+          <div className="p-4 lg:p-8">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={currentView + (selectedCertId || '')}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.2 }}
+              >
+                {currentView === 'home' && <HomeView enrollments={enrollments} profile={profile} />}
+                
+                {/* NOUVELLE VUE : Mes Formations */}
+                {currentView === 'mesformations' && (
+                  <MesFormationsView
+                    enrollments={enrollments}
+                    onSelectFormation={(certId) => navigate('formation', 'Formation', certId)}
+                    onPayClick={(enrollmentId, amount) => setPaymentModal({ enrollmentId, amount })}
+                  />
+                )}
+                
+                {/* NOUVELLE VUE : Formations en attente */}
+                {currentView === 'pending' && (
+                  <MesFormationsView
+                    enrollments={enrollments.filter(e => e.payment_status !== 'PAID')}
+                    onSelectFormation={(certId) => navigate('formation', 'Formation', certId)}
+                    onPayClick={(enrollmentId, amount) => setPaymentModal({ enrollmentId, amount })}
+                  />
+                )}
+                
+                {currentView === 'formation' && selectedCertId && (
+                  <FormationView certId={selectedCertId} onPaymentSuccess={refreshEnrollments} />
+                )}
+                {currentView === 'catalogue' && (
+                  <CatalogueView
+                    profile={profile}
+                    enrollments={enrollments}
+                    onNavigateFormation={(certId) => navigate('formation', 'Formation', certId)}
+                    onRefresh={refreshEnrollments}
+                  />
+                )}
+                {currentView === 'profil' && <ProfilView />}
+                {currentView === 'support' && <SupportView />}
+              </motion.div>
+            </AnimatePresence>
+          </div>
+        </main>
+      </div>
 
       {/* Payment Modal */}
       <AnimatePresence>
