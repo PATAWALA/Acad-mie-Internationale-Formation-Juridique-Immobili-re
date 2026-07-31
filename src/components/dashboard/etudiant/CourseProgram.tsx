@@ -7,7 +7,9 @@ import {
   Lock, Unlock, CheckCircle2, AlertCircle, 
   Clock, FileText, Video, Link as LinkIcon, 
   Send, ChevronDown, ChevronRight, Award,
-  BookOpen, Loader2, Trophy, Star, PenTool
+  BookOpen, Loader2, Trophy, Star, PenTool,
+  Calendar, Play, Target, Users, Download,
+  Shield, Zap
 } from 'lucide-react';
 import { SubmissionModal } from './SubmissionModal';
 import ContentViewer from './ContentViewer';
@@ -18,9 +20,16 @@ interface CourseProgramProps {
   userStatus: string;
   passedAssessments: string[];
   submissionsMap: Record<string, any>;
+  certificateInfo?: {
+    slogan?: string;
+    skills?: string;
+    targetAudience?: string;
+    benefits?: string;
+    brochureUrl?: string;
+  } | null;
 }
 
-export function CourseProgram({ courses, userStatus, passedAssessments, submissionsMap }: CourseProgramProps) {
+export function CourseProgram({ courses, userStatus, passedAssessments, submissionsMap, certificateInfo }: CourseProgramProps) {
   const isPaid = userStatus?.trim().toUpperCase() === 'PAID';
   const [selectedAssessment, setSelectedAssessment] = useState<{ id: string; title: string } | null>(null);
   const [expandedCourses, setExpandedCourses] = useState<Record<string, boolean>>({});
@@ -34,7 +43,6 @@ export function CourseProgram({ courses, userStatus, passedAssessments, submissi
     setExpandedModules(prev => ({ ...prev, [moduleId]: !prev[moduleId] }));
   };
 
-  // Déterminer si une leçon est théorique ou pratique selon son titre
   const getLessonType = (lesson: any, index: number) => {
     const title = (lesson.title || '').toLowerCase();
     if (title.includes('théorie') || title.includes('theorie') || index === 0) return 'theorie';
@@ -73,6 +81,33 @@ export function CourseProgram({ courses, userStatus, passedAssessments, submissi
 
   return (
     <div className="space-y-6">
+      {/* 4 icônes clés */}
+      {isPaid && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="grid grid-cols-2 md:grid-cols-4 gap-3"
+        >
+          {[
+            { icon: Calendar, label: '4 semaines', color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20' },
+            { icon: Play, label: '8 séances', color: 'text-green-400', bg: 'bg-green-500/10', border: 'border-green-500/20' },
+            { icon: Target, label: '4 étapes', color: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/20' },
+            { icon: Shield, label: '100% pratique', color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20' },
+          ].map((item, index) => (
+            <motion.div
+              key={index}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: index * 0.1 }}
+              className={`flex flex-col items-center gap-2 p-4 rounded-2xl border ${item.border} ${item.bg} text-center`}
+            >
+              <item.icon className={`w-6 h-6 ${item.color}`} />
+              <span className={`text-sm font-bold ${item.color}`}>{item.label}</span>
+            </motion.div>
+          ))}
+        </motion.div>
+      )}
+
       {/* Certificat disponible */}
       {isPaid && allCoursesCompleted && (
         <motion.div
@@ -88,7 +123,7 @@ export function CourseProgram({ courses, userStatus, passedAssessments, submissi
             <div>
               <h3 className="text-lg font-bold text-amber-400 mb-1">🎉 Félicitations !</h3>
               <p className="text-sm text-slate-300 mb-3">
-                Vous avez terminé tous les cours de cette formation. Votre certificat est en cours de génération.
+                Vous avez terminé tous les cours. Votre certificat est en cours de génération.
               </p>
               <div className="flex items-center gap-2 text-xs text-amber-400/80">
                 <Star className="w-4 h-4" />
@@ -96,34 +131,6 @@ export function CourseProgram({ courses, userStatus, passedAssessments, submissi
               </div>
             </div>
           </div>
-        </motion.div>
-      )}
-
-      {/* Barre de progression globale */}
-      {isPaid && courses.length > 1 && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-[#0f172a] border border-[#1e293b] rounded-2xl p-4 lg:p-5"
-        >
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <Award className="w-5 h-5 text-blue-400" />
-              <span className="text-sm font-medium text-white">Progression Globale</span>
-            </div>
-            <span className="text-sm font-bold text-blue-400">{globalPercent}%</span>
-          </div>
-          <div className="h-2 bg-[#1e293b] rounded-full overflow-hidden">
-            <motion.div
-              initial={{ width: 0 }}
-              animate={{ width: `${globalPercent}%` }}
-              transition={{ duration: 1, ease: "easeOut" }}
-              className="h-full bg-gradient-to-r from-blue-500 to-blue-400 rounded-full"
-            />
-          </div>
-          <p className="text-xs text-slate-500 mt-2">
-            {totalPassed}/{totalAssessments} évaluations validées
-          </p>
         </motion.div>
       )}
 
@@ -141,14 +148,10 @@ export function CourseProgram({ courses, userStatus, passedAssessments, submissi
             <div>
               <h3 className="text-base font-bold text-amber-400 mb-2">Contenu Verrouillé</h3>
               <p className="text-sm text-slate-300 mb-4">
-                Finalisez votre paiement pour accéder à tous les modules, vidéos, PDF et évaluations.
+                Finalisez votre paiement pour accéder à tous les modules.
               </p>
-              <Link
-                href="/checkout"
-                className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold rounded-xl transition-colors"
-              >
-                Débloquer l'accès maintenant
-                <ChevronRight className="w-4 h-4" />
+              <Link href="/checkout" className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold rounded-xl transition-colors">
+                Débloquer l'accès maintenant <ChevronRight className="w-4 h-4" />
               </Link>
             </div>
           </div>
@@ -169,17 +172,10 @@ export function CourseProgram({ courses, userStatus, passedAssessments, submissi
               transition={{ delay: courseIndex * 0.1 }}
               className="bg-[#0f172a] border border-[#1e293b] rounded-2xl overflow-hidden"
             >
-              <button
-                onClick={() => toggleCourse(course.id)}
-                className="w-full flex items-center justify-between p-5 lg:p-6 hover:bg-[#1e293b]/50 transition-colors"
-              >
+              <button onClick={() => toggleCourse(course.id)} className="w-full flex items-center justify-between p-5 lg:p-6 hover:bg-[#1e293b]/50 transition-colors">
                 <div className="flex items-center gap-4 flex-1 min-w-0">
                   <div className={`p-2.5 rounded-xl flex-shrink-0 ${courseProgress.isCompleted ? 'bg-green-500/10' : 'bg-blue-500/10'}`}>
-                    {courseProgress.isCompleted ? (
-                      <Trophy className="w-5 h-5 text-green-400" />
-                    ) : (
-                      <BookOpen className="w-5 h-5 text-blue-400" />
-                    )}
+                    {courseProgress.isCompleted ? <Trophy className="w-5 h-5 text-green-400" /> : <BookOpen className="w-5 h-5 text-blue-400" />}
                   </div>
                   <div className="text-left flex-1 min-w-0">
                     <div className="flex items-center gap-2">
@@ -193,31 +189,21 @@ export function CourseProgram({ courses, userStatus, passedAssessments, submissi
                     {courseProgress.total > 0 && (
                       <div className="mt-2 flex items-center gap-2">
                         <div className="flex-1 h-1.5 bg-[#1e293b] rounded-full overflow-hidden max-w-[200px]">
-                          <motion.div
-                            initial={{ width: 0 }}
-                            animate={{ width: `${courseProgress.percent}%` }}
-                            className={`h-full rounded-full ${courseProgress.isCompleted ? 'bg-green-500' : 'bg-blue-500'}`}
-                          />
+                          <motion.div initial={{ width: 0 }} animate={{ width: `${courseProgress.percent}%` }}
+                            className={`h-full rounded-full ${courseProgress.isCompleted ? 'bg-green-500' : 'bg-blue-500'}`} />
                         </div>
                         <span className={`text-xs font-medium ${courseProgress.isCompleted ? 'text-green-400' : 'text-blue-400'}`}>{courseProgress.percent}%</span>
                       </div>
                     )}
                   </div>
                 </div>
-                <motion.div animate={{ rotate: isCourseExpanded ? 180 : 0 }} transition={{ duration: 0.2 }}>
-                  <ChevronDown className="w-5 h-5 text-slate-400" />
-                </motion.div>
+                <motion.div animate={{ rotate: isCourseExpanded ? 180 : 0 }}><ChevronDown className="w-5 h-5 text-slate-400" /></motion.div>
               </button>
 
               <AnimatePresence>
                 {isCourseExpanded && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.3 }}
-                    className="border-t border-[#1e293b]"
-                  >
+                  <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+                    className="border-t border-[#1e293b]">
                     <div className="p-5 lg:p-6 space-y-3">
                       {course.modules?.map((mod: any, index: number, arr: any[]) => {
                         const isFirstModule = index === 0;
@@ -225,20 +211,12 @@ export function CourseProgram({ courses, userStatus, passedAssessments, submissi
                         const prevAssessmentId = prevModule?.assessments?.[0]?.id;
                         const isUnlocked = isFirstModule || (prevAssessmentId && passedAssessments.includes(prevAssessmentId));
                         const isModuleExpanded = expandedModules[mod.id] ?? isUnlocked;
-
-                        // Vérifier si ce module a un TP validé
                         const moduleAssessmentId = mod.assessments?.[0]?.id;
                         const isModulePassed = moduleAssessmentId && passedAssessments.includes(moduleAssessmentId);
 
                         return (
-                          <div
-                            key={mod.id}
-                            className={`rounded-xl border transition-all ${isUnlocked ? 'bg-[#020617] border-[#1e293b]' : 'bg-[#020617]/50 border-[#1e293b]/50 opacity-75'}`}
-                          >
-                            <button
-                              onClick={() => isUnlocked && toggleModule(mod.id)}
-                              className="w-full flex items-center justify-between p-4"
-                            >
+                          <div key={mod.id} className={`rounded-xl border transition-all ${isUnlocked ? 'bg-[#020617] border-[#1e293b]' : 'bg-[#020617]/50 border-[#1e293b]/50 opacity-75'}`}>
+                            <button onClick={() => isUnlocked && toggleModule(mod.id)} className="w-full flex items-center justify-between p-4">
                               <div className="flex items-center gap-3">
                                 <div className={`p-1.5 rounded-lg ${isUnlocked ? 'bg-blue-500/10' : 'bg-slate-700/50'}`}>
                                   {isUnlocked ? <Unlock className="w-4 h-4 text-blue-400" /> : <Lock className="w-4 h-4 text-slate-500" />}
@@ -252,140 +230,58 @@ export function CourseProgram({ courses, userStatus, passedAssessments, submissi
                                       </span>
                                     )}
                                   </div>
-                                  <div className="flex items-center gap-3 mt-1">
-                                    <span className="text-xs text-slate-500 flex items-center gap-1">
-                                      <FileText className="w-3 h-3" />
-                                      {mod.lessons?.length || 0} leçons
-                                    </span>
-                                    {mod.assessments?.length > 0 && (
-                                      <span className="text-xs text-slate-500 flex items-center gap-1">
-                                        <Award className="w-3 h-3" />
-                                        {mod.assessments.length} évaluation
-                                      </span>
-                                    )}
-                                  </div>
                                 </div>
                               </div>
-                              {isUnlocked && (
-                                <motion.div animate={{ rotate: isModuleExpanded ? 180 : 0 }} transition={{ duration: 0.2 }}>
-                                  <ChevronDown className="w-4 h-4 text-slate-400" />
-                                </motion.div>
-                              )}
+                              {isUnlocked && <ChevronDown className="w-4 h-4 text-slate-400" />}
                             </button>
-
-                            <AnimatePresence>
-                              {isModuleExpanded && isUnlocked && (
-                                <motion.div
-                                  initial={{ height: 0, opacity: 0 }}
-                                  animate={{ height: 'auto', opacity: 1 }}
-                                  exit={{ height: 0, opacity: 0 }}
-                                  className="border-t border-[#1e293b]"
-                                >
-                                  <div className="p-4 space-y-4">
-                                    {/* Leçons avec badges Théorie / Pratique */}
-                                    {mod.lessons?.map((lesson: any, lessonIndex: number) => {
-                                      const lessonType = getLessonType(lesson, lessonIndex);
-                                      return (
-                                        <div key={lesson.id} className="bg-[#0f172a] rounded-xl p-4 border border-[#1e293b]">
-                                          <div className="flex items-center gap-2 mb-3">
-                                            {lessonType === 'theorie' && (
-                                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-500/10 text-blue-400 text-[10px] font-bold rounded-full border border-blue-500/20">
-                                                📚 Théorie
-                                              </span>
-                                            )}
-                                            {lessonType === 'pratique' && (
-                                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-500/10 text-orange-400 text-[10px] font-bold rounded-full border border-orange-500/20">
-                                                ✍️ Pratique
-                                              </span>
-                                            )}
-                                            {lessonType === 'standard' && (
-                                              <>
-                                                {lesson.content_type === 'VIDEO' && <Video className="w-4 h-4 text-red-400" />}
-                                                {lesson.content_type === 'PDF' && <FileText className="w-4 h-4 text-blue-400" />}
-                                                {lesson.content_type === 'TEXT' && <FileText className="w-4 h-4 text-green-400" />}
-                                                {lesson.content_type === 'LINK' && <LinkIcon className="w-4 h-4 text-purple-400" />}
-                                              </>
-                                            )}
-                                            <span className="text-sm font-medium text-white">{lesson.title}</span>
-                                          </div>
-                                          {isPaid ? (
-                                            <ContentViewer contentType={lesson.content_type} contentUrl={lesson.content_url} contentBody={lesson.content_body} title={lesson.title} />
-                                          ) : (
-                                            <div className="flex items-center gap-2 text-amber-400 text-sm">
-                                              <Lock className="w-4 h-4" /> Réservé aux membres payants
-                                            </div>
-                                          )}
+                            {/* Contenu leçons/TP (inchangé) */}
+                            {isModuleExpanded && isUnlocked && (
+                              <div className="border-t border-[#1e293b] p-4 space-y-4">
+                                {mod.lessons?.map((lesson: any, lessonIndex: number) => {
+                                  const lessonType = getLessonType(lesson, lessonIndex);
+                                  return (
+                                    <div key={lesson.id} className="bg-[#0f172a] rounded-xl p-4 border border-[#1e293b]">
+                                      <div className="flex items-center gap-2 mb-3">
+                                        {lessonType === 'theorie' && <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-500/10 text-blue-400 text-[10px] font-bold rounded-full border border-blue-500/20">📚 Théorie</span>}
+                                        {lessonType === 'pratique' && <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-500/10 text-orange-400 text-[10px] font-bold rounded-full border border-orange-500/20">✍️ Pratique</span>}
+                                        <span className="text-sm font-medium text-white">{lesson.title}</span>
+                                      </div>
+                                      {isPaid ? <ContentViewer contentType={lesson.content_type} contentUrl={lesson.content_url} contentBody={lesson.content_body} title={lesson.title} />
+                                        : <div className="text-amber-400 text-sm"><Lock className="w-4 h-4 inline mr-1" />Réservé aux membres payants</div>}
+                                    </div>
+                                  );
+                                })}
+                                {mod.assessments?.map((ass: any) => {
+                                  const sub = submissionsMap[ass.id];
+                                  return (
+                                    <div key={ass.id} className="bg-[#0f172a] rounded-xl p-4 border border-[#1e293b]">
+                                      <div className="flex items-center justify-between mb-3">
+                                        <div className="flex items-center gap-2">
+                                          <PenTool className="w-4 h-4 text-yellow-400" />
+                                          <span className="text-sm font-medium text-white">{ass.title}</span>
+                                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-yellow-500/10 text-yellow-400 text-[10px] font-bold rounded-full border border-yellow-500/20">🎯 Validation</span>
                                         </div>
-                                      );
-                                    })}
-
-                                    {/* Évaluation (TP) */}
-                                    {mod.assessments?.map((ass: any) => {
-                                      const sub = submissionsMap[ass.id];
-                                      return (
-                                        <div key={ass.id} className="bg-[#0f172a] rounded-xl p-4 border border-[#1e293b]">
-                                          <div className="flex items-center justify-between mb-3">
-                                            <div className="flex items-center gap-2">
-                                              <PenTool className="w-4 h-4 text-yellow-400" />
-                                              <span className="text-sm font-medium text-white">{ass.title}</span>
-                                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-yellow-500/10 text-yellow-400 text-[10px] font-bold rounded-full border border-yellow-500/20">
-                                                🎯 Validation
-                                              </span>
-                                            </div>
-                                            {sub ? (
-                                              sub.status === 'PENDING' ? (
-                                                <span className="inline-flex items-center gap-1 px-2 py-1 bg-amber-500/10 text-amber-400 rounded-full text-xs">
-                                                  <Clock className="w-3 h-3" /> En attente
-                                                </span>
-                                              ) : sub.status === 'PASSED' ? (
-                                                <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-500/10 text-green-400 rounded-full text-xs">
-                                                  <CheckCircle2 className="w-3 h-3" /> Validé • {sub.grade}/20
-                                                </span>
-                                              ) : (
-                                                <span className="inline-flex items-center gap-1 px-2 py-1 bg-red-500/10 text-red-400 rounded-full text-xs">
-                                                  <AlertCircle className="w-3 h-3" /> Non validé • {sub.grade}/20
-                                                </span>
-                                              )
-                                            ) : (
-                                              <span className="text-xs text-slate-500">Non soumis</span>
-                                            )}
-                                          </div>
-                                          {sub?.feedback && (
-                                            <div className="mb-3 p-3 bg-blue-500/5 border border-blue-500/10 rounded-xl">
-                                              <p className="text-xs text-blue-400 font-medium mb-1">Feedback du formateur :</p>
-                                              <p className="text-sm text-slate-300">{sub.feedback}</p>
-                                            </div>
-                                          )}
-                                          {sub?.submission_url && (
-                                            <div className="mb-3">
-                                              <SubmissionViewer submissionUrl={sub.submission_url} />
-                                            </div>
-                                          )}
-                                          {isPaid && !sub && (
-                                            <motion.button
-                                              whileHover={{ scale: 1.02 }}
-                                              whileTap={{ scale: 0.98 }}
-                                              onClick={() => setSelectedAssessment({ id: ass.id, title: ass.title })}
-                                              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white text-sm font-semibold rounded-xl shadow-lg shadow-green-500/20 transition-all"
-                                            >
-                                              <Send className="w-4 h-4" /> Soumettre mon travail
-                                            </motion.button>
-                                          )}
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                </motion.div>
-                              )}
-                            </AnimatePresence>
-
-                            {!isUnlocked && (
-                              <div className="px-4 pb-4">
-                                <div className="flex items-center gap-2 text-xs text-slate-500">
-                                  <Lock className="w-3 h-3" /> Validez la semaine {mod.week_number - 1} pour débloquer
-                                </div>
+                                        {sub ? (
+                                          sub.status === 'PENDING' ? <span className="text-amber-400 text-xs">⏳ En attente</span>
+                                          : sub.status === 'PASSED' ? <span className="text-green-400 text-xs">✅ Validé • {sub.grade}/20</span>
+                                          : <span className="text-red-400 text-xs">❌ Non validé • {sub.grade}/20</span>
+                                        ) : <span className="text-slate-500 text-xs">Non soumis</span>}
+                                      </div>
+                                      {sub?.feedback && <div className="mb-3 p-3 bg-blue-500/5 border border-blue-500/10 rounded-xl"><p className="text-xs text-blue-400">Feedback : {sub.feedback}</p></div>}
+                                      {sub?.submission_url && <div className="mb-3"><SubmissionViewer submissionUrl={sub.submission_url} /></div>}
+                                      {isPaid && !sub && (
+                                        <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                                          onClick={() => setSelectedAssessment({ id: ass.id, title: ass.title })}
+                                          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white text-sm font-semibold rounded-xl shadow-lg shadow-green-500/20 transition-all">
+                                          <Send className="w-4 h-4" /> Soumettre mon travail
+                                        </motion.button>
+                                      )}
+                                    </div>
+                                  );
+                                })}
                               </div>
                             )}
+                            {!isUnlocked && <div className="px-4 pb-4"><div className="flex items-center gap-2 text-xs text-slate-500"><Lock className="w-3 h-3" /> Validez la semaine {mod.week_number - 1} pour débloquer</div></div>}
                           </div>
                         );
                       })}
@@ -398,14 +294,80 @@ export function CourseProgram({ courses, userStatus, passedAssessments, submissi
         })}
       </div>
 
+      {/* Blocs inférieurs : Compétences, Public, Avantages, Brochure */}
+      {isPaid && certificateInfo && (
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+          {/* Compétences acquises */}
+          {certificateInfo.skills && (
+            <div className="bg-[#0f172a] border border-[#1e293b] rounded-2xl p-5 lg:p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-blue-500/10 rounded-xl"><Award className="w-5 h-5 text-blue-400" /></div>
+                <h3 className="text-base font-bold text-white">Compétences Acquises</h3>
+              </div>
+              <ul className="space-y-2">
+                {certificateInfo.skills.split('\n').filter(Boolean).map((skill, i) => (
+                  <li key={i} className="flex items-start gap-2 text-sm text-slate-300">
+                    <CheckCircle2 className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
+                    {skill.replace(/^[•\-]\s*/, '')}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Public cible */}
+          {certificateInfo.targetAudience && (
+            <div className="bg-[#0f172a] border border-[#1e293b] rounded-2xl p-5 lg:p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-purple-500/10 rounded-xl"><Users className="w-5 h-5 text-purple-400" /></div>
+                <h3 className="text-base font-bold text-white">Pour qui ?</h3>
+              </div>
+              <ul className="space-y-2">
+                {certificateInfo.targetAudience.split('\n').filter(Boolean).map((audience, i) => (
+                  <li key={i} className="flex items-start gap-2 text-sm text-slate-300">
+                    <Zap className="w-4 h-4 text-purple-400 mt-0.5 flex-shrink-0" />
+                    {audience.replace(/^[•\-]\s*/, '')}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Avantages + Brochure */}
+          {(certificateInfo.benefits || certificateInfo.brochureUrl) && (
+            <div className="bg-[#0f172a] border border-[#1e293b] rounded-2xl p-5 lg:p-6">
+              {certificateInfo.benefits && (
+                <>
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-amber-500/10 rounded-xl"><Star className="w-5 h-5 text-amber-400" /></div>
+                    <h3 className="text-base font-bold text-white">Avantages</h3>
+                  </div>
+                  <ul className="space-y-2 mb-4">
+                    {certificateInfo.benefits.split('\n').filter(Boolean).map((benefit, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm text-slate-300">
+                        <Star className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
+                        {benefit.replace(/^[•\-]\s*/, '')}
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+              {certificateInfo.brochureUrl && (
+                <a href={certificateInfo.brochureUrl} target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-5 py-3 bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold rounded-xl transition-colors shadow-lg shadow-blue-500/20">
+                  <Download className="w-4 h-4" />
+                  Télécharger le programme détaillé (PDF)
+                </a>
+              )}
+            </div>
+          )}
+        </motion.div>
+      )}
+
       <AnimatePresence>
         {selectedAssessment && (
-          <SubmissionModal
-            isOpen={!!selectedAssessment}
-            onClose={() => setSelectedAssessment(null)}
-            assessmentId={selectedAssessment.id}
-            userStatus={userStatus}
-          />
+          <SubmissionModal isOpen={!!selectedAssessment} onClose={() => setSelectedAssessment(null)}
+            assessmentId={selectedAssessment.id} userStatus={userStatus} />
         )}
       </AnimatePresence>
     </div>

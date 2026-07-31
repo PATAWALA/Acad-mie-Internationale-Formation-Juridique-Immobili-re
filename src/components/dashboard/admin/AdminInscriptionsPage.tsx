@@ -5,6 +5,7 @@ import { createClientComponent } from '@/lib/supabase/client';
 import { motion } from 'framer-motion';
 import { fadeIn, stagger } from '@/lib/animations';
 import { cn } from '@/lib/utils';
+import { formatEUR } from '@/lib/currency';
 import {
   Users, CheckCircle, Clock, DollarSign, Send,
   Search, Loader2, GraduationCap, Phone, Mail,
@@ -73,7 +74,13 @@ export default function AdminInscriptionsPage() {
     { label: 'Total inscrits', value: totalInscrits, icon: Users, color: 'blue' },
     { label: 'Payés', value: totalPayes, icon: CheckCircle, color: 'emerald' },
     { label: 'En attente', value: totalEnAttente, icon: Clock, color: 'amber' },
-    { label: 'Revenu total', value: `${totalRevenu.toLocaleString()} FCFA`, icon: DollarSign, color: 'violet' },
+    { 
+      label: 'Revenu total', 
+      value: `${totalRevenu.toLocaleString()} FCFA`, 
+      subValue: totalRevenu > 0 ? formatEUR(totalRevenu) : null,
+      icon: DollarSign, 
+      color: 'violet' 
+    },
   ];
 
   const filterButtons = [
@@ -119,7 +126,12 @@ export default function AdminInscriptionsPage() {
                 kpi.color === 'violet' && 'text-violet-400'
               )} />
             </div>
-            <span className="text-2xl font-bold text-white">{kpi.value}</span>
+            <div>
+              <span className="text-2xl font-bold text-white">{kpi.value}</span>
+              {kpi.subValue && (
+                <p className="text-xs text-slate-500 mt-1">{kpi.subValue}</p>
+              )}
+            </div>
           </motion.div>
         ))}
       </motion.div>
@@ -187,85 +199,94 @@ export default function AdminInscriptionsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((enr, index) => (
-                  <motion.tr
-                    key={enr.id}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: index * 0.03 }}
-                    className="border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors"
-                  >
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#D4AF37]/20 to-amber-500/20 flex items-center justify-center flex-shrink-0">
-                          <span className="text-xs font-bold text-[#D4AF37]">
-                            {(enr.profiles?.full_name || '?')[0].toUpperCase()}
-                          </span>
-                        </div>
-                        <div>
-                          <p className="text-white font-medium text-sm">
-                            {enr.profiles?.full_name || 'Inconnu'}
-                          </p>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <Mail className="w-3 h-3 text-slate-500" />
-                            <span className="text-xs text-slate-400">{enr.profiles?.email || '-'}</span>
+                {filtered.map((enr, index) => {
+                  const montant = enr.amount_paid > 0
+                    ? enr.amount_paid
+                    : (enr.remaining_balance || 0);
+                  
+                  return (
+                    <motion.tr
+                      key={enr.id}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: index * 0.03 }}
+                      className="border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors"
+                    >
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#D4AF37]/20 to-amber-500/20 flex items-center justify-center flex-shrink-0">
+                            <span className="text-xs font-bold text-[#D4AF37]">
+                              {(enr.profiles?.full_name || '?')[0].toUpperCase()}
+                            </span>
                           </div>
-                          {enr.profiles?.phone && (
+                          <div>
+                            <p className="text-white font-medium text-sm">
+                              {enr.profiles?.full_name || 'Inconnu'}
+                            </p>
                             <div className="flex items-center gap-2 mt-0.5">
-                              <Phone className="w-3 h-3 text-slate-500" />
-                              <span className="text-xs text-slate-400">{enr.profiles.phone}</span>
+                              <Mail className="w-3 h-3 text-slate-500" />
+                              <span className="text-xs text-slate-400">{enr.profiles?.email || '-'}</span>
                             </div>
-                          )}
+                            {enr.profiles?.phone && (
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <Phone className="w-3 h-3 text-slate-500" />
+                                <span className="text-xs text-slate-400">{enr.profiles.phone}</span>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="text-xs text-slate-300 bg-slate-800 px-2 py-1 rounded-full">
-                        {enr.profiles?.profile_type || 'Non précisé'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="text-sm text-slate-300">
-                        {enr.certificates?.title || `#${enr.certificate_id}`}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="text-sm text-white font-semibold">
-                        {enr.amount_paid > 0
-                          ? `${enr.amount_paid.toLocaleString()} FCFA`
-                          : `${(enr.remaining_balance || 0).toLocaleString()} FCFA`}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      {enr.payment_status === 'PAID' ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                          <CheckCircle className="w-3 h-3" />
-                          Payé
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="text-xs text-slate-300 bg-slate-800 px-2 py-1 rounded-full">
+                          {enr.profiles?.profile_type || 'Non précisé'}
                         </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                          <Clock className="w-3 h-3" />
-                          En attente
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="text-sm text-slate-300">
+                          {enr.certificates?.title || `#${enr.certificate_id}`}
                         </span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      {enr.payment_status !== 'PAID' && enr.profiles?.phone && (
-                        <motion.a
-                          whileHover={{ scale: 1.03 }}
-                          whileTap={{ scale: 0.97 }}
-                          href={generateWhatsAppLink(enr)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white text-xs font-semibold rounded-xl transition-colors shadow-lg shadow-green-500/20"
-                        >
-                          <Send className="w-3.5 h-3.5" />
-                          Relancer WhatsApp
-                        </motion.a>
-                      )}
-                    </td>
-                  </motion.tr>
-                ))}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div>
+                          <span className="text-sm text-white font-semibold">
+                            {montant.toLocaleString()} FCFA
+                          </span>
+                          <p className="text-xs text-slate-500">
+                            {formatEUR(montant)}
+                          </p>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        {enr.payment_status === 'PAID' ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                            <CheckCircle className="w-3 h-3" />
+                            Payé
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                            <Clock className="w-3 h-3" />
+                            En attente
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        {enr.payment_status !== 'PAID' && enr.profiles?.phone && (
+                          <motion.a
+                            whileHover={{ scale: 1.03 }}
+                            whileTap={{ scale: 0.97 }}
+                            href={generateWhatsAppLink(enr)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white text-xs font-semibold rounded-xl transition-colors shadow-lg shadow-green-500/20"
+                          >
+                            <Send className="w-3.5 h-3.5" />
+                            Relancer WhatsApp
+                          </motion.a>
+                        )}
+                      </td>
+                    </motion.tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

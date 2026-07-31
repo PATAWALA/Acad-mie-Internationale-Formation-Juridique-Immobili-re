@@ -30,6 +30,7 @@ export default function FormationView({ certId, onPaymentSuccess, onPayClick }: 
   const [submissionsMap, setSubmissionsMap] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [certificateInfo, setCertificateInfo] = useState<any>(null);
   
   const [certStats, setCertStats] = useState({
     totalCourses: 0,
@@ -93,6 +94,14 @@ export default function FormationView({ certId, onPaymentSuccess, onPayClick }: 
     }
     setEnrollmentStatus(enr.payment_status);
     setEnrollment(enr);
+
+    // Récupérer les infos du certificat (slogan, skills, etc.)
+    const { data: certInfo } = await supabase
+      .from('certificates')
+      .select('slogan, skills, target_audience, benefits, brochure_url')
+      .eq('id', certId)
+      .single();
+    if (certInfo) setCertificateInfo(certInfo);
 
     if (enr.payment_status === 'PAID') {
       const { data: coursesData } = await supabase
@@ -196,15 +205,10 @@ export default function FormationView({ certId, onPaymentSuccess, onPayClick }: 
       </AnimatePresence>
 
       {enrollmentStatus === 'PAID' && certStats.isFullyCompleted && (
-        <motion.div
-          initial={{ opacity: 0, y: -10, scale: 0.95 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-yellow-500/10 border border-amber-500/30 p-5"
-        >
+        <motion.div initial={{ opacity: 0, y: -10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }}
+          className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-yellow-500/10 border border-amber-500/30 p-5">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-amber-500/10 rounded-xl">
-              <Trophy className="w-5 h-5 text-amber-400" />
-            </div>
+            <div className="p-2.5 bg-amber-500/10 rounded-xl"><Trophy className="w-5 h-5 text-amber-400" /></div>
             <div>
               <p className="text-sm font-bold text-amber-400">🎉 Tous les cours sont validés !</p>
               <p className="text-xs text-slate-400 mt-0.5">Votre certificat sera disponible dans votre espace après validation par l'administration.</p>
@@ -216,8 +220,7 @@ export default function FormationView({ certId, onPaymentSuccess, onPayClick }: 
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
         <div>
           <h2 className="text-xl lg:text-2xl font-bold text-white flex items-center gap-2">
-            <GraduationCap className="w-6 h-6 text-blue-400" />
-            Votre Formation
+            <GraduationCap className="w-6 h-6 text-blue-400" /> Votre Formation
           </h2>
           <p className="text-sm text-slate-400 mt-1">
             {enrollmentStatus === 'PAID' 
@@ -225,7 +228,6 @@ export default function FormationView({ certId, onPaymentSuccess, onPayClick }: 
               : 'Paiement requis'}
           </p>
         </div>
-
         {enrollmentStatus === 'PAID' && (
           <div className="flex items-center gap-3">
             {certStats.totalAssessments > 0 && (
@@ -234,15 +236,9 @@ export default function FormationView({ certId, onPaymentSuccess, onPayClick }: 
                 <span className="text-xs text-blue-400 font-bold">{certStats.progressPercent}%</span>
               </div>
             )}
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className="flex items-center gap-2 px-4 py-2.5 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-500/50 text-white text-sm font-medium rounded-xl transition-all shadow-lg shadow-blue-500/20"
-            >
-              {refreshing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-              Actualiser
+            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={handleRefresh} disabled={refreshing}
+              className="flex items-center gap-2 px-4 py-2.5 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-500/50 text-white text-sm font-medium rounded-xl transition-all shadow-lg shadow-blue-500/20">
+              {refreshing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />} Actualiser
             </motion.button>
           </div>
         )}
@@ -250,24 +246,14 @@ export default function FormationView({ certId, onPaymentSuccess, onPayClick }: 
 
       <AnimatePresence mode="wait">
         {enrollmentStatus !== 'PAID' ? (
-          <motion.div
-            key="pending"
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-500/10 to-orange-500/10 border border-amber-500/20 p-6 lg:p-8"
-          >
+          <motion.div key="pending" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
+            className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-500/10 to-orange-500/10 border border-amber-500/20 p-6 lg:p-8">
             <div className="absolute top-0 right-0 w-48 h-48 bg-amber-500/5 rounded-full blur-3xl" />
-            
             <div className="relative z-10">
               <div className="flex items-start gap-4 mb-6">
-                <div className="p-3 bg-amber-500/10 rounded-2xl flex-shrink-0">
-                  <Lock className="w-6 h-6 text-amber-400" />
-                </div>
+                <div className="p-3 bg-amber-500/10 rounded-2xl flex-shrink-0"><Lock className="w-6 h-6 text-amber-400" /></div>
                 <div>
-                  <h3 className="text-lg lg:text-xl font-bold text-amber-400 mb-2">
-                    Votre inscription est en attente de validation
-                  </h3>
+                  <h3 className="text-lg lg:text-xl font-bold text-amber-400 mb-2">Votre inscription est en attente de validation</h3>
                   <p className="text-sm text-slate-300 leading-relaxed">
                     Vous avez fait le premier pas ! Pour débloquer immédiatement l'accès à tous les modules, 
                     télécharger les supports et obtenir votre <strong className="text-white">Certificat de Fin de Formation</strong>, 
@@ -275,26 +261,13 @@ export default function FormationView({ certId, onPaymentSuccess, onPayClick }: 
                   </p>
                 </div>
               </div>
-
               <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => {
-                    if (enrollment && onPayClick) {
-                      onPayClick(enrollment.id, enrollment.remaining_balance || 0);
-                    }
-                  }}
-                  className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-semibold rounded-xl shadow-lg shadow-amber-500/20 transition-all"
-                >
-                  <CreditCard className="w-5 h-5" />
-                  Valider mon paiement
-                  <ChevronRight className="w-5 h-5" />
+                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                  onClick={() => { if (enrollment && onPayClick) { onPayClick(enrollment.id, enrollment.remaining_balance || 0); } }}
+                  className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-semibold rounded-xl shadow-lg shadow-amber-500/20 transition-all">
+                  <CreditCard className="w-5 h-5" /> Valider mon paiement <ChevronRight className="w-5 h-5" />
                 </motion.button>
-                <span className="text-xs text-amber-400/80 flex items-center gap-1">
-                  <AlertCircle className="w-3 h-3" />
-                  Accès instantané après validation
-                </span>
+                <span className="text-xs text-amber-400/80 flex items-center gap-1"><AlertCircle className="w-3 h-3" /> Accès instantané après validation</span>
               </div>
             </div>
           </motion.div>
@@ -311,6 +284,7 @@ export default function FormationView({ certId, onPaymentSuccess, onPayClick }: 
               userStatus="PAID"
               passedAssessments={passedAssessments}
               submissionsMap={submissionsMap}
+              certificateInfo={certificateInfo}
             />
           </motion.div>
         )}

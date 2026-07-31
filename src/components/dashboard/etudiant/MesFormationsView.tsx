@@ -5,6 +5,7 @@ import {
   BookOpen, CheckCircle2, Clock, ArrowRight, 
   Play, CreditCard, GraduationCap, ImageIcon
 } from 'lucide-react';
+import { formatEUR } from '@/lib/currency';
 
 interface MesFormationsViewProps {
   enrollments: any[];
@@ -151,9 +152,14 @@ export default function MesFormationsView({ enrollments, onSelectFormation, onPa
                     {enr.certificates?.title || `Formation #${enr.certificate_id}`}
                   </h3>
                   <p className="text-xs text-slate-400 mb-1">Montant à payer</p>
-                  <p className="text-lg font-bold text-amber-400 mb-4">
-                    {enr.remaining_balance?.toLocaleString()} FCFA
-                  </p>
+                  <div className="mb-4">
+                    <p className="text-lg font-bold text-amber-400">
+                      {enr.remaining_balance?.toLocaleString()} FCFA
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      {formatEUR(enr.remaining_balance || 0)}
+                    </p>
+                  </div>
 
                   <motion.button
                     whileHover={{ scale: 1.02 }}

@@ -7,6 +7,7 @@ import { createClientComponent } from '@/lib/supabase/client';
 import { UsersTable } from '@/components/dashboard/admin/UsersTable';
 import { cn } from '@/lib/utils';
 import { fadeIn, slideIn, stagger } from '@/lib/animations';
+import { formatEUR } from '@/lib/currency';
 import {
   GraduationCap,
   Users,
@@ -231,6 +232,7 @@ export default function AdminDashboardPage() {
     {
       label: 'Revenu total',
       value: `${stats.revenue.toLocaleString()} FCFA`,
+      subValue: stats.revenue > 0 ? formatEUR(stats.revenue) : null,
       icon: DollarSign,
       color: 'emerald',
       loading: loadingStats,
@@ -349,19 +351,24 @@ export default function AdminDashboardPage() {
                 </div>
               ) : (
                 <div className="flex items-end gap-2">
-                  <span
-                    className={cn(
-                      'text-2xl md:text-3xl font-bold tracking-tight',
-                      kpi.color === 'blue' && 'text-blue-400',
-                      kpi.color === 'violet' && 'text-violet-400',
-                      kpi.color === 'emerald' && 'text-emerald-400',
-                      kpi.color === 'amber' && 'text-amber-400',
-                      kpi.color === 'green' && 'text-green-400',
-                      kpi.color === 'purple' && 'text-purple-400'
+                  <div>
+                    <span
+                      className={cn(
+                        'text-2xl md:text-3xl font-bold tracking-tight',
+                        kpi.color === 'blue' && 'text-blue-400',
+                        kpi.color === 'violet' && 'text-violet-400',
+                        kpi.color === 'emerald' && 'text-emerald-400',
+                        kpi.color === 'amber' && 'text-amber-400',
+                        kpi.color === 'green' && 'text-green-400',
+                        kpi.color === 'purple' && 'text-purple-400'
+                      )}
+                    >
+                      {typeof kpi.value === 'number' ? kpi.value.toLocaleString() : kpi.value}
+                    </span>
+                    {kpi.subValue && (
+                      <p className="text-xs text-slate-500 mt-0.5">{kpi.subValue}</p>
                     )}
-                  >
-                    {typeof kpi.value === 'number' ? kpi.value.toLocaleString() : kpi.value}
-                  </span>
+                  </div>
                   <kpi.icon className="w-8 h-8 text-slate-700 group-hover:text-slate-600 transition-colors mb-0.5" />
                 </div>
               )}

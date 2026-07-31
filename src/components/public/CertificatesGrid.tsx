@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Check, Clock, ImageIcon, X, ArrowRight, BookOpen } from 'lucide-react';
 import { createClientComponent } from '@/lib/supabase/client';
 import { motion, AnimatePresence } from 'framer-motion';
+import { formatEUR } from '@/lib/currency';
 
 export default function CertificatesGrid() {
   const supabase = createClientComponent();
@@ -75,12 +76,22 @@ export default function CertificatesGrid() {
             {selected.length} certificat(s) sélectionné(s)
           </span>
           <div className="flex items-center gap-4">
-            <span className="text-gray-500 line-through text-sm">
-              {totalNormal.toLocaleString()} FCFA
-            </span>
-            <span className="text-[#D4AF37] font-bold text-lg">
-              {totalBourse.toLocaleString()} FCFA
-            </span>
+            <div className="text-right">
+              <span className="text-gray-500 line-through text-sm block">
+                {totalNormal.toLocaleString()} FCFA
+              </span>
+              <span className="text-gray-600 text-xs">
+                {formatEUR(totalNormal)}
+              </span>
+            </div>
+            <div className="text-right">
+              <span className="text-[#D4AF37] font-bold text-lg block">
+                {totalBourse.toLocaleString()} FCFA
+              </span>
+              <span className="text-gray-500 text-xs">
+                {formatEUR(totalBourse)}
+              </span>
+            </div>
             <span className="text-green-400 text-sm font-semibold">
               -{totalNormal - totalBourse > 0 ? Math.round(((totalNormal - totalBourse) / totalNormal) * 100) : 0}%
             </span>
@@ -147,15 +158,25 @@ export default function CertificatesGrid() {
                 <Clock className="w-4 h-4" />
                 4 semaines
               </div>
-              <div className="flex items-center gap-3 mb-4">
-                <span className="text-gray-500 line-through text-sm">
-                  {cert.price_normal.toLocaleString()} FCFA
-                </span>
-                <span className="text-[#D4AF37] font-bold">
-                  {cert.price_bourse.toLocaleString()} FCFA
-                </span>
+              <div className="flex items-start gap-3 mb-4">
+                <div>
+                  <span className="text-gray-500 line-through text-sm block">
+                    {cert.price_normal.toLocaleString()} FCFA
+                  </span>
+                  <span className="text-gray-600 text-xs">
+                    {formatEUR(cert.price_normal)}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[#D4AF37] font-bold block">
+                    {cert.price_bourse.toLocaleString()} FCFA
+                  </span>
+                  <span className="text-gray-500 text-xs">
+                    {formatEUR(cert.price_bourse)}
+                  </span>
+                </div>
                 {discount > 0 && (
-                  <span className="text-green-400 text-xs font-semibold">
+                  <span className="text-green-400 text-xs font-semibold self-center">
                     -{discount}%
                   </span>
                 )}
@@ -225,19 +246,33 @@ export default function CertificatesGrid() {
                 </p>
 
                 {/* Tarifs */}
-                <div className="bg-[#020617] rounded-xl p-4 mb-4 space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-400">Prix normal</span>
-                    <span className="text-gray-500 line-through">{detailCert.price_normal?.toLocaleString()} FCFA</span>
+                <div className="bg-[#020617] rounded-xl p-4 mb-4 space-y-3">
+                  <div className="flex justify-between items-start">
+                    <span className="text-gray-400 text-sm">Prix normal</span>
+                    <div className="text-right">
+                      <span className="text-gray-500 line-through text-sm block">
+                        {detailCert.price_normal?.toLocaleString()} FCFA
+                      </span>
+                      <span className="text-gray-600 text-xs">
+                        {formatEUR(detailCert.price_normal)}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-400">Prix Bourse</span>
-                    <span className="text-[#D4AF37] font-bold">{detailCert.price_bourse?.toLocaleString()} FCFA</span>
+                  <div className="flex justify-between items-start">
+                    <span className="text-gray-400 text-sm">Prix Bourse</span>
+                    <div className="text-right">
+                      <span className="text-[#D4AF37] font-bold text-sm block">
+                        {detailCert.price_bourse?.toLocaleString()} FCFA
+                      </span>
+                      <span className="text-gray-500 text-xs">
+                        {formatEUR(detailCert.price_bourse)}
+                      </span>
+                    </div>
                   </div>
                   {detailCert.price_normal > detailCert.price_bourse && (
-                    <div className="flex justify-between text-sm pt-2 border-t border-[#1E293B]">
-                      <span className="text-green-400">Votre économie</span>
-                      <span className="text-green-400 font-bold">
+                    <div className="flex justify-between items-center pt-2 border-t border-[#1E293B]">
+                      <span className="text-green-400 text-sm">Votre économie</span>
+                      <span className="text-green-400 font-bold text-sm">
                         -{Math.round(((detailCert.price_normal - detailCert.price_bourse) / detailCert.price_normal) * 100)}%
                       </span>
                     </div>

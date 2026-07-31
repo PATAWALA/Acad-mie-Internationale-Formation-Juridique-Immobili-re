@@ -3,7 +3,7 @@
 import { useRef } from 'react';
 import { motion } from 'framer-motion';
 import { scaleIn } from '@/lib/animations';
-import { Printer, X, Award, Shield, Calendar, Hash } from 'lucide-react';
+import { Printer, X, Award, Shield, Calendar, Hash, Quote } from 'lucide-react';
 
 interface CertificateProps {
   studentName: string;
@@ -11,6 +11,7 @@ interface CertificateProps {
   issueDate: string;
   certificateId: string;
   onClose: () => void;
+  slogan?: string;
 }
 
 export function CertificateGenerator({
@@ -19,6 +20,7 @@ export function CertificateGenerator({
   issueDate,
   certificateId,
   onClose,
+  slogan,
 }: CertificateProps) {
   const certRef = useRef<HTMLDivElement>(null);
 
@@ -67,14 +69,10 @@ export function CertificateGenerator({
         initial="initial"
         animate="animate"
         className="certificate-print-area w-full max-w-[1000px] aspect-[1.414/1] bg-white shadow-2xl shadow-black/50 overflow-hidden relative"
-        style={{
-          background: 'linear-gradient(135deg, #fafafa 0%, #ffffff 100%)',
-        }}
+        style={{ background: 'linear-gradient(135deg, #fafafa 0%, #ffffff 100%)' }}
       >
         {/* Bordure décorative extérieure */}
         <div className="absolute inset-4 border-[3px] border-slate-800" />
-        
-        {/* Bordure intérieure */}
         <div className="absolute inset-6 border border-slate-300" />
 
         {/* Ornements d'angle */}
@@ -82,6 +80,18 @@ export function CertificateGenerator({
         <div className="absolute top-8 right-8 w-16 h-16 border-t-4 border-r-4 border-amber-500" />
         <div className="absolute bottom-8 left-8 w-16 h-16 border-b-4 border-l-4 border-amber-500" />
         <div className="absolute bottom-8 right-8 w-16 h-16 border-b-4 border-r-4 border-amber-500" />
+
+        {/* 🏅 Sceau doré "Certification Reconnue à l'International" */}
+        <div className="absolute top-12 right-12 z-20 flex flex-col items-center">
+          <div className="w-20 h-20 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center shadow-lg shadow-amber-500/30 border-2 border-amber-300">
+            <div className="w-16 h-16 rounded-full border border-dashed border-white/60 flex items-center justify-center">
+              <Shield className="w-8 h-8 text-white" />
+            </div>
+          </div>
+          <p className="text-[8px] text-amber-600 font-bold uppercase tracking-widest mt-1.5 text-center leading-tight">
+            Certification<br />Reconnue à<br />l'International
+          </p>
+        </div>
 
         {/* Contenu principal */}
         <div className="relative z-10 h-full flex flex-col items-center justify-between px-20 py-16">
@@ -93,108 +103,76 @@ export function CertificateGenerator({
               <Award className="w-8 h-8 text-amber-500" />
               <div className="w-12 h-[1px] bg-amber-500" />
             </div>
-            <h1
-              className="text-4xl font-bold tracking-[0.3em] text-slate-900 uppercase"
-              style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}
-            >
+            <h1 className="text-4xl font-bold tracking-[0.3em] text-slate-900 uppercase" style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}>
               Certificat de Réussite
             </h1>
-            <p
-              className="text-sm text-slate-500 italic tracking-wide"
-              style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}
-            >
+            <p className="text-sm text-slate-500 italic tracking-wide" style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}>
               Ce document officiel atteste que
             </p>
           </div>
 
           {/* Nom de l'étudiant */}
           <div className="text-center space-y-2">
-            <h2
-              className="text-5xl font-bold text-slate-800 tracking-wide capitalize"
-              style={{
-                fontFamily: 'Georgia, "Times New Roman", serif',
-                textShadow: '0 2px 4px rgba(0,0,0,0.05)',
-              }}
-            >
+            <h2 className="text-5xl font-bold text-slate-800 tracking-wide capitalize" style={{ fontFamily: 'Georgia, "Times New Roman", serif', textShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
               {studentName}
             </h2>
             <div className="w-64 h-[2px] bg-gradient-to-r from-transparent via-amber-500 to-transparent mx-auto" />
           </div>
 
-          {/* Détails de la formation */}
+          {/* Détails de la formation + Slogan */}
           <div className="text-center space-y-3 max-w-2xl">
-            <p
-              className="text-base text-slate-600 leading-relaxed"
-              style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}
-            >
-              a suivi avec succès la formation professionnelle et validé
-              l&apos;ensemble des modules obligatoires de la formation
+            <p className="text-base text-slate-600 leading-relaxed" style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}>
+              a suivi avec succès la formation professionnelle et validé l&apos;ensemble des modules obligatoires de la formation
             </p>
-            <h3
-              className="text-2xl font-bold text-slate-800 italic"
-              style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}
-            >
+            <h3 className="text-2xl font-bold text-slate-800 italic" style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}>
               « {courseTitle} »
             </h3>
+            {slogan && (
+              <div className="flex items-center justify-center gap-2 mt-2">
+                <Quote className="w-4 h-4 text-amber-500" />
+                <p className="text-sm text-amber-600 italic font-medium" style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}>
+                  {slogan}
+                </p>
+                <Quote className="w-4 h-4 text-amber-500 rotate-180" />
+              </div>
+            )}
           </div>
 
-          {/* Footer avec date, ID et signature */}
+          {/* Footer */}
           <div className="w-full flex items-end justify-between">
-            {/* Gauche - Date et ID */}
             <div className="space-y-2 text-left">
               <div className="flex items-center gap-2 text-xs text-slate-500">
                 <Calendar className="w-3.5 h-3.5" />
                 <span className="uppercase tracking-wider font-medium">Délivré le</span>
               </div>
-              <p
-                className="text-sm font-bold text-slate-700"
-                style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}
-              >
-                {issueDate}
-              </p>
+              <p className="text-sm font-bold text-slate-700" style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}>{issueDate}</p>
               <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-3">
                 <Hash className="w-3 h-3" />
                 <span className="uppercase tracking-wider font-medium">ID de vérification</span>
               </div>
-              <p className="text-[11px] font-mono text-slate-500 bg-slate-100 px-2 py-1 rounded">
-                {certificateId}
-              </p>
+              <p className="text-[11px] font-mono text-slate-500 bg-slate-100 px-2 py-1 rounded">{certificateId}</p>
             </div>
 
-            {/* Centre - Sceau */}
             <div className="flex flex-col items-center">
-              <div className="w-24 h-24 rounded-full border-2 border-amber-500/40 flex items-center justify-center relative">
-                <div className="w-20 h-20 rounded-full border border-amber-500/30 flex items-center justify-center">
-                  <Shield className="w-10 h-10 text-amber-500/60" />
+              <div className="w-20 h-20 rounded-full border-2 border-amber-500/40 flex items-center justify-center relative">
+                <div className="w-16 h-16 rounded-full border border-amber-500/30 flex items-center justify-center">
+                  <Shield className="w-8 h-8 text-amber-500/60" />
                 </div>
                 <div className="absolute inset-0 rounded-full border border-dashed border-amber-500/20" />
               </div>
-              <p className="text-[9px] text-slate-400 uppercase tracking-widest mt-2 text-center">
-                Sceau officiel
-              </p>
+              <p className="text-[9px] text-slate-400 uppercase tracking-widest mt-2 text-center">Sceau officiel</p>
             </div>
 
-            {/* Droite - Signature */}
             <div className="text-center space-y-1">
               <div className="w-44 h-[1px] bg-slate-400 mb-2" />
-              <p
-                className="text-sm font-bold text-slate-700"
-                style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}
-              >
-                La Direction
-              </p>
-              <p className="text-[10px] text-slate-400 uppercase tracking-wider">
-                Signature autorisée
-              </p>
+              <p className="text-sm font-bold text-slate-700" style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}>La Direction</p>
+              <p className="text-[10px] text-slate-400 uppercase tracking-wider">Signature autorisée</p>
             </div>
           </div>
         </div>
 
         {/* Filigrane */}
-        <div
-          className="absolute inset-0 flex items-center justify-center pointer-events-none select-none opacity-[0.03]"
-          style={{ transform: 'rotate(-15deg)' }}
-        >
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none opacity-[0.03]" style={{ transform: 'rotate(-15deg)' }}>
           <Award className="w-96 h-96 text-slate-900" />
         </div>
       </motion.div>
@@ -202,29 +180,14 @@ export function CertificateGenerator({
       {/* Styles d'impression */}
       <style jsx global>{`
         @media print {
-          @page {
-            size: A4 landscape;
-            margin: 0;
-          }
-          
-          body * {
-            visibility: hidden;
-          }
-          
-          .certificate-print-area,
-          .certificate-print-area * {
-            visibility: visible;
-          }
-          
+          @page { size: A4 landscape; margin: 0; }
+          body * { visibility: hidden; }
+          .certificate-print-area, .certificate-print-area * { visibility: visible; }
           .certificate-print-area {
-            position: fixed;
-            left: 0;
-            top: 0;
-            width: 100vw !important;
-            height: 100vh !important;
+            position: fixed; left: 0; top: 0;
+            width: 100vw !important; height: 100vh !important;
             max-width: 100vw !important;
-            box-shadow: none !important;
-            border-radius: 0 !important;
+            box-shadow: none !important; border-radius: 0 !important;
           }
         }
       `}</style>

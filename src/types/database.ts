@@ -100,30 +100,45 @@ export type Database = {
       }
       certificates: {
         Row: {
+          benefits: string | null
+          brochure_url: string | null
           created_at: string | null
           id: number
           image_url: string | null
           price_bourse: number
           price_normal: number
+          skills: string | null
+          slogan: string | null
           slug: string
+          target_audience: string | null
           title: string
         }
         Insert: {
+          benefits?: string | null
+          brochure_url?: string | null
           created_at?: string | null
           id?: number
           image_url?: string | null
           price_bourse?: number
           price_normal?: number
+          skills?: string | null
+          slogan?: string | null
           slug: string
+          target_audience?: string | null
           title: string
         }
         Update: {
+          benefits?: string | null
+          brochure_url?: string | null
           created_at?: string | null
           id?: number
           image_url?: string | null
           price_bourse?: number
           price_normal?: number
+          skills?: string | null
+          slogan?: string | null
           slug?: string
+          target_audience?: string | null
           title?: string
         }
         Relationships: []
@@ -400,6 +415,7 @@ export type Database = {
           full_name: string | null
           id: string
           phone: string | null
+          profile_type: string | null
           role: string
           status: string
           updated_at: string | null
@@ -410,6 +426,7 @@ export type Database = {
           full_name?: string | null
           id: string
           phone?: string | null
+          profile_type?: string | null
           role?: string
           status?: string
           updated_at?: string | null
@@ -420,6 +437,7 @@ export type Database = {
           full_name?: string | null
           id?: string
           phone?: string | null
+          profile_type?: string | null
           role?: string
           status?: string
           updated_at?: string | null

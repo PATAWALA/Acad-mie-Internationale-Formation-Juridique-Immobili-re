@@ -12,6 +12,7 @@ import {
   CreditCard, Sparkles, TrendingUp, Shield,
   ChevronRight, Loader2
 } from 'lucide-react';
+import { formatEUR } from '@/lib/currency';
 
 export default function RegistrationForm() {
   const router = useRouter();
@@ -361,7 +362,12 @@ export default function RegistrationForm() {
                             <input type="checkbox" checked={isSelected} onChange={() => toggleCert(cert.id)} className="hidden" />
                             <div className="flex-1 min-w-0">
                               <p className="text-white text-xs sm:text-sm font-medium truncate">{cert.title}</p>
-                              <p className="text-xs text-slate-500">{cert.price_bourse?.toLocaleString()} FCFA <span className="line-through text-slate-600">{cert.price_normal?.toLocaleString()}</span></p>
+                              <div className="text-xs">
+                                <span className="text-slate-400">{cert.price_bourse?.toLocaleString()} FCFA</span>
+                                <span className="text-slate-500 ml-1">({formatEUR(cert.price_bourse)})</span>
+                                <span className="line-through text-slate-600 ml-2">{cert.price_normal?.toLocaleString()} FCFA</span>
+                                <span className="text-slate-600 ml-1">({formatEUR(cert.price_normal)})</span>
+                              </div>
                             </div>
                             {discount > 0 && (
                               <div className="px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full bg-green-500/10 border border-green-500/20 flex-shrink-0">
@@ -376,11 +382,26 @@ export default function RegistrationForm() {
 
                   {formData.selectedCerts.length > 0 && (
                     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-[#020617] border border-[#1e293b] rounded-xl p-3 sm:p-4 space-y-2 sm:space-y-3">
-                      <div className="flex justify-between text-xs sm:text-sm"><span className="text-slate-400">Prix normal</span><span className="text-slate-500 line-through">{totalNormal.toLocaleString()} FCFA</span></div>
-                      <div className="flex justify-between text-xs sm:text-sm"><span className="text-slate-400">Prix Bourse</span><span className="text-amber-400 font-bold">{totalBourse.toLocaleString()} FCFA</span></div>
+                      <div className="flex justify-between text-xs sm:text-sm">
+                        <span className="text-slate-400">Prix normal</span>
+                        <div className="text-right">
+                          <span className="text-slate-500 line-through block">{totalNormal.toLocaleString()} FCFA</span>
+                          <span className="text-slate-600 text-[10px]">{formatEUR(totalNormal)}</span>
+                        </div>
+                      </div>
+                      <div className="flex justify-between text-xs sm:text-sm">
+                        <span className="text-slate-400">Prix Bourse</span>
+                        <div className="text-right">
+                          <span className="text-amber-400 font-bold block">{totalBourse.toLocaleString()} FCFA</span>
+                          <span className="text-slate-500 text-[10px]">{formatEUR(totalBourse)}</span>
+                        </div>
+                      </div>
                       <div className="border-t border-[#1e293b] pt-2 sm:pt-3 flex justify-between items-center">
                         <div className="flex items-center gap-1.5 sm:gap-2"><TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-400" /><span className="text-xs sm:text-sm text-slate-400">Votre économie</span></div>
-                        <span className="text-green-400 font-bold text-xs sm:text-sm">-{savings.toLocaleString()} FCFA ({savingsPercent}%)</span>
+                        <div className="text-right">
+                          <span className="text-green-400 font-bold text-xs sm:text-sm block">-{savings.toLocaleString()} FCFA ({savingsPercent}%)</span>
+                          <span className="text-green-500/70 text-[10px]">{formatEUR(savings)}</span>
+                        </div>
                       </div>
                     </motion.div>
                   )}

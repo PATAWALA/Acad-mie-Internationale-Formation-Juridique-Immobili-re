@@ -9,6 +9,7 @@ import {
   CheckCircle2, AlertCircle, ArrowRight, Loader2,
   GraduationCap, Shield, Zap, ImageIcon
 } from 'lucide-react';
+import { formatEUR } from '@/lib/currency';
 
 interface CatalogueViewProps {
   profile: any;
@@ -237,14 +238,24 @@ export default function CatalogueView({ profile, enrollments, onNavigateFormatio
                   <div className="flex items-end justify-between pt-3 border-t border-[#1e293b]">
                     <div>
                       {discount > 0 && (
-                        <p className="text-xs text-slate-500 line-through">
-                          {cert.price_normal?.toLocaleString()} FCFA
-                        </p>
+                        <div>
+                          <p className="text-xs text-slate-500 line-through">
+                            {cert.price_normal?.toLocaleString()} FCFA
+                          </p>
+                          <p className="text-[10px] text-slate-600">
+                            {formatEUR(cert.price_normal)}
+                          </p>
+                        </div>
                       )}
-                      <p className="text-lg font-bold text-white">
-                        {cert.price_bourse?.toLocaleString()}
-                        <span className="text-sm font-normal text-slate-400"> FCFA</span>
-                      </p>
+                      <div>
+                        <p className="text-lg font-bold text-white">
+                          {cert.price_bourse?.toLocaleString()}
+                          <span className="text-sm font-normal text-slate-400"> FCFA</span>
+                        </p>
+                        <p className="text-[10px] text-slate-500">
+                          {formatEUR(cert.price_bourse)}
+                        </p>
+                      </div>
                     </div>
 
                     {isPaid ? (
