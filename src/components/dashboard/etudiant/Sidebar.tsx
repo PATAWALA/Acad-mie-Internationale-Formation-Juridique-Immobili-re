@@ -3,7 +3,8 @@
 import { motion } from 'framer-motion';
 import { 
   GraduationCap, LayoutDashboard, BookOpen, Clock, 
-  PlusCircle, User, HelpCircle, LogOut, ChevronRight
+  PlusCircle, User, HelpCircle, LogOut, ChevronRight,
+  ImageIcon
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -12,8 +13,8 @@ interface SidebarProps {
   onSelectFormation: (certId: number) => void;
   onAddFormation: () => void;
   onGoHome: () => void;
-  onGoMesFormations: () => void;  // ← NOUVEAU
-  onGoPending: () => void;        // ← NOUVEAU
+  onGoMesFormations: () => void;
+  onGoPending: () => void;
   onGoSupport: () => void;
   onGoProfil: () => void;
   onPayClick: (enrollmentId: number, amount: number) => void;
@@ -25,8 +26,8 @@ export default function Sidebar({
   onSelectFormation,
   onAddFormation,
   onGoHome,
-  onGoMesFormations,  // ← NOUVEAU
-  onGoPending,        // ← NOUVEAU
+  onGoMesFormations,
+  onGoPending,
   onGoProfil,
   onGoSupport,
   onLogout,
@@ -51,7 +52,7 @@ export default function Sidebar({
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 py-4 px-3 space-y-1">
+      <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
         {/* Tableau de bord */}
         <motion.button
           whileHover={{ x: 3 }}
