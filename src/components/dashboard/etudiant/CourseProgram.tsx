@@ -7,7 +7,7 @@ import {
   Lock, Unlock, CheckCircle2, AlertCircle, 
   Clock, FileText, Video, Link as LinkIcon, 
   Send, ChevronDown, ChevronRight, Award,
-  BookOpen, Loader2, Trophy, Star
+  BookOpen, Loader2, Trophy, Star, PenTool
 } from 'lucide-react';
 import { SubmissionModal } from './SubmissionModal';
 import ContentViewer from './ContentViewer';
@@ -34,7 +34,14 @@ export function CourseProgram({ courses, userStatus, passedAssessments, submissi
     setExpandedModules(prev => ({ ...prev, [moduleId]: !prev[moduleId] }));
   };
 
-  // Calculer la progression pour un cours spécifique
+  // Déterminer si une leçon est théorique ou pratique selon son titre
+  const getLessonType = (lesson: any, index: number) => {
+    const title = (lesson.title || '').toLowerCase();
+    if (title.includes('théorie') || title.includes('theorie') || index === 0) return 'theorie';
+    if (title.includes('pratique') || title.includes('exercice') || index === 1) return 'pratique';
+    return 'standard';
+  };
+
   const getCourseProgress = (course: any) => {
     const totalAssessments = course.modules?.reduce((sum: number, mod: any) => {
       return sum + (mod.assessments?.length || 0);
@@ -50,7 +57,6 @@ export function CourseProgram({ courses, userStatus, passedAssessments, submissi
     return { total: totalAssessments, passed: passedCount, percent, isCompleted };
   };
 
-  // Calculer la progression globale
   const totalAssessments = courses.reduce((sum, course) => sum + getCourseProgress(course).total, 0);
   const totalPassed = courses.reduce((sum, course) => sum + getCourseProgress(course).passed, 0);
   const globalPercent = totalAssessments > 0 ? Math.round((totalPassed / totalAssessments) * 100) : 0;
@@ -80,9 +86,7 @@ export function CourseProgram({ courses, userStatus, passedAssessments, submissi
               <Trophy className="w-6 h-6 text-amber-400" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-amber-400 mb-1">
-                🎉 Félicitations !
-              </h3>
+              <h3 className="text-lg font-bold text-amber-400 mb-1">🎉 Félicitations !</h3>
               <p className="text-sm text-slate-300 mb-3">
                 Vous avez terminé tous les cours de cette formation. Votre certificat est en cours de génération.
               </p>
@@ -95,7 +99,7 @@ export function CourseProgram({ courses, userStatus, passedAssessments, submissi
         </motion.div>
       )}
 
-      {/* Barre de progression globale (seulement si plusieurs cours) */}
+      {/* Barre de progression globale */}
       {isPaid && courses.length > 1 && (
         <motion.div
           initial={{ opacity: 0, y: -10 }}
@@ -165,15 +169,12 @@ export function CourseProgram({ courses, userStatus, passedAssessments, submissi
               transition={{ delay: courseIndex * 0.1 }}
               className="bg-[#0f172a] border border-[#1e293b] rounded-2xl overflow-hidden"
             >
-              {/* En-tête du cours */}
               <button
                 onClick={() => toggleCourse(course.id)}
                 className="w-full flex items-center justify-between p-5 lg:p-6 hover:bg-[#1e293b]/50 transition-colors"
               >
                 <div className="flex items-center gap-4 flex-1 min-w-0">
-                  <div className={`p-2.5 rounded-xl flex-shrink-0 ${
-                    courseProgress.isCompleted ? 'bg-green-500/10' : 'bg-blue-500/10'
-                  }`}>
+                  <div className={`p-2.5 rounded-xl flex-shrink-0 ${courseProgress.isCompleted ? 'bg-green-500/10' : 'bg-blue-500/10'}`}>
                     {courseProgress.isCompleted ? (
                       <Trophy className="w-5 h-5 text-green-400" />
                     ) : (
@@ -182,46 +183,32 @@ export function CourseProgram({ courses, userStatus, passedAssessments, submissi
                   </div>
                   <div className="text-left flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <h3 className="text-base lg:text-lg font-bold text-white truncate">
-                        {course.title}
-                      </h3>
+                      <h3 className="text-base lg:text-lg font-bold text-white truncate">{course.title}</h3>
                       {courseProgress.isCompleted && (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-500/10 text-green-400 text-[10px] font-bold rounded-full border border-green-500/20 flex-shrink-0">
-                          <CheckCircle2 className="w-3 h-3" />
-                          Terminé
+                          <CheckCircle2 className="w-3 h-3" /> Terminé
                         </span>
                       )}
                     </div>
-                    {/* Barre de progression du cours */}
                     {courseProgress.total > 0 && (
                       <div className="mt-2 flex items-center gap-2">
                         <div className="flex-1 h-1.5 bg-[#1e293b] rounded-full overflow-hidden max-w-[200px]">
                           <motion.div
                             initial={{ width: 0 }}
                             animate={{ width: `${courseProgress.percent}%` }}
-                            className={`h-full rounded-full ${
-                              courseProgress.isCompleted ? 'bg-green-500' : 'bg-blue-500'
-                            }`}
+                            className={`h-full rounded-full ${courseProgress.isCompleted ? 'bg-green-500' : 'bg-blue-500'}`}
                           />
                         </div>
-                        <span className={`text-xs font-medium ${
-                          courseProgress.isCompleted ? 'text-green-400' : 'text-blue-400'
-                        }`}>
-                          {courseProgress.percent}%
-                        </span>
+                        <span className={`text-xs font-medium ${courseProgress.isCompleted ? 'text-green-400' : 'text-blue-400'}`}>{courseProgress.percent}%</span>
                       </div>
                     )}
                   </div>
                 </div>
-                <motion.div
-                  animate={{ rotate: isCourseExpanded ? 180 : 0 }}
-                  transition={{ duration: 0.2 }}
-                >
+                <motion.div animate={{ rotate: isCourseExpanded ? 180 : 0 }} transition={{ duration: 0.2 }}>
                   <ChevronDown className="w-5 h-5 text-slate-400" />
                 </motion.div>
               </button>
 
-              {/* Modules */}
               <AnimatePresence>
                 {isCourseExpanded && (
                   <motion.div
@@ -239,34 +226,32 @@ export function CourseProgram({ courses, userStatus, passedAssessments, submissi
                         const isUnlocked = isFirstModule || (prevAssessmentId && passedAssessments.includes(prevAssessmentId));
                         const isModuleExpanded = expandedModules[mod.id] ?? isUnlocked;
 
+                        // Vérifier si ce module a un TP validé
+                        const moduleAssessmentId = mod.assessments?.[0]?.id;
+                        const isModulePassed = moduleAssessmentId && passedAssessments.includes(moduleAssessmentId);
+
                         return (
                           <div
                             key={mod.id}
-                            className={`rounded-xl border transition-all ${
-                              isUnlocked
-                                ? 'bg-[#020617] border-[#1e293b]'
-                                : 'bg-[#020617]/50 border-[#1e293b]/50 opacity-75'
-                            }`}
+                            className={`rounded-xl border transition-all ${isUnlocked ? 'bg-[#020617] border-[#1e293b]' : 'bg-[#020617]/50 border-[#1e293b]/50 opacity-75'}`}
                           >
-                            {/* En-tête du module */}
                             <button
                               onClick={() => isUnlocked && toggleModule(mod.id)}
                               className="w-full flex items-center justify-between p-4"
                             >
                               <div className="flex items-center gap-3">
-                                <div className={`p-1.5 rounded-lg ${
-                                  isUnlocked ? 'bg-blue-500/10' : 'bg-slate-700/50'
-                                }`}>
-                                  {isUnlocked ? (
-                                    <Unlock className="w-4 h-4 text-blue-400" />
-                                  ) : (
-                                    <Lock className="w-4 h-4 text-slate-500" />
-                                  )}
+                                <div className={`p-1.5 rounded-lg ${isUnlocked ? 'bg-blue-500/10' : 'bg-slate-700/50'}`}>
+                                  {isUnlocked ? <Unlock className="w-4 h-4 text-blue-400" /> : <Lock className="w-4 h-4 text-slate-500" />}
                                 </div>
                                 <div className="text-left">
-                                  <h4 className="text-sm font-semibold text-white">
-                                    Semaine {mod.week_number} : {mod.title}
-                                  </h4>
+                                  <div className="flex items-center gap-2">
+                                    <h4 className="text-sm font-semibold text-white">Semaine {mod.week_number} : {mod.title}</h4>
+                                    {isModulePassed && (
+                                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-green-500/10 text-green-400 text-[10px] font-bold rounded-full border border-green-500/20">
+                                        <CheckCircle2 className="w-3 h-3" /> Validée
+                                      </span>
+                                    )}
+                                  </div>
                                   <div className="flex items-center gap-3 mt-1">
                                     <span className="text-xs text-slate-500 flex items-center gap-1">
                                       <FileText className="w-3 h-3" />
@@ -275,23 +260,19 @@ export function CourseProgram({ courses, userStatus, passedAssessments, submissi
                                     {mod.assessments?.length > 0 && (
                                       <span className="text-xs text-slate-500 flex items-center gap-1">
                                         <Award className="w-3 h-3" />
-                                        {mod.assessments.length} évaluation(s)
+                                        {mod.assessments.length} évaluation
                                       </span>
                                     )}
                                   </div>
                                 </div>
                               </div>
                               {isUnlocked && (
-                                <motion.div
-                                  animate={{ rotate: isModuleExpanded ? 180 : 0 }}
-                                  transition={{ duration: 0.2 }}
-                                >
+                                <motion.div animate={{ rotate: isModuleExpanded ? 180 : 0 }} transition={{ duration: 0.2 }}>
                                   <ChevronDown className="w-4 h-4 text-slate-400" />
                                 </motion.div>
                               )}
                             </button>
 
-                            {/* Contenu du module */}
                             <AnimatePresence>
                               {isModuleExpanded && isUnlocked && (
                                 <motion.div
@@ -301,39 +282,55 @@ export function CourseProgram({ courses, userStatus, passedAssessments, submissi
                                   className="border-t border-[#1e293b]"
                                 >
                                   <div className="p-4 space-y-4">
-                                    {/* Leçons */}
-                                    {mod.lessons?.map((lesson: any) => (
-                                      <div
-                                        key={lesson.id}
-                                        className="bg-[#0f172a] rounded-xl p-4 border border-[#1e293b]"
-                                      >
-                                        <div className="flex items-center gap-2 mb-3">
-                                          {lesson.content_type === 'VIDEO' && <Video className="w-4 h-4 text-red-400" />}
-                                          {lesson.content_type === 'PDF' && <FileText className="w-4 h-4 text-blue-400" />}
-                                          {lesson.content_type === 'TEXT' && <FileText className="w-4 h-4 text-green-400" />}
-                                          {lesson.content_type === 'LINK' && <LinkIcon className="w-4 h-4 text-purple-400" />}
-                                          <span className="text-sm font-medium text-white">{lesson.title}</span>
-                                          <span className="text-xs text-slate-500 px-2 py-0.5 bg-[#1e293b] rounded-full">{lesson.content_type}</span>
-                                        </div>
-                                        {isPaid ? (
-                                          <ContentViewer contentType={lesson.content_type} contentUrl={lesson.content_url} contentBody={lesson.content_body} title={lesson.title} />
-                                        ) : (
-                                          <div className="flex items-center gap-2 text-amber-400 text-sm">
-                                            <Lock className="w-4 h-4" /> Réservé aux membres payants
+                                    {/* Leçons avec badges Théorie / Pratique */}
+                                    {mod.lessons?.map((lesson: any, lessonIndex: number) => {
+                                      const lessonType = getLessonType(lesson, lessonIndex);
+                                      return (
+                                        <div key={lesson.id} className="bg-[#0f172a] rounded-xl p-4 border border-[#1e293b]">
+                                          <div className="flex items-center gap-2 mb-3">
+                                            {lessonType === 'theorie' && (
+                                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-500/10 text-blue-400 text-[10px] font-bold rounded-full border border-blue-500/20">
+                                                📚 Théorie
+                                              </span>
+                                            )}
+                                            {lessonType === 'pratique' && (
+                                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-500/10 text-orange-400 text-[10px] font-bold rounded-full border border-orange-500/20">
+                                                ✍️ Pratique
+                                              </span>
+                                            )}
+                                            {lessonType === 'standard' && (
+                                              <>
+                                                {lesson.content_type === 'VIDEO' && <Video className="w-4 h-4 text-red-400" />}
+                                                {lesson.content_type === 'PDF' && <FileText className="w-4 h-4 text-blue-400" />}
+                                                {lesson.content_type === 'TEXT' && <FileText className="w-4 h-4 text-green-400" />}
+                                                {lesson.content_type === 'LINK' && <LinkIcon className="w-4 h-4 text-purple-400" />}
+                                              </>
+                                            )}
+                                            <span className="text-sm font-medium text-white">{lesson.title}</span>
                                           </div>
-                                        )}
-                                      </div>
-                                    ))}
+                                          {isPaid ? (
+                                            <ContentViewer contentType={lesson.content_type} contentUrl={lesson.content_url} contentBody={lesson.content_body} title={lesson.title} />
+                                          ) : (
+                                            <div className="flex items-center gap-2 text-amber-400 text-sm">
+                                              <Lock className="w-4 h-4" /> Réservé aux membres payants
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
 
-                                    {/* Évaluations */}
+                                    {/* Évaluation (TP) */}
                                     {mod.assessments?.map((ass: any) => {
                                       const sub = submissionsMap[ass.id];
                                       return (
                                         <div key={ass.id} className="bg-[#0f172a] rounded-xl p-4 border border-[#1e293b]">
                                           <div className="flex items-center justify-between mb-3">
                                             <div className="flex items-center gap-2">
-                                              <Award className="w-4 h-4 text-yellow-400" />
+                                              <PenTool className="w-4 h-4 text-yellow-400" />
                                               <span className="text-sm font-medium text-white">{ass.title}</span>
+                                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-yellow-500/10 text-yellow-400 text-[10px] font-bold rounded-full border border-yellow-500/20">
+                                                🎯 Validation
+                                              </span>
                                             </div>
                                             {sub ? (
                                               sub.status === 'PENDING' ? (
@@ -401,7 +398,6 @@ export function CourseProgram({ courses, userStatus, passedAssessments, submissi
         })}
       </div>
 
-      {/* Modal de soumission */}
       <AnimatePresence>
         {selectedAssessment && (
           <SubmissionModal

@@ -92,11 +92,13 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
     }
   };
 
+  // Types de leçons avec les nouveaux libellés
   const lessonTypes = [
-    { type: 'TEXT', icon: FileText, label: 'Texte', color: 'text-blue-400', bg: 'bg-blue-500/10' },
-    { type: 'VIDEO', icon: Video, label: 'Vidéo', color: 'text-red-400', bg: 'bg-red-500/10' },
-    { type: 'PDF', icon: FileArchive, label: 'PDF', color: 'text-orange-400', bg: 'bg-orange-500/10' },
-    { type: 'LINK', icon: Link2, label: 'Lien', color: 'text-green-400', bg: 'bg-green-500/10' },
+    { type: 'TEXT', icon: FileText, label: 'Partie théorique', color: 'text-blue-400', bg: 'bg-blue-500/10', desc: 'Contenu texte à lire' },
+    { type: 'TEXT', icon: PenTool, label: 'Partie pratique', color: 'text-orange-400', bg: 'bg-orange-500/10', desc: 'Exercices à faire' },
+    { type: 'VIDEO', icon: Video, label: 'Support vidéo', color: 'text-red-400', bg: 'bg-red-500/10', desc: 'Lien YouTube, Loom...' },
+    { type: 'PDF', icon: FileArchive, label: 'Support PDF', color: 'text-amber-400', bg: 'bg-amber-500/10', desc: 'Document à télécharger' },
+    { type: 'LINK', icon: Link2, label: 'Ressource externe', color: 'text-green-400', bg: 'bg-green-500/10', desc: 'Lien vers un site' },
   ];
 
   return (
@@ -180,7 +182,10 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
                 >
                   <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4 space-y-3">
                     <div className="flex items-center justify-between">
-                      <p className="text-sm font-medium text-white">Nouvelle leçon</p>
+                      <div>
+                        <p className="text-sm font-medium text-white">Nouvelle leçon</p>
+                        <p className="text-xs text-slate-400 mt-0.5">Choisissez le type de contenu</p>
+                      </div>
                       <button
                         onClick={() => setShowAddLessonInput(false)}
                         className="text-slate-500 hover:text-white transition-colors"
@@ -190,22 +195,22 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
                     </div>
 
                     {/* Types de leçon */}
-                    <div className="grid grid-cols-4 gap-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                       {lessonTypes.map((type) => (
                         <motion.button
-                          key={type.type}
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
+                          key={type.type + type.label}
+                          whileHover={{ scale: 1.03 }}
+                          whileTap={{ scale: 0.97 }}
                           onClick={() => setNewLessonType(type.type)}
                           className={cn(
-                            "flex flex-col items-center gap-1 p-3 rounded-xl text-xs font-medium transition-all duration-200 border",
-                            newLessonType === type.type
+                            "flex flex-col items-center gap-1.5 p-3 rounded-xl text-xs font-medium transition-all duration-200 border",
+                            newLessonType === type.type && newLessonTitle.includes(type.label)
                               ? `${type.bg} border-current ${type.color}`
                               : "bg-slate-900 border-slate-700/50 text-slate-400 hover:text-white hover:border-slate-600"
                           )}
                         >
                           <type.icon className="w-5 h-5" />
-                          {type.label}
+                          <span className="text-center leading-tight">{type.label}</span>
                         </motion.button>
                       ))}
                     </div>
@@ -215,7 +220,7 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
                         type="text"
                         value={newLessonTitle}
                         onChange={(e) => setNewLessonTitle(e.target.value)}
-                        placeholder="Titre de la leçon"
+                        placeholder="Titre de la leçon (ex: Introduction théorique)"
                         autoFocus
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') handleAddLesson();
@@ -251,7 +256,9 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
             {lessons.length === 0 ? (
               <div className="text-center py-8 bg-slate-800/30 rounded-xl border border-slate-800/50">
                 <BookOpen className="w-8 h-8 text-slate-600 mx-auto mb-2" />
-                <p className="text-slate-500 text-sm">Aucune leçon pour ce module</p>
+                <p className="text-slate-500 text-sm">
+                  Ajoutez une partie théorique et une partie pratique
+                </p>
               </div>
             ) : (
               <motion.div
@@ -306,7 +313,12 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
                 >
                   <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4 space-y-3">
                     <div className="flex items-center justify-between">
-                      <p className="text-sm font-medium text-white">Nouvelle évaluation</p>
+                      <div>
+                        <p className="text-sm font-medium text-white">Nouvelle évaluation</p>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          Cette évaluation permettra de valider la semaine
+                        </p>
+                      </div>
                       <button
                         onClick={() => setShowAddAssessmentInput(false)}
                         className="text-slate-500 hover:text-white transition-colors"
@@ -318,8 +330,8 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
                     {/* Type d'évaluation */}
                     <div className="grid grid-cols-2 gap-2">
                       {[
-                        { type: 'TP', icon: PenTool, label: 'TP' },
-                        { type: 'EXAM', icon: GraduationCap, label: 'Examen' },
+                        { type: 'TP', icon: PenTool, label: 'Travail Pratique' },
+                        { type: 'EXAM', icon: GraduationCap, label: 'Examen final' },
                       ].map((type) => (
                         <motion.button
                           key={type.type}
@@ -344,7 +356,7 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
                         type="text"
                         value={newAssessmentTitle}
                         onChange={(e) => setNewAssessmentTitle(e.target.value)}
-                        placeholder="Titre de l'évaluation"
+                        placeholder="Titre de l'évaluation (ex: TP Semaine 1)"
                         autoFocus
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') handleAddAssessment();
@@ -380,7 +392,9 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
             {assessments.length === 0 ? (
               <div className="text-center py-8 bg-slate-800/30 rounded-xl border border-slate-800/50">
                 <PenTool className="w-8 h-8 text-slate-600 mx-auto mb-2" />
-                <p className="text-slate-500 text-sm">Aucune évaluation pour ce module</p>
+                <p className="text-slate-500 text-sm">
+                  Ajoutez une évaluation pour valider cette semaine
+                </p>
               </div>
             ) : (
               <motion.div

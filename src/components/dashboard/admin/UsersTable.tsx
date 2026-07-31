@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAdmin } from '@/context/AdminContext';
 import { CreateTeacherModal } from './CreateTeacherModal';
 import { cn } from '@/lib/utils';
-import { fadeIn, scaleIn, stagger } from '@/lib/animations';
+import { fadeIn, stagger } from '@/lib/animations';
 import {
   Users,
   Clock,
@@ -13,7 +13,6 @@ import {
   Plus,
   Search,
   Filter,
-  ChevronDown,
   UserCheck,
 } from 'lucide-react';
 
@@ -22,6 +21,9 @@ export function UsersTable() {
   const [filter, setFilter] = useState<'ALL' | 'PENDING' | 'PAID'>('ALL');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Exclure SUPER_ADMIN et ADMIN de l'affichage
+  const displayUsers = users.filter(u => u.role !== 'SUPER_ADMIN' && u.role !== 'ADMIN');
 
   const isStudent = (user: any) => user.role === 'STUDENT';
   const isPending = (status: string | null) => {
@@ -35,7 +37,7 @@ export function UsersTable() {
   };
 
   // Filtrage combiné (filtre pilule + recherche)
-  const filteredUsers = users.filter((user) => {
+  const filteredUsers = displayUsers.filter((user) => {
     // Filtre de statut
     if (filter === 'PENDING' && (!isStudent(user) || !isPending(user.status))) return false;
     if (filter === 'PAID' && (!isStudent(user) || !isPaid(user.status))) return false;
@@ -53,11 +55,11 @@ export function UsersTable() {
     return true;
   });
 
-  const pendingCount = users.filter((u) => isStudent(u) && isPending(u.status)).length;
-  const paidCount = users.filter((u) => isStudent(u) && isPaid(u.status)).length;
+  const pendingCount = displayUsers.filter((u) => isStudent(u) && isPending(u.status)).length;
+  const paidCount = displayUsers.filter((u) => isStudent(u) && isPaid(u.status)).length;
 
   const filters = [
-    { key: 'ALL', label: 'Tous', count: users.length, icon: Users },
+    { key: 'ALL', label: 'Tous', count: displayUsers.length, icon: Users },
     { key: 'PENDING', label: 'En attente', count: pendingCount, icon: Clock, color: 'amber' },
     { key: 'PAID', label: 'Payés', count: paidCount, icon: CheckCircle, color: 'green' },
   ];
@@ -81,7 +83,7 @@ export function UsersTable() {
                 Liste des utilisateurs
               </h2>
               <p className="text-xs text-slate-400 mt-0.5">
-                {filteredUsers.length} sur {users.length} utilisateurs
+                {filteredUsers.length} sur {displayUsers.length} utilisateurs
               </p>
             </div>
           </motion.div>
@@ -237,8 +239,6 @@ export function UsersTable() {
                           'inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold tracking-wide',
                           user.role === 'TEACHER' &&
                             'bg-violet-500/20 text-violet-300 border border-violet-500/30',
-                          user.role === 'ADMIN' &&
-                            'bg-red-500/20 text-red-300 border border-red-500/30',
                           user.role === 'STUDENT' &&
                             'bg-blue-500/20 text-blue-300 border border-blue-500/30'
                         )}
