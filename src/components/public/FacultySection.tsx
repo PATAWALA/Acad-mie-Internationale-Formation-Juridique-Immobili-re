@@ -84,6 +84,14 @@ const faculty = [
     image: '/images/faculty/kevin-dizo.jpeg',
     quote: 'J\'aurai à charge votre Certification Pratique de la Rédaction des contrats et des Actes de justice.',
   },
+  {
+  id: 11,
+  name: 'M. ASSANDÉ Francis',
+  role: 'Formateur',
+  credentials: 'Clerc Assermenté habilité de commissaire de justice',
+  image: '/images/faculty/assande-francis.jpeg',
+  quote: 'Je vous apprendrai à rédiger les actes extrajudiciaires tels que les mises en demeure, les exploits de remise de lettre... Et découvrir des actes comme le procès-verbal.',
+}
 ];
 
 export default function FacultySection() {
