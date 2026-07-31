@@ -6,14 +6,6 @@ import { Quote } from 'lucide-react';
 const faculty = [
   {
     id: 1,
-    name: 'Dr. Jean-Louis LOBÉ',
-    role: 'Fondateur & Directeur Académique',
-    credentials: 'Docteur en Droit spécialisé en Droit Immobilier, Foncier et droit des contrats — Expert Immobilier certifié par le Centre National de l\'Expertise de France — Rattaché à l\'Université de Toulouse et de Nantes',
-    image: '/images/faculty/jean-louis-lobe.jpeg',
-    quote: 'Le pont direct entre la théorie universitaire et la pratique d\'élite. 15 ans d\'expérience, plus de 1 000 auditeurs formés et insérés dans les plus prestigieuses institutions juridiques et immobilières.',
-  },
-  {
-    id: 2,
     name: 'Me Paul Ephrem Gnaleko',
     role: 'Intervenant & Parrain',
     credentials: 'Avocat de Droit Anglais — Directeur Juridique de Air-Côte d\'Ivoire',
@@ -21,12 +13,21 @@ const faculty = [
     quote: 'Outre mon parrainage, je partagerai avec les auditeurs mon expérience en matière de rédaction de contrat et l\'urgente nécessité de savoir rédiger un contrat.',
   },
   {
+    id: 2,
+    name: 'Dr. Jean-Louis LOBÉ',
+    role: 'Fondateur & Directeur Académique',
+    credentials: 'Docteur en Droit spécialisé en Droit Immobilier, Foncier et droit des contrats — Expert Immobilier certifié par le Centre National de l\'Expertise de France — Rattaché à l\'Université de Toulouse et de Nantes',
+    image: '/images/faculty/jean-louis-lobe.jpeg',
+    quote: 'Le pont direct entre la théorie universitaire et la pratique d\'élite. 15 ans d\'expérience, plus de 1 000 auditeurs formés et insérés dans les plus prestigieuses institutions juridiques et immobilières.',
+  },
+  
+  {
     id: 3,
-    name: 'M. Fauchard Hervé KONAN',
-    role: 'Intervenant',
-    credentials: 'Ingénieur Génie Civil',
-    image: '/images/faculty/fauchard-herve-konan.jpeg',
-    quote: 'Je partagerai avec vous les aspects techniques de la promotion immobilière.',
+    name: 'Dr Kévin DIZO',
+    role: 'Formateur',
+    credentials: 'Docteur en Droit Privé et Sciences criminelles de l\'Université de Nantes — ATER à Paris 10 Nanterre',
+    image: '/images/faculty/kevin-dizo.jpeg',
+    quote: 'J\'aurai à charge votre Certification Pratique de la Rédaction des contrats et des Actes de justice.',
   },
   {
     id: 4,
@@ -78,11 +79,11 @@ const faculty = [
   },
   {
     id: 10,
-    name: 'Dr Kévin DIZO',
-    role: 'Formateur',
-    credentials: 'Docteur en Droit Privé et Sciences criminelles de l\'Université de Nantes — ATER à Paris 10 Nanterre',
-    image: '/images/faculty/kevin-dizo.jpeg',
-    quote: 'J\'aurai à charge votre Certification Pratique de la Rédaction des contrats et des Actes de justice.',
+    name: 'M. Fauchard Hervé KONAN',
+    role: 'Intervenant',
+    credentials: 'Ingénieur Génie Civil',
+    image: '/images/faculty/fauchard-herve-konan.jpeg',
+    quote: 'Je partagerai avec vous les aspects techniques de la promotion immobilière.',
   },
   {
   id: 11,
