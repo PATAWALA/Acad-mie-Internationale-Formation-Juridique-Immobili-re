@@ -23,7 +23,6 @@ interface SidebarProps {
 
 export default function Sidebar({
   enrollments,
-  onSelectFormation,
   onAddFormation,
   onGoHome,
   onGoMesFormations,

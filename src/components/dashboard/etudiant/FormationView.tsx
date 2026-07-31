@@ -8,7 +8,7 @@ import {
   BookOpen, Lock, AlertCircle, 
   RefreshCw, Loader2, CreditCard,
   GraduationCap, ChevronRight, Trophy,
-  CheckCircle2, Award
+  Award
 } from 'lucide-react';
 import { CourseProgram } from './CourseProgram';
 import { StudentCertificates } from './StudentCertificates';
@@ -16,20 +16,21 @@ import { StudentCertificates } from './StudentCertificates';
 interface FormationViewProps {
   certId: number;
   onPaymentSuccess: () => void;
+  onPayClick?: (enrollmentId: number, amount: number) => void;
 }
 
-export default function FormationView({ certId, onPaymentSuccess }: FormationViewProps) {
+export default function FormationView({ certId, onPaymentSuccess, onPayClick }: FormationViewProps) {
   const { profile } = useStudent();
   const supabase = createClientComponent();
   const [courses, setCourses] = useState<any[]>([]);
   const [passedAssessments, setPassedAssessments] = useState<string[]>([]);
   const [certificates, setCertificates] = useState<any[]>([]);
   const [enrollmentStatus, setEnrollmentStatus] = useState<string | null>(null);
+  const [enrollment, setEnrollment] = useState<any>(null);
   const [submissionsMap, setSubmissionsMap] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   
-  // Stats du certificat
   const [certStats, setCertStats] = useState({
     totalCourses: 0,
     completedCourses: 0,
@@ -51,7 +52,6 @@ export default function FormationView({ certId, onPaymentSuccess }: FormationVie
       }, 0) || 0;
       totalAssessments += courseAssessments;
       
-      // Vérifier si tous les assessments de ce cours sont validés
       const courseAssessmentIds = course.modules?.flatMap((mod: any) => 
         mod.assessments?.map((ass: any) => ass.id) || []
       ) || [];
@@ -81,7 +81,7 @@ export default function FormationView({ certId, onPaymentSuccess }: FormationVie
     
     const { data: enr } = await supabase
       .from('enrollments')
-      .select('payment_status')
+      .select('id, payment_status, remaining_balance')
       .eq('student_id', profile.id)
       .eq('certificate_id', certId)
       .maybeSingle();
@@ -92,6 +92,7 @@ export default function FormationView({ certId, onPaymentSuccess }: FormationVie
       return;
     }
     setEnrollmentStatus(enr.payment_status);
+    setEnrollment(enr);
 
     if (enr.payment_status === 'PAID') {
       const { data: coursesData } = await supabase
@@ -174,39 +175,26 @@ export default function FormationView({ certId, onPaymentSuccess }: FormationVie
 
   if (!enrollmentStatus) {
     return (
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="text-center py-12"
-      >
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center py-12">
         <div className="w-16 h-16 bg-slate-800 rounded-2xl flex items-center justify-center mx-auto mb-4">
           <BookOpen className="w-8 h-8 text-slate-500" />
         </div>
-        <h3 className="text-lg font-semibold text-white mb-2">
-          Formation non disponible
-        </h3>
-        <p className="text-sm text-slate-400">
-          Vous n'êtes pas inscrit à cette formation. Parcourez le catalogue pour vous inscrire.
-        </p>
+        <h3 className="text-lg font-semibold text-white mb-2">Formation non disponible</h3>
+        <p className="text-sm text-slate-400">Vous n'êtes pas inscrit à cette formation. Parcourez le catalogue pour vous inscrire.</p>
       </motion.div>
     );
   }
 
   return (
     <div className="space-y-6 lg:space-y-8">
-      {/* Certificats obtenus */}
       <AnimatePresence>
         {certificates.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-          >
+          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
             <StudentCertificates certificates={certificates} />
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Alerte Certificat disponible */}
       {enrollmentStatus === 'PAID' && certStats.isFullyCompleted && (
         <motion.div
           initial={{ opacity: 0, y: -10, scale: 0.95 }}
@@ -218,23 +206,14 @@ export default function FormationView({ certId, onPaymentSuccess }: FormationVie
               <Trophy className="w-5 h-5 text-amber-400" />
             </div>
             <div>
-              <p className="text-sm font-bold text-amber-400">
-                🎉 Tous les cours sont validés !
-              </p>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Votre certificat sera disponible dans votre espace après validation par l'administration.
-              </p>
+              <p className="text-sm font-bold text-amber-400">🎉 Tous les cours sont validés !</p>
+              <p className="text-xs text-slate-400 mt-0.5">Votre certificat sera disponible dans votre espace après validation par l'administration.</p>
             </div>
           </div>
         </motion.div>
       )}
 
-      {/* Barre d'actions */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between"
-      >
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
         <div>
           <h2 className="text-xl lg:text-2xl font-bold text-white flex items-center gap-2">
             <GraduationCap className="w-6 h-6 text-blue-400" />
@@ -249,16 +228,12 @@ export default function FormationView({ certId, onPaymentSuccess }: FormationVie
 
         {enrollmentStatus === 'PAID' && (
           <div className="flex items-center gap-3">
-            {/* Indicateur de progression */}
             {certStats.totalAssessments > 0 && (
               <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-blue-500/10 border border-blue-500/20 rounded-full">
                 <Award className="w-4 h-4 text-blue-400" />
-                <span className="text-xs text-blue-400 font-bold">
-                  {certStats.progressPercent}%
-                </span>
+                <span className="text-xs text-blue-400 font-bold">{certStats.progressPercent}%</span>
               </div>
             )}
-            
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
@@ -266,18 +241,13 @@ export default function FormationView({ certId, onPaymentSuccess }: FormationVie
               disabled={refreshing}
               className="flex items-center gap-2 px-4 py-2.5 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-500/50 text-white text-sm font-medium rounded-xl transition-all shadow-lg shadow-blue-500/20"
             >
-              {refreshing ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <RefreshCw className="w-4 h-4" />
-              )}
+              {refreshing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
               Actualiser
             </motion.button>
           </div>
         )}
       </motion.div>
 
-      {/* Contenu selon le statut */}
       <AnimatePresence mode="wait">
         {enrollmentStatus !== 'PAID' ? (
           <motion.div
@@ -310,6 +280,11 @@ export default function FormationView({ certId, onPaymentSuccess }: FormationVie
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
+                  onClick={() => {
+                    if (enrollment && onPayClick) {
+                      onPayClick(enrollment.id, enrollment.remaining_balance || 0);
+                    }
+                  }}
                   className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-semibold rounded-xl shadow-lg shadow-amber-500/20 transition-all"
                 >
                   <CreditCard className="w-5 h-5" />
@@ -324,27 +299,13 @@ export default function FormationView({ certId, onPaymentSuccess }: FormationVie
             </div>
           </motion.div>
         ) : courses.length === 0 ? (
-          <motion.div
-            key="empty"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-center py-12"
-          >
+          <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-12">
             <BookOpen className="w-12 h-12 text-slate-600 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-white mb-2">
-              Aucun cours disponible
-            </h3>
-            <p className="text-sm text-slate-400">
-              Le contenu de cette formation sera bientôt disponible.
-            </p>
+            <h3 className="text-lg font-semibold text-white mb-2">Aucun cours disponible</h3>
+            <p className="text-sm text-slate-400">Le contenu de cette formation sera bientôt disponible.</p>
           </motion.div>
         ) : (
-          <motion.div
-            key="content"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-          >
+          <motion.div key="content" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
             <CourseProgram
               courses={courses}
               userStatus="PAID"
