@@ -7,8 +7,8 @@ import Image from 'next/image';
 
 const navLinks = [
   { label: 'Programmes', href: '#certificates' },
-  { label: 'Bourse', href: '#faculty' },
-  { label: 'Témoignages', href: '#testimonials' },
+  { label: 'Bourse', href: '#registration-form' },
+  { label: 'Témoignages', href: '#social-proof' },
   { label: 'Corps enseignant', href: '#faculty' },
 ];
 
@@ -43,7 +43,7 @@ export default function Header() {
           <div className="relative w-10 h-10 rounded-lg overflow-hidden border border-[#1E293B] group-hover:border-[#D4AF37]/30 transition-colors">
             <Image
               src="/images/logo.jpeg"
-              alt="Académie Internationale"
+              alt="Université d'Été de Droit et de l'Immobilier"
               fill
               className="object-cover"
               priority
@@ -51,10 +51,10 @@ export default function Header() {
           </div>
           <div className="flex flex-col">
             <span className="text-white font-['Playfair_Display'] text-sm sm:text-base lg:text-lg leading-tight tracking-tight">
-              Académie
+              Université d&apos;Été
             </span>
-            <span className="text-[#D4AF37] font-['Playfair_Display'] text-sm sm:text-base lg:text-lg leading-tight tracking-tight">
-              Internationale
+            <span className="text-[#D4AF37] font-['Playfair_Display'] text-xs sm:text-sm leading-tight tracking-tight">
+              Droit &amp; Immobilier
             </span>
           </div>
         </Link>
