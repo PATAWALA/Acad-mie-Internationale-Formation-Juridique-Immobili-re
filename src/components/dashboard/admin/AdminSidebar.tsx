@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 import { createClientComponent } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
 import { fadeIn, stagger } from '@/lib/animations';
+import { useAdmin } from '@/context/AdminContext';
 import {
   LayoutDashboard,
   Users,
@@ -18,11 +19,12 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
+  ClipboardList,
 } from 'lucide-react';
-import { useAdmin } from '@/context/AdminContext';
 
 const navItems = [
   { href: '/dashboard/admin', label: 'Tableau de bord', icon: LayoutDashboard },
+  { href: '/dashboard/admin/inscriptions', label: 'Inscriptions', icon: ClipboardList },
   { href: '/dashboard/admin/users', label: 'Utilisateurs', icon: Users },
   { href: '/dashboard/admin/cours', label: 'Cours', icon: BookOpen },
   { href: '/dashboard/admin/certificats', label: 'Certificats', icon: GraduationCap },
@@ -85,7 +87,7 @@ export default function AdminSidebar() {
       </div>
 
       {/* Navigation - scrollable */}
-      <nav className="flex-1 p-3 space-y-1 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
+      <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
         <motion.div variants={stagger} initial="initial" animate="animate" className="space-y-1">
           {navItems.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
