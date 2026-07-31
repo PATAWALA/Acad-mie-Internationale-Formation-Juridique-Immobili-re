@@ -1,39 +1,32 @@
 'use client';
 
-import { useState } from 'react';
-import { Check, Clock, BookOpen } from 'lucide-react';
-
-interface Certificate {
-  id: number;
-  title: string;
-  duration: string;
-  normalPrice: number;
-  boursePrice: number;
-  discount: number; // pourcentage
-  category: 'juridique' | 'immobilier';
-  modules: string[];
-}
-
-const certificates: Certificate[] = [
-  { id: 1, title: 'Certificat en Droit des Affaires OHADA', duration: '4 semaines', normalPrice: 50000, boursePrice: 40000, discount: 20, category: 'juridique', modules: ['Droit des sociétés', 'Contentieux commercial', 'Arbitrage OHADA'] },
-  { id: 2, title: 'Certificat en Droit Immobilier', duration: '4 semaines', normalPrice: 50000, boursePrice: 25000, discount: 50, category: 'immobilier', modules: ['Transaction immobilière', 'Copropriété', 'Financement immobilier'] },
-  { id: 3, title: 'Certificat en Procédure Civile', duration: '4 semaines', normalPrice: 50000, boursePrice: 40000, discount: 20, category: 'juridique', modules: ['Voies d\'exécution', 'Saisies', 'Recouvrement'] },
-  { id: 4, title: 'Certificat en Droit du Travail', duration: '4 semaines', normalPrice: 50000, boursePrice: 40000, discount: 20, category: 'juridique', modules: ['Contrat de travail', 'Licenciement', 'Prud\'hommes'] },
-  { id: 5, title: 'Certificat en Droit Bancaire', duration: '4 semaines', normalPrice: 50000, boursePrice: 40000, discount: 20, category: 'juridique', modules: ['Garanties bancaires', 'Crédit', 'Contentieux bancaire'] },
-  { id: 6, title: 'Certificat en Droit des Assurances', duration: '4 semaines', normalPrice: 50000, boursePrice: 40000, discount: 20, category: 'juridique', modules: ['Contrat d\'assurance', 'Indemnisation', 'Règlement des sinistres'] },
-  { id: 7, title: 'Certificat en Fiscalité', duration: '4 semaines', normalPrice: 50000, boursePrice: 40000, discount: 20, category: 'juridique', modules: ['Impôt sur les sociétés', 'TVA', 'Contrôle fiscal'] },
-  { id: 8, title: 'Certificat en Droit Pénal des Affaires', duration: '4 semaines', normalPrice: 50000, boursePrice: 40000, discount: 20, category: 'juridique', modules: ['Infractions économiques', 'Blanchiment', 'Responsabilité pénale'] },
-  { id: 9, title: 'Certificat en Gestion Immobilière', duration: '4 semaines', normalPrice: 50000, boursePrice: 25000, discount: 50, category: 'immobilier', modules: ['Gestion locative', 'Syndic', 'Valorisation immobilière'] },
-];
+import { useState, useEffect } from 'react';
+import { Check, Clock, BookOpen, ImageIcon } from 'lucide-react';
+import { createClientComponent } from '@/lib/supabase/client';
 
 export default function CertificatesGrid() {
+  const supabase = createClientComponent();
+  const [certificates, setCertificates] = useState<any[]>([]);
   const [selected, setSelected] = useState<number[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchCerts = async () => {
+      setLoading(true);
+      const { data } = await supabase
+        .from('certificates')
+        .select('*')
+        .order('id');
+      if (data) setCertificates(data);
+      setLoading(false);
+    };
+    fetchCerts();
+  }, []);
 
   const toggleCert = (id: number) => {
     setSelected((prev) =>
       prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]
     );
-    // Scroll vers le formulaire en pré‑sélectionnant le certificat
     const event = new CustomEvent('preselect-cert', { detail: { id } });
     window.dispatchEvent(event);
     setTimeout(() => {
@@ -43,13 +36,21 @@ export default function CertificatesGrid() {
 
   const totalNormal = selected.reduce((sum, id) => {
     const cert = certificates.find((c) => c.id === id);
-    return sum + (cert?.normalPrice || 0);
+    return sum + (cert?.price_normal || 0);
   }, 0);
 
   const totalBourse = selected.reduce((sum, id) => {
     const cert = certificates.find((c) => c.id === id);
-    return sum + (cert?.boursePrice || 0);
+    return sum + (cert?.price_bourse || 0);
   }, 0);
+
+  if (loading) {
+    return (
+      <section className="py-20 px-4 md:px-8 max-w-7xl mx-auto text-center">
+        <p className="text-gray-400">Chargement des certifications...</p>
+      </section>
+    );
+  }
 
   return (
     <section id="certificates" className="py-20 px-4 md:px-8 max-w-7xl mx-auto">
@@ -59,6 +60,9 @@ export default function CertificatesGrid() {
         </h2>
         <p className="text-gray-400 text-lg max-w-2xl mx-auto">
           Sélectionnez vos modules et rejoignez l&apos;élite juridique et immobilière grâce à la Bourse Mamadou TOURÉ
+        </p>
+        <p className="text-[#D4AF37] text-sm mt-2 font-medium">
+          🎓 Université d'Été 2026 — Début le 08 Août
         </p>
       </div>
 
@@ -90,53 +94,64 @@ export default function CertificatesGrid() {
 
       {/* Grille */}
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {certificates.map((cert) => (
-          <div
-            key={cert.id}
-            className={`relative bg-[#0f172a] border rounded-2xl p-6 transition-all duration-300 hover:shadow-xl ${
-              selected.includes(cert.id)
-                ? 'border-[#D4AF37]/40 shadow-lg shadow-[#D4AF37]/10'
-                : 'border-[#1E293B] hover:border-[#D4AF37]/20'
-            }`}
-          >
-            {selected.includes(cert.id) && (
-              <div className="absolute top-4 right-4 w-6 h-6 bg-[#D4AF37] rounded-full flex items-center justify-center">
-                <Check className="w-4 h-4 text-[#0B0F19]" />
-              </div>
-            )}
-            <BookOpen className="w-8 h-8 text-[#D4AF37] mb-4" />
-            <h3 className="text-lg font-semibold text-white mb-2">{cert.title}</h3>
-            <div className="flex items-center gap-2 text-sm text-gray-400 mb-4">
-              <Clock className="w-4 h-4" />
-              {cert.duration}
-            </div>
-            <ul className="space-y-1 mb-6">
-              {cert.modules.map((mod, i) => (
-                <li key={i} className="text-xs text-gray-500 flex items-center gap-2">
-                  <span className="w-1 h-1 bg-[#D4AF37] rounded-full" />
-                  {mod}
-                </li>
-              ))}
-            </ul>
-            <div className="flex items-center gap-3 mb-4">
-              <span className="text-gray-500 line-through text-sm">
-                {cert.normalPrice.toLocaleString()} FCFA
-              </span>
-              <span className="text-[#D4AF37] font-bold">
-                {cert.boursePrice.toLocaleString()} FCFA
-              </span>
-              <span className="text-green-400 text-xs font-semibold">
-                -{cert.discount}%
-              </span>
-            </div>
-            <button
-              onClick={() => toggleCert(cert.id)}
-              className="w-full py-2 border border-[#D4AF37]/30 text-[#D4AF37] rounded-xl text-sm font-medium hover:bg-[#D4AF37]/10 transition"
+        {certificates.map((cert) => {
+          const discount =
+            cert.price_normal > 0
+              ? Math.round(((cert.price_normal - cert.price_bourse) / cert.price_normal) * 100)
+              : 0;
+          return (
+            <div
+              key={cert.id}
+              className={`relative bg-[#0f172a] border rounded-2xl p-6 transition-all duration-300 hover:shadow-xl ${
+                selected.includes(cert.id)
+                  ? 'border-[#D4AF37]/40 shadow-lg shadow-[#D4AF37]/10'
+                  : 'border-[#1E293B] hover:border-[#D4AF37]/20'
+              }`}
             >
-              {selected.includes(cert.id) ? 'Retirer' : 'Choisir ce module'}
-            </button>
-          </div>
-        ))}
+              {selected.includes(cert.id) && (
+                <div className="absolute top-4 right-4 w-6 h-6 bg-[#D4AF37] rounded-full flex items-center justify-center">
+                  <Check className="w-4 h-4 text-[#0B0F19]" />
+                </div>
+              )}
+              {/* Image du certificat ou icône par défaut */}
+              <div className="mb-4 rounded-xl overflow-hidden bg-[#1E293B] h-40 flex items-center justify-center">
+                {cert.image_url ? (
+                  <img
+                    src={cert.image_url}
+                    alt={cert.title}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <ImageIcon className="w-10 h-10 text-gray-600" />
+                )}
+              </div>
+              <h3 className="text-lg font-semibold text-white mb-2">{cert.title}</h3>
+              <div className="flex items-center gap-2 text-sm text-gray-400 mb-4">
+                <Clock className="w-4 h-4" />
+                4 semaines
+              </div>
+              <div className="flex items-center gap-3 mb-4">
+                <span className="text-gray-500 line-through text-sm">
+                  {cert.price_normal.toLocaleString()} FCFA
+                </span>
+                <span className="text-[#D4AF37] font-bold">
+                  {cert.price_bourse.toLocaleString()} FCFA
+                </span>
+                {discount > 0 && (
+                  <span className="text-green-400 text-xs font-semibold">
+                    -{discount}%
+                  </span>
+                )}
+              </div>
+              <button
+                onClick={() => toggleCert(cert.id)}
+                className="w-full py-2 border border-[#D4AF37]/30 text-[#D4AF37] rounded-xl text-sm font-medium hover:bg-[#D4AF37]/10 transition"
+              >
+                {selected.includes(cert.id) ? 'Retirer' : 'Choisir ce module'}
+              </button>
+            </div>
+          );
+        })}
       </div>
     </section>
   );

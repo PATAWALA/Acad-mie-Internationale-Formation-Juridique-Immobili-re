@@ -1,81 +1,149 @@
 'use client';
 
-import { Quote, Star } from 'lucide-react';
+import { Award, Users, ArrowRight } from 'lucide-react';
 import Image from 'next/image';
+import { motion } from 'framer-motion';
 
-const testimonials = [
+const moments = [
   {
-    name: 'Maître Koné A.',
-    role: 'Avocat au Barreau de Côte d\'Ivoire',
-    quote: 'Cette formation a transformé ma pratique. Les cas pratiques m\'ont permis de décrocher mes premiers dossiers en droit OHADA.',
-    image: 'https://images.pexels.com/photos/3778603/pexels-photo-3778603.jpeg?auto=compress&cs=tinysrgb&w=150&h=150&dpr=2',
-    rating: 5,
+    image: '/images/groupe(1).jpg',
+    title: 'Session de formation pratique',
+    description: 'Des auditeurs immergés dans la pratique du droit',
   },
   {
-    name: 'Mme Traoré F.',
-    role: 'Directrice Juridique, Air Côte d\'Ivoire',
-    quote: 'Un programme d\'une qualité exceptionnelle. Je recommande à tous les jeunes juristes de saisir cette opportunité.',
-    image: 'https://images.pexels.com/photos/3778606/pexels-photo-3778606.jpeg?auto=compress&cs=tinysrgb&w=150&h=150&dpr=2',
-    rating: 5,
+    image: '/images/groupe(2).jpeg',
+    title: 'Atelier de rédaction d\'actes',
+    description: 'Apprendre en faisant, sous la direction du Dr. LOBÉ',
   },
   {
-    name: 'M. Bamba K.',
-    role: 'Magistrat, Cour d\'Appel d\'Abidjan',
-    quote: 'Le certificat en droit immobilier m\'a ouvert les portes de la magistrature. La bourse a rendu cela possible.',
-    image: 'https://images.pexels.com/photos/3778612/pexels-photo-3778612.jpeg?auto=compress&cs=tinysrgb&w=150&h=150&dpr=2',
-    rating: 5,
+    image: '/images/groupe(3).jpeg',
+    title: 'Cérémonie de certification',
+    description: 'Nos certifiés prêts à intégrer les plus grands cabinets',
   },
 ];
 
-export default function SocialProofSection() {
+export function FacultySection() {
   return (
-    <section id="testimonials" className="py-20 px-4 md:px-8 max-w-7xl mx-auto">
-      <div className="text-center mb-16">
+    <section id="faculty" className="py-20 px-4 md:px-8 max-w-7xl mx-auto">
+      <div className="text-center mb-12">
         <h2 className="text-3xl md:text-5xl font-['Playfair_Display'] text-white mb-4">
-          Ils nous font confiance
+          15 ans d&apos;expertise. Des milliers de carrières transformées.
         </h2>
-        <p className="text-gray-400 text-lg">
-          Découvrez les témoignages de nos anciens auditeurs
+        <p className="text-gray-400 text-lg max-w-2xl mx-auto">
+          Sous la direction du Dr. Jean-Louis LOBÉ, chaque session est une immersion dans la pratique d&apos;élite.
         </p>
       </div>
 
-      <div className="grid md:grid-cols-3 gap-8">
-        {testimonials.map((t, i) => (
-          <div
-            key={i}
-            className="bg-[#0f172a] border border-[#1E293B] rounded-2xl p-6 hover:border-[#D4AF37]/20 transition-all group"
-          >
-            {/* Photo + Étoiles */}
-            <div className="flex items-center gap-4 mb-6">
-              <div className="relative w-14 h-14 rounded-full overflow-hidden border-2 border-[#1E293B] group-hover:border-[#D4AF37]/30 transition-colors flex-shrink-0">
-                <Image
-                  src={t.image}
-                  alt={t.name}
-                  fill
-                  className="object-cover"
-                  sizes="56px"
-                />
-              </div>
-              <div>
-                <p className="text-white font-semibold text-sm">{t.name}</p>
-                <p className="text-gray-500 text-xs">{t.role}</p>
-                <div className="flex items-center gap-0.5 mt-1">
-                  {[...Array(t.rating)].map((_, star) => (
-                    <Star key={star} className="w-3 h-3 text-[#D4AF37] fill-[#D4AF37]" />
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Citation */}
-            <div className="relative">
-              <Quote className="w-6 h-6 text-[#D4AF37] mb-3 opacity-30" />
-              <p className="text-gray-300 text-sm italic leading-relaxed">
-                &ldquo;{t.quote}&rdquo;
-              </p>
-            </div>
+      {/* Grande image de fond avec overlay */}
+      <div className="relative rounded-3xl overflow-hidden mb-12 h-[400px] md:h-[500px] group">
+        <Image
+          src="/images/dr-lobe-portrait.jpeg"
+          alt="Dr. Jean-Louis LOBÉ avec ses étudiants"
+          fill
+          className="object-cover transition-transform duration-700 group-hover:scale-105"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0B0F19] via-[#0B0F19]/60 to-transparent" />
+        <div className="absolute bottom-0 left-0 right-0 p-8 md:p-12">
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#D4AF37]/10 border border-[#D4AF37]/20 rounded-full mb-4">
+            <Award className="w-4 h-4 text-[#D4AF37]" />
+            <span className="text-sm text-[#D4AF37] font-medium">Directeur Académique</span>
           </div>
+          <h3 className="text-2xl md:text-3xl font-bold text-white mb-2">
+            Dr. Jean-Louis LOBÉ
+          </h3>
+          <p className="text-gray-300 text-sm md:text-base max-w-xl">
+            Docteur en Droit, fondateur de la méthode qui a déjà transformé plus de 1000 carrières juridiques et immobilières.
+          </p>
+        </div>
+      </div>
+
+      {/* Appel à rejoindre */}
+      <div className="text-center">
+        <a
+          href="#registration-form"
+          className="inline-flex items-center gap-2 px-8 py-4 bg-[#D4AF37] text-[#0B0F19] rounded-xl font-semibold hover:bg-[#C5A028] transition-all text-lg"
+        >
+          Rejoindre la session 2026
+          <ArrowRight className="w-5 h-5" />
+        </a>
+        <p className="text-gray-500 text-sm mt-3">
+          🎓 Université d&apos;Été — Début le 08 Août 2026
+        </p>
+      </div>
+    </section>
+  );
+}
+
+export function SocialProofSection() {
+  return (
+    <section className="py-20 px-4 md:px-8 max-w-7xl mx-auto">
+      <div className="text-center mb-12">
+        <h2 className="text-3xl md:text-5xl font-['Playfair_Display'] text-white mb-4">
+          Ils l&apos;ont fait. Pourquoi pas vous ?
+        </h2>
+        <p className="text-gray-400 text-lg max-w-2xl mx-auto">
+          Rejoignez une communauté d&apos;élite qui a transformé sa carrière grâce à la pratique.
+        </p>
+      </div>
+
+      {/* Galerie de moments forts */}
+      <div className="grid md:grid-cols-3 gap-6 mb-12">
+        {moments.map((moment, index) => (
+          <motion.div
+            key={index}
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5, delay: index * 0.15 }}
+            className="group relative rounded-2xl overflow-hidden h-80 cursor-pointer"
+          >
+            <Image
+              src={moment.image}
+              alt={moment.title}
+              fill
+              className="object-cover transition-transform duration-500 group-hover:scale-110"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#0B0F19] via-[#0B0F19]/40 to-transparent" />
+            <div className="absolute bottom-0 left-0 right-0 p-6">
+              <h3 className="text-white font-bold text-lg mb-1">{moment.title}</h3>
+              <p className="text-gray-300 text-sm">{moment.description}</p>
+            </div>
+          </motion.div>
         ))}
+      </div>
+
+      {/* Statistiques rassurantes */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-12">
+        {[
+          { value: '1000+', label: 'Auditeurs formés' },
+          { value: '15 ans', label: 'D\'expertise' },
+          { value: '90%', label: 'De réussite' },
+          { value: '9', label: 'Certifications' },
+        ].map((stat, index) => (
+          <motion.div
+            key={index}
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.4, delay: index * 0.1 }}
+            className="text-center p-6 bg-[#0f172a] border border-[#1E293B] rounded-2xl hover:border-[#D4AF37]/20 transition-all"
+          >
+            <div className="text-3xl md:text-4xl font-bold text-[#D4AF37] mb-2">{stat.value}</div>
+            <div className="text-gray-400 text-sm">{stat.label}</div>
+          </motion.div>
+        ))}
+      </div>
+
+      {/* CTA final */}
+      <div className="text-center">
+        <a
+          href="#registration-form"
+          className="inline-flex items-center gap-2 px-8 py-4 bg-[#D4AF37] text-[#0B0F19] rounded-xl font-semibold hover:bg-[#C5A028] transition-all text-lg"
+        >
+          <Users className="w-5 h-5" />
+          Je rejoins la promotion 2026
+          <ArrowRight className="w-5 h-5" />
+        </a>
       </div>
     </section>
   );

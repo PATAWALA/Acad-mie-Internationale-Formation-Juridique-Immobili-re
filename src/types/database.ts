@@ -102,6 +102,7 @@ export type Database = {
         Row: {
           created_at: string | null
           id: number
+          image_url: string | null
           price_bourse: number
           price_normal: number
           slug: string
@@ -110,6 +111,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           id?: number
+          image_url?: string | null
           price_bourse?: number
           price_normal?: number
           slug: string
@@ -118,6 +120,7 @@ export type Database = {
         Update: {
           created_at?: string | null
           id?: number
+          image_url?: string | null
           price_bourse?: number
           price_normal?: number
           slug?: string

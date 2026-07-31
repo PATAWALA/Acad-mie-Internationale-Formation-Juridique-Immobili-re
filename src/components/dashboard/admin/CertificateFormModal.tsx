@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClientComponent } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
@@ -16,6 +16,8 @@ import {
   Save,
   PlusCircle,
   Edit3,
+  Upload,
+  ImageIcon,
 } from 'lucide-react';
 
 interface CertificateFormModalProps {
@@ -30,6 +32,8 @@ export default function CertificateFormModal({
   onSaved,
 }: CertificateFormModalProps) {
   const supabase = createClientComponent();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
   const [title, setTitle] = useState('');
   const [priceNormal, setPriceNormal] = useState<number>(50000);
   const [priceBourse, setPriceBourse] = useState<number>(40000);
@@ -37,6 +41,12 @@ export default function CertificateFormModal({
   const [teachers, setTeachers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  
+  // États pour l'image
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [existingImageUrl, setExistingImageUrl] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   const isEditing = !!certificate;
 
@@ -54,6 +64,8 @@ export default function CertificateFormModal({
       setTitle(certificate.title || '');
       setPriceNormal(certificate.price_normal || 0);
       setPriceBourse(certificate.price_bourse || 0);
+      setExistingImageUrl(certificate.image_url || null);
+      setImagePreview(certificate.image_url || null);
       supabase
         .from('certificate_teachers')
         .select('teacher_id')
@@ -66,8 +78,64 @@ export default function CertificateFormModal({
       setPriceNormal(50000);
       setPriceBourse(40000);
       setSelectedTeachers([]);
+      setImageFile(null);
+      setImagePreview(null);
+      setExistingImageUrl(null);
     }
   }, [certificate]);
+
+  // Gestion de la sélection d'image
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    // Vérifier le type
+    if (!file.type.startsWith('image/')) {
+      setError('Veuillez sélectionner une image (JPG, PNG, WebP).');
+      return;
+    }
+    
+    // Vérifier la taille (max 2 Mo)
+    if (file.size > 2 * 1024 * 1024) {
+      setError('L\'image ne doit pas dépasser 2 Mo.');
+      return;
+    }
+    
+    setImageFile(file);
+    setError('');
+    
+    // Prévisualisation
+    const reader = new FileReader();
+    reader.onload = (ev) => setImagePreview(ev.target?.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  // Upload de l'image vers Supabase Storage
+  const uploadImage = async (): Promise<string | null> => {
+    if (!imageFile) return existingImageUrl; // Garder l'image existante si pas de nouveau fichier
+    
+    setUploading(true);
+    try {
+      const fileExt = imageFile.name.split('.').pop();
+      const fileName = `certificates/${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`;
+      
+      const { error } = await supabase.storage
+        .from('certificates')
+        .upload(fileName, imageFile);
+      
+      if (error) throw error;
+      
+      const { data: publicUrlData } = supabase.storage
+        .from('certificates')
+        .getPublicUrl(fileName);
+      
+      return publicUrlData.publicUrl;
+    } catch (err: any) {
+      throw new Error('Erreur upload image : ' + err.message);
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const discountPercent =
     priceNormal > 0 ? ((priceNormal - priceBourse) / priceNormal) * 100 : 0;
@@ -82,41 +150,52 @@ export default function CertificateFormModal({
     setLoading(true);
     setError('');
 
-    const certPayload = { title, price_normal: priceNormal, price_bourse: priceBourse };
-    let certId = certificate?.id;
+    try {
+      // 1. Uploader l'image (si nouvelle)
+      const imageUrl = await uploadImage();
+      
+      const certPayload = { 
+        title, 
+        price_normal: priceNormal, 
+        price_bourse: priceBourse,
+        image_url: imageUrl,
+      };
+      
+      let certId = certificate?.id;
 
-    if (isEditing) {
-      await supabase.from('certificates').update(certPayload).eq('id', certId);
-    } else {
-      const { data: newCert, error: insertError } = await supabase
-        .from('certificates')
-        .insert({
-          ...certPayload,
-          slug: title.toLowerCase().replace(/\s+/g, '-'),
-        })
-        .select('id')
-        .single();
-      if (insertError) {
-        setError(insertError.message);
-        setLoading(false);
-        return;
+      if (isEditing) {
+        await (supabase as any).from('certificates').update(certPayload).eq('id', certId);
+      } else {
+        const { data: newCert, error: insertError } = await (supabase as any)
+  .from('certificates')
+  .insert({ ...certPayload, slug: title.toLowerCase().replace(/\s+/g, '-') })
+  .select('id')
+  .single();
+        if (insertError) {
+          setError(insertError.message);
+          setLoading(false);
+          return;
+        }
+        certId = newCert?.id;
       }
-      certId = newCert?.id;
-    }
 
-    if (certId) {
-      await supabase.from('certificate_teachers').delete().eq('certificate_id', certId);
-      if (selectedTeachers.length > 0) {
-        const inserts = selectedTeachers.map((teacherId) => ({
-          certificate_id: certId,
-          teacher_id: teacherId,
-        }));
-        await supabase.from('certificate_teachers').insert(inserts);
+      if (certId) {
+        await supabase.from('certificate_teachers').delete().eq('certificate_id', certId);
+        if (selectedTeachers.length > 0) {
+          const inserts = selectedTeachers.map((teacherId) => ({
+            certificate_id: certId,
+            teacher_id: teacherId,
+          }));
+          await supabase.from('certificate_teachers').insert(inserts);
+        }
       }
-    }
 
-    setLoading(false);
-    onSaved();
+      onSaved();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const toggleTeacher = (teacherId: string) => {
@@ -193,6 +272,68 @@ export default function CertificateFormModal({
             </AnimatePresence>
 
             <form onSubmit={handleSubmit} className="space-y-5">
+              {/* Image du certificat */}
+              <div>
+                <label className="flex items-center gap-2 text-xs font-medium text-slate-400 uppercase tracking-wider mb-3">
+                  <ImageIcon className="w-3.5 h-3.5" />
+                  Image illustrative *
+                </label>
+                
+                {/* Prévisualisation */}
+                {imagePreview ? (
+                  <div className="relative mb-3 rounded-xl overflow-hidden border border-slate-700">
+                    <img
+                      src={imagePreview}
+                      alt="Aperçu"
+                      className="w-full h-40 object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setImageFile(null);
+                        setImagePreview(null);
+                        setExistingImageUrl(null);
+                      }}
+                      className="absolute top-2 right-2 p-1.5 bg-red-500/80 hover:bg-red-500 text-white rounded-lg transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    className="mb-3 border-2 border-dashed border-slate-700 hover:border-emerald-500/50 rounded-xl p-6 text-center cursor-pointer transition-colors"
+                  >
+                    <ImageIcon className="w-8 h-8 text-slate-600 mx-auto mb-2" />
+                    <p className="text-sm text-slate-400">
+                      Cliquez pour ajouter une image
+                    </p>
+                    <p className="text-xs text-slate-500 mt-1">
+                      JPG, PNG ou WebP • Max 2 Mo
+                    </p>
+                  </div>
+                )}
+                
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageSelect}
+                  className="hidden"
+                />
+                
+                {!imagePreview && (
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-800 border border-slate-700 hover:border-slate-600 text-slate-300 text-sm font-medium rounded-xl transition-colors"
+                  >
+                    <Upload className="w-4 h-4" />
+                    {existingImageUrl ? "Changer l'image" : 'Uploader une image'}
+                  </button>
+                )}
+              </div>
+
               {/* Titre */}
               <div>
                 <label className="flex items-center gap-2 text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
@@ -204,7 +345,7 @@ export default function CertificateFormModal({
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   required
-                  placeholder="Ex: Certificat de Spécialisation en Droit des Affaires"
+                  placeholder="Ex: Certification en Rédaction des Contrats"
                   className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/50 transition-all"
                 />
               </div>
@@ -263,11 +404,6 @@ export default function CertificateFormModal({
                     </span>
                   </p>
                 )}
-                {discountPercent === 0 && priceNormal > 0 && (
-                  <p className="text-xs text-amber-400">
-                    Aucune réduction n'est appliquée actuellement.
-                  </p>
-                )}
               </div>
 
               {/* Enseignants assignés */}
@@ -277,9 +413,7 @@ export default function CertificateFormModal({
                   Enseignants assignés
                 </label>
                 {teachers.length === 0 ? (
-                  <p className="text-xs text-slate-500 italic">
-                    Aucun enseignant disponible.
-                  </p>
+                  <p className="text-xs text-slate-500 italic">Aucun enseignant disponible.</p>
                 ) : (
                   <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto pr-1">
                     {teachers.map((teacher) => (
@@ -348,19 +482,19 @@ export default function CertificateFormModal({
                 </motion.button>
                 <motion.button
                   type="submit"
-                  disabled={loading}
+                  disabled={loading || uploading}
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   className={cn(
                     'px-5 py-2.5 bg-emerald-500 text-white text-sm font-medium rounded-xl transition-all flex items-center gap-2',
                     'hover:bg-emerald-600 shadow-lg shadow-emerald-500/20',
-                    loading && 'opacity-70 cursor-not-allowed'
+                    (loading || uploading) && 'opacity-70 cursor-not-allowed'
                   )}
                 >
-                  {loading ? (
+                  {loading || uploading ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      Enregistrement...
+                      {uploading ? 'Upload image...' : 'Enregistrement...'}
                     </>
                   ) : (
                     <>

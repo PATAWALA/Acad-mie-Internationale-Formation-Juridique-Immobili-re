@@ -1,95 +1,99 @@
 'use client';
 
-import { ArrowRight, Shield } from 'lucide-react';
+import { ArrowRight, Shield, Users, Award } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export default function HeroSection() {
   return (
-    <section className="relative pt-28 lg:pt-36 pb-20 px-4 md:px-8 max-w-7xl mx-auto">
-      {/* Image de fond */}
-      <div className="absolute inset-0 max-w-7xl mx-auto overflow-hidden rounded-2xl">
-        <img
-          src="https://images.unsplash.com/photo-1523050854058-8df90110a5e6?q=80&w=2070&auto=format&fit=crop"
-          alt="Étudiants en formation juridique"
-          className="w-full h-full object-cover"
-        />
-        {/* Overlay pour lisibilité du texte */}
-        <div className="absolute inset-0 bg-gradient-to-r from-[#0B0F19] via-[#0B0F19]/90 to-[#0B0F19]/50" />
-        <div className="absolute inset-0 bg-[#0B0F19]/20" />
-      </div>
-
-      {/* Contenu */}
-      <div className="relative z-10">
-        {/* Badge Urgence */}
+    <section className="relative pt-24 lg:pt-32 pb-16 lg:pb-20 px-4 md:px-8 max-w-7xl mx-auto">
+      <div className="grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
+        {/* Colonne Texte */}
         <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="flex justify-center lg:justify-start mb-8"
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.6 }}
+          className="text-center lg:text-left"
         >
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#D4AF37]/10 border border-[#D4AF37]/20 rounded-full backdrop-blur-sm">
+          {/* Badge */}
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-[#D4AF37]/10 border border-[#D4AF37]/20 rounded-full mb-6">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#D4AF37] opacity-75" />
               <span className="relative inline-flex rounded-full h-2 w-2 bg-[#D4AF37]" />
             </span>
-            <span className="text-sm text-[#D4AF37] font-medium">
-              Bourse Mamadou TOURÉ — Places Limitées Session 2026
+            <span className="text-xs md:text-sm text-[#D4AF37] font-medium">
+              🎓 Université d'Été 2026 — Début le 08 Août
             </span>
+          </div>
+
+          {/* Titre */}
+          <h1 className="font-['Playfair_Display'] text-3xl md:text-4xl lg:text-5xl xl:text-6xl text-white leading-tight mb-5">
+            Devenez un praticien d'élite en{' '}
+            <span className="text-[#D4AF37]">Droit</span> et{' '}
+            <span className="text-[#D4AF37]">Immobilier</span>
+          </h1>
+
+          {/* Sous-titre */}
+          <p className="text-base md:text-lg text-gray-300 mb-6 max-w-xl mx-auto lg:mx-0 leading-relaxed">
+            Plus de <span className="text-white font-semibold">1000 auditeurs</span> formés
+            en 15 ans d'expertise par le Dr. Jean-Louis LOBÉ.
+            La pratique qui fait la différence.
+          </p>
+
+          {/* Preuves sociales */}
+          <div className="flex flex-wrap items-center justify-center lg:justify-start gap-5 mb-8">
+            <div className="flex items-center gap-2">
+              <Award className="w-5 h-5 text-[#D4AF37]" />
+              <span className="text-sm text-gray-300">
+                <span className="text-white font-semibold">1000+</span> auditeurs
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Users className="w-5 h-5 text-[#D4AF37]" />
+              <span className="text-sm text-gray-300">
+                <span className="text-white font-semibold">9</span> certifications
+              </span>
+            </div>
+          </div>
+
+          {/* CTAs */}
+          <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start">
+            <a
+              href="#registration-form"
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-[#D4AF37] text-[#0B0F19] rounded-xl font-semibold hover:bg-[#C5A028] transition-all hover:shadow-lg hover:shadow-[#D4AF37]/20 text-sm md:text-base"
+            >
+              <Shield className="w-5 h-5" />
+              Je m'inscris maintenant
+              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            </a>
+            <a
+              href="#certificates"
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 border border-white/20 text-white rounded-xl font-semibold hover:bg-white/10 transition-all text-sm md:text-base"
+            >
+              <Users className="w-5 h-5" />
+              Voir les certifications
+            </a>
           </div>
         </motion.div>
 
-        {/* Titre */}
-        <motion.h1
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-          className="font-['Playfair_Display'] text-4xl md:text-6xl lg:text-7xl text-white leading-tight mb-6 text-center lg:text-left"
-        >
-          Le pont direct entre la{' '}
-          <span className="text-[#D4AF37]">théorie universitaire</span> et la{' '}
-          <span className="text-[#D4AF37]">pratique d&apos;élite</span>
-        </motion.h1>
-
-        {/* Subtitle */}
-        <motion.p
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.4 }}
-          className="text-lg md:text-xl text-gray-300 max-w-3xl mb-10 text-center lg:text-left"
-        >
-          15 ans d&apos;expérience, 500+ auditeurs formés et insérés dans les plus
-          prestigieuses institutions juridiques et immobilières.
-        </motion.p>
-
-        {/* CTA + Social Proof */}
+        {/* Colonne Image */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.6 }}
-          className="flex flex-col sm:flex-row items-center gap-6 justify-center lg:justify-start"
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.6, delay: 0.2 }}
+          className="flex justify-center lg:justify-end order-first lg:order-last"
         >
-          <a
-            href="#registration-form"
-            className="group inline-flex items-center gap-2 px-6 py-3 bg-[#D4AF37] text-[#0B0F19] rounded-xl font-semibold hover:bg-[#C5A028] transition-all hover:shadow-lg hover:shadow-[#D4AF37]/20"
-          >
-            <Shield className="w-5 h-5" />
-            Postuler à la Bourse
-            <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-          </a>
-
-          <div className="hidden sm:block w-px h-8 bg-[#1E293B]" />
-
-          <div className="text-center sm:text-left">
-            <div className="flex items-center gap-0.5 justify-center sm:justify-start mb-1">
-              {[1, 2, 3, 4, 5].map((star) => (
-                <svg key={star} className="w-4 h-4 text-[#D4AF37]" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                </svg>
-              ))}
+          <div className="relative w-64 h-64 md:w-80 md:h-80 lg:w-[420px] lg:h-[500px] rounded-2xl overflow-hidden border border-[#D4AF37]/20 shadow-2xl">
+            <img
+              src="/images/dr-lobe-portrait.jpeg"
+              alt="Dr. Jean-Louis LOBÉ - Fondateur"
+              className="w-full h-full object-cover object-top"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#0B0F19]/30 to-transparent" />
+            {/* Badge sur l'image */}
+            <div className="absolute bottom-4 left-4 right-4 bg-black/60 backdrop-blur-sm rounded-xl px-4 py-3 border border-[#D4AF37]/20">
+              <p className="text-[#D4AF37] text-xs md:text-sm font-semibold">Dr. Jean-Louis LOBÉ</p>
+              <p className="text-gray-300 text-xs">Fondateur & Directeur Académique</p>
             </div>
-            <p className="text-sm text-gray-400">
-              <span className="text-white font-semibold">500+</span> professionnels formés
-            </p>
           </div>
         </motion.div>
       </div>

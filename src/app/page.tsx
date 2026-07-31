@@ -2,7 +2,8 @@ import Header from '@/components/public/Header';
 import HeroSection from '@/components/public/HeroSection';
 import PartnersMarquee from '@/components/public/PartnersMarquee';
 import CertificatesGrid from '@/components/public/CertificatesGrid';
-import SocialProofSection from '@/components/public/SocialProofSection';
+import WhyThisFormation from '@/components/public/WhyThisFormation';
+import { SocialProofSection } from '@/components/public/SocialProofSection';
 import FacultySection from '@/components/public/FacultySection';
 import DynamicRegistrationForm from '@/components/public/DynamicRegistrationForm';
 import StickyMobileCTA from '@/components/public/StickyMobileCTA';
@@ -15,6 +16,7 @@ export default function HomePage() {
       <HeroSection />
       <PartnersMarquee />
       <CertificatesGrid />
+      <WhyThisFormation />
       <SocialProofSection />
       <FacultySection />
       <DynamicRegistrationForm />
