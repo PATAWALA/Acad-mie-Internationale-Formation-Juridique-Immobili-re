@@ -6,17 +6,17 @@ import { motion } from 'framer-motion';
 
 const moments = [
   {
-    image: '/images/groupe1(1).jpeg',
+    image: '/images/1.jpeg',
     title: 'Session de formation pratique',
     description: 'Des auditeurs immergés dans la pratique du droit',
   },
   {
-    image: '/images/groupe1(2).jpeg',
+    image: '/images/2.jpeg',
     title: 'Atelier de rédaction d\'actes',
     description: 'Apprendre en faisant, sous la direction du Dr. LOBÉ',
   },
   {
-    image: '/images/groupe1(3).jpeg',
+    image: '/images/3.jpeg',
     title: 'Cérémonie de certification',
     description: 'Nos certifiés prêts à intégrer les plus grands cabinets',
   },
