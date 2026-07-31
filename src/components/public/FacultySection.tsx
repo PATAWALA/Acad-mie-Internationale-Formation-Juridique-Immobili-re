@@ -72,7 +72,7 @@ const faculty = [
   {
     id: 9,
     name: 'Dr Éric TAPÉ',
-    role: 'Intervenant',
+    role: 'Formateur',
     credentials: 'Docteur en Droit Public de l\'Université Félix Houphouët-Boigny — Spécialisé en Marchés Publics et en Droit de la Promotion immobilière',
     image: '/images/faculty/eric-tape.jpeg',
     quote: 'J\'aurai à charge l\'aspect juridique de votre certification en pratique de la promotion immobilière.',
@@ -80,7 +80,7 @@ const faculty = [
   {
     id: 10,
     name: 'M. Fauchard Hervé KONAN',
-    role: 'Intervenant',
+    role: 'Formateur',
     credentials: 'Ingénieur Génie Civil',
     image: '/images/faculty/fauchard-herve-konan.jpeg',
     quote: 'Je partagerai avec vous les aspects techniques de la promotion immobilière.',
