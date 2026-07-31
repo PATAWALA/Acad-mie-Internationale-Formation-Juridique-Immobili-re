@@ -3,16 +3,17 @@
 import { motion } from 'framer-motion';
 import { 
   BookOpen, CheckCircle2, Clock, ArrowRight, 
-  Play, CreditCard, GraduationCap
+  Play, CreditCard, GraduationCap, ImageIcon
 } from 'lucide-react';
 
 interface MesFormationsViewProps {
   enrollments: any[];
   onSelectFormation: (certId: number) => void;
   onPayClick: (enrollmentId: number, amount: number) => void;
+  onAddFormation?: () => void; // ← pour rediriger vers le catalogue
 }
 
-export default function MesFormationsView({ enrollments, onSelectFormation, onPayClick }: MesFormationsViewProps) {
+export default function MesFormationsView({ enrollments, onSelectFormation, onPayClick, onAddFormation }: MesFormationsViewProps) {
   const paidEnrollments = enrollments.filter(e => e.payment_status === 'PAID');
   const pendingEnrollments = enrollments.filter(e => e.payment_status !== 'PAID');
 
@@ -57,30 +58,41 @@ export default function MesFormationsView({ enrollments, onSelectFormation, onPa
                 transition={{ delay: index * 0.05 }}
                 whileHover={{ y: -4 }}
                 onClick={() => onSelectFormation(enr.certificate_id)}
-                className="group bg-[#0f172a] border border-green-500/20 hover:border-green-500/40 rounded-2xl p-5 cursor-pointer transition-all hover:shadow-lg hover:shadow-green-500/5"
+                className="group bg-[#0f172a] border border-green-500/20 hover:border-green-500/40 rounded-2xl overflow-hidden cursor-pointer transition-all hover:shadow-lg hover:shadow-green-500/5"
               >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="p-2.5 bg-green-500/10 rounded-xl">
-                    <GraduationCap className="w-5 h-5 text-green-400" />
+                {/* Image du certificat */}
+                <div className="h-36 bg-[#1e293b] overflow-hidden">
+                  {enr.certificates?.image_url ? (
+                    <img
+                      src={enr.certificates.image_url}
+                      alt={enr.certificates?.title || 'Formation'}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <ImageIcon className="w-8 h-8 text-slate-600" />
+                    </div>
+                  )}
+                  {/* Badge Actif */}
+                  <div className="absolute top-2 right-2">
+                    <span className="flex items-center gap-1 px-2 py-1 bg-green-500/90 text-white rounded-full text-[10px] font-bold backdrop-blur-sm">
+                      <CheckCircle2 className="w-3 h-3" />
+                      Actif
+                    </span>
                   </div>
-                  <span className="flex items-center gap-1 px-2 py-1 bg-green-500/10 border border-green-500/20 rounded-full text-[10px] text-green-400 font-medium">
-                    <CheckCircle2 className="w-3 h-3" />
-                    Actif
-                  </span>
                 </div>
-                
-                <h3 className="text-sm font-bold text-white mb-2 group-hover:text-green-400 transition-colors">
-                  {enr.certificates?.title || `Formation #${enr.certificate_id}`}
-                </h3>
-                
-                <p className="text-xs text-slate-400 mb-4">
-                  Accès complet débloqué
-                </p>
 
-                <div className="flex items-center gap-2 text-green-400 text-xs font-medium group-hover:gap-3 transition-all">
-                  <Play className="w-4 h-4" />
-                  Continuer ma formation
-                  <ArrowRight className="w-4 h-4" />
+                {/* Contenu */}
+                <div className="p-5">
+                  <h3 className="text-sm font-bold text-white mb-2 group-hover:text-green-400 transition-colors">
+                    {enr.certificates?.title || `Formation #${enr.certificate_id}`}
+                  </h3>
+                  <p className="text-xs text-slate-400 mb-4">Accès complet débloqué</p>
+                  <div className="flex items-center gap-2 text-green-400 text-xs font-medium group-hover:gap-3 transition-all">
+                    <Play className="w-4 h-4" />
+                    Continuer ma formation
+                    <ArrowRight className="w-4 h-4" />
+                  </div>
                 </div>
               </motion.div>
             ))}
@@ -110,42 +122,53 @@ export default function MesFormationsView({ enrollments, onSelectFormation, onPa
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
                 whileHover={{ y: -2 }}
-                className="bg-[#0f172a] border border-amber-500/20 rounded-2xl p-5"
+                className="bg-[#0f172a] border border-amber-500/20 rounded-2xl overflow-hidden"
               >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="p-2.5 bg-amber-500/10 rounded-xl">
-                    <Clock className="w-5 h-5 text-amber-400" />
+                {/* Image du certificat */}
+                <div className="h-36 bg-[#1e293b] overflow-hidden">
+                  {enr.certificates?.image_url ? (
+                    <img
+                      src={enr.certificates.image_url}
+                      alt={enr.certificates?.title || 'Formation'}
+                      className="w-full h-full object-cover opacity-60"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <ImageIcon className="w-8 h-8 text-slate-600" />
+                    </div>
+                  )}
+                  <div className="absolute top-2 right-2">
+                    <span className="flex items-center gap-1 px-2 py-1 bg-amber-500/90 text-white rounded-full text-[10px] font-bold backdrop-blur-sm">
+                      <CreditCard className="w-3 h-3" />
+                      Paiement requis
+                    </span>
                   </div>
-                  <span className="flex items-center gap-1 px-2 py-1 bg-amber-500/10 border border-amber-500/20 rounded-full text-[10px] text-amber-400 font-medium">
-                    <CreditCard className="w-3 h-3" />
-                    Paiement requis
-                  </span>
                 </div>
-                
-                <h3 className="text-sm font-bold text-white mb-2">
-                  {enr.certificates?.title || `Formation #${enr.certificate_id}`}
-                </h3>
-                
-                <p className="text-xs text-slate-400 mb-1">
-                  Montant à payer
-                </p>
-                <p className="text-lg font-bold text-amber-400 mb-4">
-                  {enr.remaining_balance?.toLocaleString()} FCFA
-                </p>
 
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onPayClick(enr.id, enr.remaining_balance || 0);
-                  }}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-xs font-bold rounded-xl shadow-lg shadow-amber-500/20 transition-all"
-                >
-                  <CreditCard className="w-4 h-4" />
-                  Payer maintenant
-                  <ArrowRight className="w-4 h-4" />
-                </motion.button>
+                {/* Contenu */}
+                <div className="p-5">
+                  <h3 className="text-sm font-bold text-white mb-2">
+                    {enr.certificates?.title || `Formation #${enr.certificate_id}`}
+                  </h3>
+                  <p className="text-xs text-slate-400 mb-1">Montant à payer</p>
+                  <p className="text-lg font-bold text-amber-400 mb-4">
+                    {enr.remaining_balance?.toLocaleString()} FCFA
+                  </p>
+
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onPayClick(enr.id, enr.remaining_balance || 0);
+                    }}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-xs font-bold rounded-xl shadow-lg shadow-amber-500/20 transition-all"
+                  >
+                    <CreditCard className="w-4 h-4" />
+                    Payer maintenant
+                    <ArrowRight className="w-4 h-4" />
+                  </motion.button>
+                </div>
               </motion.div>
             ))}
           </div>
@@ -171,6 +194,7 @@ export default function MesFormationsView({ enrollments, onSelectFormation, onPa
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
+            onClick={() => onAddFormation?.()}
             className="inline-flex items-center gap-2 px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-xl transition-colors shadow-lg shadow-blue-500/20"
           >
             Découvrir les formations
