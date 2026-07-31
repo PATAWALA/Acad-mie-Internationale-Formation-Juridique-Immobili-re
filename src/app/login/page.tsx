@@ -194,32 +194,32 @@ export default function LoginPage() {
           </div>
 
           {/* CTA Registration */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.5 }}
-          >
-            <Link href="/#registration-form" scroll={true}>
-              <div className="group relative overflow-hidden rounded-xl bg-gradient-to-r from-blue-500/10 to-blue-600/10 border border-blue-500/20 p-4 hover:border-blue-500/40 transition-all duration-300 cursor-pointer">
-                <div className="relative z-10">
-                  <div className="flex items-center gap-2 mb-1">
-                    <BookOpen className="w-5 h-5 text-blue-400" />
-                    <span className="text-white font-semibold text-sm">
-                      Démarrez votre carrière juridique
-                    </span>
-                  </div>
-                  <p className="text-slate-400 text-xs mb-2">
-                    Rejoignez les 500+ étudiants qui ont transformé leur avenir
-                  </p>
-                  <div className="flex items-center gap-1 text-blue-400 text-sm font-medium group-hover:gap-2 transition-all">
-                    <span>Créer un compte gratuitement</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </div>
-                </div>
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/0 via-blue-500/5 to-blue-500/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-              </div>
-            </Link>
-          </motion.div>
+<motion.div
+  initial={{ opacity: 0 }}
+  animate={{ opacity: 1 }}
+  transition={{ delay: 0.5 }}
+>
+  <Link href="/#registration-form" scroll={true}>
+    <div className="group relative overflow-hidden rounded-xl bg-gradient-to-r from-blue-500/10 to-blue-600/10 border border-blue-500/20 p-4 hover:border-blue-500/40 transition-all duration-300 cursor-pointer">
+      <div className="relative z-10">
+        <div className="flex items-center gap-2 mb-1">
+          <BookOpen className="w-5 h-5 text-blue-400" />
+          <span className="text-white font-semibold text-sm">
+            Démarrez votre carrière juridique
+          </span>
+        </div>
+        <p className="text-slate-400 text-xs mb-2">
+          Rejoignez les 1000+ auditeurs qui ont transformé leur avenir
+        </p>
+        <div className="flex items-center gap-1 text-blue-400 text-sm font-medium group-hover:gap-2 transition-all">
+          <span>Rejoignez l'Académie</span>
+          <ArrowRight className="w-4 h-4" />
+        </div>
+      </div>
+      <div className="absolute inset-0 bg-gradient-to-r from-blue-500/0 via-blue-500/5 to-blue-500/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+    </div>
+  </Link>
+</motion.div>
         </div>
 
         {/* Footer */}
