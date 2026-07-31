@@ -266,8 +266,12 @@ export default function DashboardLayout() {
                   />
                 )}
                 {currentView === 'formation' && selectedCertId && (
-                  <FormationView certId={selectedCertId} onPaymentSuccess={refreshEnrollments} />
-                )}
+  <FormationView 
+    certId={selectedCertId} 
+    onPaymentSuccess={refreshEnrollments}
+    onPayClick={(enrollmentId, amount) => setPaymentModal({ enrollmentId, amount })}
+  />
+)}
                 {currentView === 'catalogue' && (
                   <CatalogueView
                     profile={profile}
