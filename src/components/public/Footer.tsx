@@ -38,13 +38,43 @@ export default function Footer() {
                 <MapPin className="w-4 h-4 text-[#D4AF37] flex-shrink-0" />
                 Abidjan, Côte d&apos;Ivoire
               </li>
-              <li className="flex items-center gap-3 text-gray-400 text-sm">
-                <Mail className="w-4 h-4 text-[#D4AF37] flex-shrink-0" />
-                contact@academie-internationale.ci
+              <li className="flex items-start gap-3 text-gray-400 text-sm">
+                <Mail className="w-4 h-4 text-[#D4AF37] flex-shrink-0 mt-0.5" />
+                <div className="flex flex-col">
+                  <a href="mailto:jeanlouislobe11@gmail.com" className="hover:text-[#D4AF37] transition-colors">
+                    jeanlouislobe11@gmail.com
+                  </a>
+                  <a href="mailto:jeanlouis.lobe21@gmail.com" className="hover:text-[#D4AF37] transition-colors">
+                    jeanlouis.lobe21@gmail.com
+                  </a>
+                </div>
               </li>
-              <li className="flex items-center gap-3 text-gray-400 text-sm">
-                <Phone className="w-4 h-4 text-[#D4AF37] flex-shrink-0" />
-                +225 XX XX XX XX
+              <li className="flex items-start gap-3 text-gray-400 text-sm">
+                <Phone className="w-4 h-4 text-[#D4AF37] flex-shrink-0 mt-0.5" />
+                <div className="flex flex-col space-y-1">
+                  <div>
+                    <span className="text-xs text-gray-500">Côte d&apos;Ivoire</span>
+                    <div className="flex flex-col">
+                      <a href="tel:+2250757279676" className="hover:text-[#D4AF37] transition-colors">
+                        +225 07 57 27 96 76
+                      </a>
+                      <a href="tel:+2250767191919" className="hover:text-[#D4AF37] transition-colors">
+                        +225 07 67 19 19 19
+                      </a>
+                      <a href="tel:+2250768171717" className="hover:text-[#D4AF37] transition-colors">
+                        +225 07 68 17 17 17
+                      </a>
+                    </div>
+                  </div>
+                  <div className="pt-1">
+                    <span className="text-xs text-gray-500">France</span>
+                    <div>
+                      <a href="tel:+33777969831" className="hover:text-[#D4AF37] transition-colors">
+                        +33 7 77 96 98 31
+                      </a>
+                    </div>
+                  </div>
+                </div>
               </li>
             </ul>
           </div>

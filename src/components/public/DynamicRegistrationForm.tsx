@@ -211,7 +211,7 @@ export default function RegistrationForm() {
             <Sparkles className="w-4 h-4" />
             <span>Bourse Mamadou TOURÉ - Jusqu&apos;à 50% de réduction</span>
           </motion.div>
-          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white mb-4 font-['Playfair_Display']">Votre avenir commence ici</h2>
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white mb-4 font-['Playfair_Display']">Votre Insertion professionnelle commence ici</h2>
           <p className="text-slate-400 text-sm sm:text-base max-w-md mx-auto">
             Rejoignez l&apos;élite juridique. <span className="text-amber-400 font-semibold">90% de nos certifiés</span> décrochent un emploi dans les 3 mois.
           </p>
