@@ -6,7 +6,7 @@ import {
   ArrowRight, Sparkles, Target,
   Play, CreditCard, GraduationCap, 
   CheckCircle2, AlertCircle, Zap,
-  ImageIcon
+  ImageIcon, Briefcase, User
 } from 'lucide-react';
 import { formatEUR } from '@/lib/currency';
 
@@ -37,6 +37,16 @@ export default function HomeView({
     const paid = e.amount_paid || 0;
     return sum + (paid > 0 ? paid : (e.remaining_balance || 0));
   }, 0);
+
+  const profileType = profile?.profile_type || 'Etudiant';
+
+  // Calcul de la réduction actuelle pour les pros
+  const getProDiscount = () => {
+    const count = totalFormations;
+    if (count >= 5) return 20;
+    if (count >= 3) return 15;
+    return 10;
+  };
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Bonjour' : hour < 18 ? 'Bon après-midi' : 'Bonsoir';
@@ -114,9 +124,55 @@ export default function HomeView({
                   : "Bienvenue ! Ajoutez une formation pour commencer."}
               </p>
             </div>
+
+            {/* Badge profil + réduction */}
+            <div className="flex items-center gap-2">
+              {profileType === 'Etudiant' && (
+                <span className="px-3 py-1.5 bg-blue-500/10 border border-blue-500/20 rounded-full text-xs text-blue-400 font-medium flex items-center gap-1.5">
+                  <GraduationCap className="w-3.5 h-3.5" />
+                  Tarif Étudiant
+                </span>
+              )}
+              {profileType === 'Stagiaire' && (
+                <span className="px-3 py-1.5 bg-green-500/10 border border-green-500/20 rounded-full text-xs text-green-400 font-medium flex items-center gap-1.5">
+                  <User className="w-3.5 h-3.5" />
+                  Tarif Stagiaire
+                </span>
+              )}
+              {profileType !== 'Etudiant' && profileType !== 'Stagiaire' && (
+                <span className="px-3 py-1.5 bg-amber-500/10 border border-amber-500/20 rounded-full text-xs text-amber-400 font-medium flex items-center gap-1.5">
+                  <Briefcase className="w-3.5 h-3.5" />
+                  Pro -{getProDiscount()}%
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </motion.div>
+
+      {/* Bannière réduction pour les pros */}
+      {profileType !== 'Etudiant' && profileType !== 'Stagiaire' && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 rounded-2xl p-4 flex items-center gap-3"
+        >
+          <TrendingUp className="w-5 h-5 text-amber-400 flex-shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-amber-300">
+              🎉 Réduction de {getProDiscount()}% sur toutes vos formations
+            </p>
+            <p className="text-xs text-slate-400">
+              {totalFormations < 3 
+                ? `Ajoutez ${3 - totalFormations} formation(s) pour passer à 15% !`
+                : totalFormations < 5
+                ? `Ajoutez ${5 - totalFormations} formation(s) pour atteindre 20% !`
+                : "Félicitations ! Vous bénéficiez de la réduction maximale !"
+              }
+            </p>
+          </div>
+        </motion.div>
+      )}
 
       {/* KPI CARDS */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
@@ -170,12 +226,11 @@ export default function HomeView({
                 onClick={() => onSelectFormation?.(enr.certificate_id)}
                 className="group bg-[#0f172a] border border-green-500/20 hover:border-green-500/40 rounded-2xl overflow-hidden cursor-pointer transition-all hover:shadow-lg hover:shadow-green-500/5"
               >
-                {/* Image */}
-                <div className="h-36 bg-[#1e293b] overflow-hidden">
+                <div className="h-40 bg-[#1e293b] overflow-hidden">
                   {enr.certificates?.image_url ? (
                     <img src={enr.certificates.image_url} alt={enr.certificates?.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center"><ImageIcon className="w-8 h-8 text-slate-600" /></div>
+                    <div className="w-full h-full flex items-center justify-center"><ImageIcon className="w-10 h-10 text-slate-600" /></div>
                   )}
                   <div className="absolute top-2 right-2">
                     <span className="flex items-center gap-1 px-2 py-1 bg-green-500/90 text-white rounded-full text-[10px] font-bold backdrop-blur-sm">
@@ -184,8 +239,18 @@ export default function HomeView({
                   </div>
                 </div>
                 <div className="p-5">
-                  <h3 className="text-sm font-bold text-white mb-2 group-hover:text-green-400 transition-colors">{enr.certificates?.title || `Formation #${enr.certificate_id}`}</h3>
-                  <p className="text-xs text-slate-400 mb-4">Accès complet débloqué</p>
+                  <h3 className="text-sm font-bold text-white mb-2 group-hover:text-green-400 transition-colors">
+                    {enr.certificates?.title || `Formation #${enr.certificate_id}`}
+                  </h3>
+                  {enr.certificates?.slogan && (
+                    <p className="text-xs text-slate-500 italic mb-3 line-clamp-1">« {enr.certificates.slogan} »</p>
+                  )}
+                  <p className="text-xs text-slate-400 mb-1">Accès complet débloqué</p>
+                  {enr.amount_paid > 0 && (
+                    <p className="text-xs text-slate-500 mb-3">
+                      Payé : {enr.amount_paid.toLocaleString()} FCFA ({formatEUR(enr.amount_paid)})
+                    </p>
+                  )}
                   <div className="flex items-center gap-2 text-green-400 text-xs font-medium group-hover:gap-3 transition-all">
                     <Play className="w-4 h-4" /> Continuer ma formation <ArrowRight className="w-4 h-4" />
                   </div>
@@ -206,19 +271,20 @@ export default function HomeView({
           </div>
 
           <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-            className="mb-4 p-4 bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 rounded-2xl flex items-center justify-between">
+            className="mb-4 p-4 bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 rounded-2xl">
             <div className="flex items-center gap-3">
               <Zap className="w-5 h-5 text-amber-400" />
               <div>
                 <p className="text-sm font-semibold text-amber-300">Débloquez vos formations maintenant</p>
-                <div>
-                  <p className="text-xs text-slate-400">
-                    Total : <span className="text-white font-bold">{totalPendingAmount.toLocaleString()} FCFA</span>
+                <p className="text-xs text-slate-400">
+                  Total : <span className="text-white font-bold">{totalPendingAmount.toLocaleString()} FCFA</span>
+                  <span className="text-slate-500 ml-1">({formatEUR(totalPendingAmount)})</span>
+                </p>
+                {profileType !== 'Etudiant' && profileType !== 'Stagiaire' && (
+                  <p className="text-xs text-green-400 mt-1">
+                    ✅ Réduction de {getProDiscount()}% déjà appliquée
                   </p>
-                  <p className="text-xs text-slate-500">
-                    {formatEUR(totalPendingAmount)}
-                  </p>
-                </div>
+                )}
               </div>
             </div>
           </motion.div>
@@ -233,12 +299,11 @@ export default function HomeView({
                 whileHover={{ y: -2 }}
                 className="bg-[#0f172a] border border-amber-500/20 rounded-2xl overflow-hidden"
               >
-                {/* Image */}
-                <div className="h-36 bg-[#1e293b] overflow-hidden">
+                <div className="h-40 bg-[#1e293b] overflow-hidden">
                   {enr.certificates?.image_url ? (
                     <img src={enr.certificates.image_url} alt={enr.certificates?.title} className="w-full h-full object-cover opacity-60" />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center"><ImageIcon className="w-8 h-8 text-slate-600" /></div>
+                    <div className="w-full h-full flex items-center justify-center"><ImageIcon className="w-10 h-10 text-slate-600" /></div>
                   )}
                   <div className="absolute top-2 right-2">
                     <span className="flex items-center gap-1 px-2 py-1 bg-amber-500/90 text-white rounded-full text-[10px] font-bold backdrop-blur-sm">
@@ -247,11 +312,23 @@ export default function HomeView({
                   </div>
                 </div>
                 <div className="p-5">
-                  <h3 className="text-sm font-bold text-white mb-2">{enr.certificates?.title || `Formation #${enr.certificate_id}`}</h3>
+                  <h3 className="text-sm font-bold text-white mb-2">
+                    {enr.certificates?.title || `Formation #${enr.certificate_id}`}
+                  </h3>
+                  {enr.certificates?.slogan && (
+                    <p className="text-xs text-slate-500 italic mb-3 line-clamp-1">« {enr.certificates.slogan} »</p>
+                  )}
                   <p className="text-xs text-slate-400 mb-1">Montant à payer</p>
                   <div className="mb-4">
-                    <p className="text-lg font-bold text-amber-400">{enr.remaining_balance?.toLocaleString()} FCFA</p>
-                    <p className="text-xs text-slate-500">{formatEUR(enr.remaining_balance || 0)}</p>
+                    <p className="text-lg font-bold text-amber-400">
+                      {enr.remaining_balance?.toLocaleString()} FCFA
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      {formatEUR(enr.remaining_balance || 0)}
+                    </p>
+                    {profileType !== 'Etudiant' && profileType !== 'Stagiaire' && (
+                      <p className="text-[10px] text-green-400 mt-1">✅ Réduction incluse</p>
+                    )}
                   </div>
                   <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                     onClick={(e) => { e.stopPropagation(); onPayClick?.(enr.id, enr.remaining_balance || 0); }}
