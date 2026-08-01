@@ -8,6 +8,7 @@ import Image from 'next/image';
 const navLinks = [
   { label: 'Programmes', href: '#certificates' },
   { label: 'Bourse', href: '#registration-form' },
+  { label: 'Témoignages', href: '#social-proof' },
   { label: 'Corps enseignant', href: '#faculty' },
 ];
 
