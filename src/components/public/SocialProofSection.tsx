@@ -6,12 +6,12 @@ import { motion } from 'framer-motion';
 
 const moments = [
   {
-    image: '/images/1.jpeg',
+    image: '/images/2.jpeg',
     title: 'Session de formation pratique',
     description: 'Des auditeurs immergés dans la pratique du droit',
   },
   {
-    image: '/images/2.jpeg',
+    image: '/images/1.jpeg',
     title: 'Atelier de rédaction d\'actes',
     description: 'Apprendre en faisant, sous la direction du Dr. LOBÉ',
   },
