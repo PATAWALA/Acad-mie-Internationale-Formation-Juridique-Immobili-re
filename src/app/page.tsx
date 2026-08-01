@@ -5,6 +5,7 @@ import CertificatesGrid from '@/components/public/CertificatesGrid';
 import WhyThisFormation from '@/components/public/WhyThisFormation';
 import { SocialProofSection } from '@/components/public/SocialProofSection';
 import FacultySection from '@/components/public/FacultySection';
+import { MomentsDeFierte } from '@/components/public/MomentsDeFierte'; 
 import DynamicRegistrationForm from '@/components/public/DynamicRegistrationForm';
 import StickyMobileCTA from '@/components/public/StickyMobileCTA';
 import Footer from '@/components/public/Footer';
@@ -19,6 +20,7 @@ export default function HomePage() {
       <WhyThisFormation />
       <SocialProofSection />
       <FacultySection />
+       <MomentsDeFierte />  
       <DynamicRegistrationForm />
       <Footer />
       <StickyMobileCTA />
