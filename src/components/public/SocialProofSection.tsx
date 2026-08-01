@@ -95,7 +95,7 @@ export function SocialProofSection() {
             {
               image: '/images/faculty/assande-francis.jpeg',
               name: 'M. ASSANDÉ Francis',
-              subtitle: 'Ancien auditeur devenu praticien',
+              subtitle: 'Élève Commissaire de Justice',
             },
             {
               image: '/images/faculty/uriel-ouattara.jpeg',
