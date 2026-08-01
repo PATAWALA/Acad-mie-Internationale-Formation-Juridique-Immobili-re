@@ -7,9 +7,9 @@ import {
   Search, BookOpen, Clock, Users, Star, 
   TrendingUp, Sparkles, Filter, ChevronRight,
   CheckCircle2, AlertCircle, ArrowRight, Loader2,
-  GraduationCap, Shield, Zap, ImageIcon
+  GraduationCap, Shield, Zap, ImageIcon, Target
 } from 'lucide-react';
-import { formatEUR } from '@/lib/currency';
+import { formatEUR, calculateReducedPrice } from '@/lib/currency';
 
 interface CatalogueViewProps {
   profile: any;
@@ -24,6 +24,7 @@ export default function CatalogueView({ profile, enrollments, onNavigateFormatio
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [subscribingId, setSubscribingId] = useState<number | null>(null);
+  const [selectedCerts, setSelectedCerts] = useState<number[]>([]);
 
   useEffect(() => {
     supabase
@@ -42,9 +43,27 @@ export default function CatalogueView({ profile, enrollments, onNavigateFormatio
 
   const totalAvailable = certificates.length;
   const myFormations = enrollments.length;
-  const averagePrice = certificates.length > 0
-    ? Math.round(certificates.reduce((sum, c) => sum + (c.price_bourse || 0), 0) / certificates.length)
-    : 0;
+
+  // Calcul du total des prix normaux pour les certifs sélectionnés
+  const totalNormalSelected = selectedCerts.reduce((sum, id) => {
+    const cert = certificates.find(c => c.id === id);
+    return sum + (cert?.price_normal || 0);
+  }, 0);
+
+  // Calcul de la réduction
+  const priceCalculation = calculateReducedPrice(
+    totalNormalSelected,
+    profile?.profile_type || 'Etudiant',
+    selectedCerts.length
+  );
+
+  const toggleCertSelection = (certId: number) => {
+    setSelectedCerts(prev =>
+      prev.includes(certId)
+        ? prev.filter(id => id !== certId)
+        : [...prev, certId]
+    );
+  };
 
   const handleSubscribe = async (certId: number) => {
     if (!profile) return;
@@ -56,6 +75,11 @@ export default function CatalogueView({ profile, enrollments, onNavigateFormatio
     }
 
     setSubscribingId(certId);
+    
+    // Calculer le prix réduit pour ce certificat
+    const certRatio = (certificates.find(c => c.id === certId)?.price_normal || 0) / (totalNormalSelected || 1);
+    const certReducedPrice = Math.round(priceCalculation.finalPrice * certRatio);
+    
     const { error } = await supabase.from('enrollments').insert({
       student_id: profile.id,
       student_name: profile.full_name || profile.email,
@@ -63,7 +87,7 @@ export default function CatalogueView({ profile, enrollments, onNavigateFormatio
       phone: profile.phone || '',
       email: profile.email,
       amount_paid: 0,
-      remaining_balance: certificates.find(c => c.id === certId)?.price_bourse || 0,
+      remaining_balance: selectedCerts.length > 1 ? certReducedPrice : priceCalculation.finalPrice,
       payment_status: 'PENDING',
     });
 
@@ -74,6 +98,32 @@ export default function CatalogueView({ profile, enrollments, onNavigateFormatio
       alert('Erreur : ' + error.message);
     }
     setSubscribingId(null);
+  };
+
+  const handleBulkSubscribe = async () => {
+    if (!profile || selectedCerts.length === 0) return;
+    
+    for (const certId of selectedCerts) {
+      const already = enrollments.find(e => e.certificate_id === certId);
+      if (already) continue;
+      
+      const certRatio = (certificates.find(c => c.id === certId)?.price_normal || 0) / (totalNormalSelected || 1);
+      const certReducedPrice = Math.round(priceCalculation.finalPrice * certRatio);
+      
+      await supabase.from('enrollments').insert({
+        student_id: profile.id,
+        student_name: profile.full_name || profile.email,
+        certificate_id: certId,
+        phone: profile.phone || '',
+        email: profile.email,
+        amount_paid: 0,
+        remaining_balance: certReducedPrice,
+        payment_status: 'PENDING',
+      });
+    }
+    
+    onRefresh();
+    setSelectedCerts([]);
   };
 
   if (loading) {
@@ -110,7 +160,7 @@ export default function CatalogueView({ profile, enrollments, onNavigateFormatio
               <h2 className="text-xl lg:text-2xl font-bold text-white">Catalogue des Formations</h2>
             </div>
             <p className="text-sm text-slate-400">
-              {totalAvailable} formations disponibles • À partir de {averagePrice.toLocaleString()} FCFA
+              {totalAvailable} formations disponibles • Sélectionnez pour cumuler des réductions
             </p>
           </div>
 
@@ -120,8 +170,8 @@ export default function CatalogueView({ profile, enrollments, onNavigateFormatio
               <p className="text-[10px] text-slate-500">Mes formations</p>
             </div>
             <div className="bg-[#0f172a] border border-[#1e293b] rounded-xl px-3 py-2 text-center">
-              <p className="text-lg font-bold text-blue-400">{totalAvailable}</p>
-              <p className="text-[10px] text-slate-500">Disponibles</p>
+              <p className="text-lg font-bold text-blue-400">{selectedCerts.length}</p>
+              <p className="text-[10px] text-slate-500">Sélectionnés</p>
             </div>
           </div>
         </div>
@@ -138,41 +188,88 @@ export default function CatalogueView({ profile, enrollments, onNavigateFormatio
         </div>
       </motion.div>
 
-      {/* Bourse Banner */}
-      <motion.div
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ delay: 0.2 }}
-        className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 p-4 lg:p-5"
-      >
-        <div className="flex items-start gap-3">
-          <div className="p-2 bg-amber-500/10 rounded-xl flex-shrink-0">
-            <Sparkles className="w-5 h-5 text-amber-400" />
+      {/* Barre de sélection + réduction */}
+      {selectedCerts.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="sticky top-20 z-20 bg-[#0B0F19]/95 backdrop-blur-xl border border-[#1E293B] rounded-2xl p-4 flex items-center justify-between flex-wrap gap-4"
+        >
+          <span className="text-white text-sm">
+            {selectedCerts.length} certificat(s) sélectionné(s)
+          </span>
+          <div className="flex items-center gap-4">
+            {priceCalculation.showDiscount && (
+              <>
+                <div className="text-right">
+                  <span className="text-gray-500 line-through text-sm block">
+                    {totalNormalSelected.toLocaleString()} FCFA
+                  </span>
+                  <span className="text-green-400 text-sm font-semibold block">
+                    -{priceCalculation.discountPercent}% (-{priceCalculation.discount.toLocaleString()} FCFA)
+                  </span>
+                </div>
+              </>
+            )}
+            <div className="text-right">
+              <span className="text-[#D4AF37] font-bold text-lg block">
+                {priceCalculation.finalPrice.toLocaleString()} FCFA
+              </span>
+              <span className="text-gray-500 text-xs">
+                {formatEUR(priceCalculation.finalPrice)}
+              </span>
+            </div>
+            <button
+              onClick={handleBulkSubscribe}
+              className="px-5 py-2 bg-[#D4AF37] text-[#0B0F19] rounded-xl font-semibold text-sm hover:bg-[#C5A028] transition"
+            >
+              S'inscrire aux {selectedCerts.length} formations
+            </button>
           </div>
-          <div className="flex-1">
-            <h3 className="text-sm font-bold text-amber-400 mb-1">
-              Bourse Mamadou TOURÉ - Jusqu'à 50% de réduction
-            </h3>
-            <p className="text-xs text-slate-400">
-              Profitez de tarifs préférentiels sur toutes nos formations. Places limitées.
-            </p>
-          </div>
-          <Shield className="w-5 h-5 text-amber-400/50 flex-shrink-0" />
-        </div>
-        <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full blur-2xl" />
-      </motion.div>
+        </motion.div>
+      )}
 
-      {/* Certificates Grid */}
-      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {/* Message réduction pour les pros */}
+      {priceCalculation.showDiscount && selectedCerts.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/20 p-4"
+        >
+          <div className="flex items-start gap-3">
+            <TrendingUp className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h3 className="text-sm font-bold text-green-400 mb-1">
+                🎉 Réduction de {priceCalculation.discountPercent}% appliquée !
+              </h3>
+              <p className="text-xs text-slate-400">
+                {selectedCerts.length <= 2 
+                  ? "Sélectionnez 3 certificats ou plus pour augmenter votre réduction à 15% !"
+                  : selectedCerts.length <= 4
+                  ? "Sélectionnez 5 certificats ou plus pour atteindre 20% de réduction !"
+                  : "Félicitations ! Vous bénéficiez de la réduction maximale de 20% !"
+                }
+              </p>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Certificates Grid - Cartes PLUS GRANDES */}
+      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5 lg:gap-6">
         <AnimatePresence>
           {filteredCertificates.map((cert, index) => {
             const enrollment = enrollments.find(e => e.certificate_id === cert.id);
             const isPaid = enrollment?.payment_status === 'PAID';
             const isPending = enrollment && !isPaid;
             const isSubscribing = subscribingId === cert.id;
-            const discount = cert.price_normal > 0
-              ? Math.round(((cert.price_normal - cert.price_bourse) / cert.price_normal) * 100)
-              : 0;
+            const isSelected = selectedCerts.includes(cert.id);
+            
+            // Prix réduit pour ce certificat
+            const certRatio = (cert.price_normal || 0) / (totalNormalSelected || 1);
+            const certReducedPrice = selectedCerts.length > 0 
+              ? Math.round(priceCalculation.finalPrice * certRatio)
+              : cert.price_normal;
 
             return (
               <motion.div
@@ -187,11 +284,13 @@ export default function CatalogueView({ profile, enrollments, onNavigateFormatio
                     ? 'border-green-500/20 hover:border-green-500/40 hover:shadow-lg hover:shadow-green-500/5' 
                     : isPending
                     ? 'border-amber-500/20 hover:border-amber-500/40'
+                    : isSelected
+                    ? 'border-[#D4AF37]/40 shadow-lg shadow-[#D4AF37]/5 scale-[1.02]'
                     : 'border-[#1e293b] hover:border-blue-500/20 hover:shadow-lg hover:shadow-blue-500/5'
                 }`}
               >
-                {/* Image du certificat */}
-                <div className="h-40 bg-[#1e293b] overflow-hidden">
+                {/* Image - PLUS GRANDE */}
+                <div className="h-44 lg:h-48 bg-[#1e293b] overflow-hidden">
                   {cert.image_url ? (
                     <img
                       src={cert.image_url}
@@ -200,11 +299,12 @@ export default function CatalogueView({ profile, enrollments, onNavigateFormatio
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
-                      <ImageIcon className="w-10 h-10 text-slate-600" />
+                      <ImageIcon className="w-12 h-12 text-slate-600" />
                     </div>
                   )}
-                  {/* Status Badge sur l'image */}
-                  <div className="absolute top-3 right-3">
+                  
+                  {/* Badges */}
+                  <div className="absolute top-3 right-3 flex flex-col gap-1.5">
                     {isPaid && (
                       <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-500/90 text-white rounded-full text-[10px] font-bold backdrop-blur-sm">
                         <CheckCircle2 className="w-3 h-3" /> Accès obtenu
@@ -215,83 +315,133 @@ export default function CatalogueView({ profile, enrollments, onNavigateFormatio
                         <AlertCircle className="w-3 h-3" /> En attente
                       </span>
                     )}
+                    {isSelected && (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-[#D4AF37]/90 text-[#0B0F19] rounded-full text-[10px] font-bold backdrop-blur-sm">
+                        <CheckCircle2 className="w-3 h-3" /> Sélectionné
+                      </span>
+                    )}
                   </div>
                 </div>
 
-                {/* Contenu */}
-                <div className="p-5">
-                  <h3 className="text-sm lg:text-base font-bold text-white mb-2 group-hover:text-blue-400 transition-colors">
+                {/* Contenu - PLUS DÉTAILLÉ */}
+                <div className="p-5 lg:p-6">
+                  <h3 className="text-sm lg:text-base font-bold text-white mb-2 group-hover:text-blue-400 transition-colors line-clamp-2">
                     {cert.title}
                   </h3>
+
+                  {/* Slogan */}
+                  {cert.slogan && (
+                    <p className="text-xs text-slate-500 italic mb-3 line-clamp-1">
+                      "{cert.slogan}"
+                    </p>
+                  )}
 
                   <div className="flex flex-wrap gap-2 mb-4">
                     <span className="inline-flex items-center gap-1 px-2 py-1 bg-[#020617] rounded-lg text-[10px] text-slate-400">
                       <Clock className="w-3 h-3" />4 semaines
                     </span>
-                    {discount > 0 && (
-                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-500/10 rounded-lg text-[10px] text-green-400 font-medium">
-                        <TrendingUp className="w-3 h-3" />-{discount}%
-                      </span>
-                    )}
+                    <span className="inline-flex items-center gap-1 px-2 py-1 bg-[#020617] rounded-lg text-[10px] text-slate-400">
+                      <Star className="w-3 h-3 text-[#D4AF37]" />Certifié
+                    </span>
                   </div>
 
-                  <div className="flex items-end justify-between pt-3 border-t border-[#1e293b]">
-                    <div>
-                      {discount > 0 && (
-                        <div>
-                          <p className="text-xs text-slate-500 line-through">
+                  {/* Prix */}
+                  <div className="bg-[#020617] rounded-xl p-3 mb-4 space-y-2">
+                    {isSelected && priceCalculation.showDiscount ? (
+                      <>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-slate-500">Prix normal</span>
+                          <span className="text-slate-500 line-through">
                             {cert.price_normal?.toLocaleString()} FCFA
-                          </p>
-                          <p className="text-[10px] text-slate-600">
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-xs pt-1 border-t border-[#1E293B]">
+                          <span className="text-slate-400">Prix réduit</span>
+                          <div className="text-right">
+                            <span className="text-[#D4AF37] font-bold">
+                              {certReducedPrice.toLocaleString()} FCFA
+                            </span>
+                            <p className="text-[10px] text-slate-500">
+                              {formatEUR(certReducedPrice)}
+                            </p>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex justify-between text-xs">
+                        <span className="text-slate-400">Prix</span>
+                        <div className="text-right">
+                          <span className="text-white font-bold">
+                            {cert.price_normal?.toLocaleString()} FCFA
+                          </span>
+                          <p className="text-[10px] text-slate-500">
                             {formatEUR(cert.price_normal)}
                           </p>
                         </div>
-                      )}
-                      <div>
-                        <p className="text-lg font-bold text-white">
-                          {cert.price_bourse?.toLocaleString()}
-                          <span className="text-sm font-normal text-slate-400"> FCFA</span>
-                        </p>
-                        <p className="text-[10px] text-slate-500">
-                          {formatEUR(cert.price_bourse)}
-                        </p>
                       </div>
-                    </div>
+                    )}
+                  </div>
 
+                  {/* Compétences (extrait) */}
+                  {cert.skills && (
+                    <div className="mb-4">
+                      <p className="text-[10px] text-slate-500 mb-1 flex items-center gap-1">
+                        <Target className="w-3 h-3" /> {cert.skills.split(',')[0]}...
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Boutons */}
+                  <div className="flex gap-2">
+                    {!isPaid && !isPending && (
+                      <button
+                        onClick={() => toggleCertSelection(cert.id)}
+                        className={`flex-1 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                          isSelected
+                            ? 'bg-green-500/10 border border-green-500/30 text-green-400'
+                            : 'border border-[#D4AF37]/30 text-[#D4AF37] hover:bg-[#D4AF37]/10'
+                        }`}
+                      >
+                        {isSelected ? '✓ Sélectionné' : 'Sélectionner'}
+                      </button>
+                    )}
+                    
                     {isPaid ? (
                       <motion.button
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                         onClick={() => onNavigateFormation(cert.id)}
-                        className="flex items-center gap-1.5 px-4 py-2.5 bg-green-500 hover:bg-green-600 text-white text-sm font-semibold rounded-xl transition-colors shadow-lg shadow-green-500/20"
+                        className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-green-500 hover:bg-green-600 text-white text-xs font-semibold rounded-xl transition-colors shadow-lg shadow-green-500/20"
                       >
                         Accéder
-                        <ChevronRight className="w-4 h-4" />
+                        <ChevronRight className="w-3.5 h-3.5" />
                       </motion.button>
                     ) : isPending ? (
                       <motion.button
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                         onClick={() => onNavigateFormation(cert.id)}
-                        className="flex items-center gap-1.5 px-4 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-sm font-semibold rounded-xl transition-all shadow-lg shadow-amber-500/20"
+                        className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-xs font-semibold rounded-xl transition-all shadow-lg shadow-amber-500/20"
                       >
                         Payer
-                        <ArrowRight className="w-4 h-4" />
+                        <ArrowRight className="w-3.5 h-3.5" />
                       </motion.button>
                     ) : (
-                      <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => handleSubscribe(cert.id)}
-                        disabled={isSubscribing}
-                        className="flex items-center gap-1.5 px-4 py-2.5 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-500/50 text-white text-sm font-semibold rounded-xl transition-colors shadow-lg shadow-blue-500/20"
-                      >
-                        {isSubscribing ? (
-                          <><Loader2 className="w-4 h-4 animate-spin" /> Inscription...</>
-                        ) : (
-                          <>S'inscrire<ArrowRight className="w-4 h-4" /></>
-                        )}
-                      </motion.button>
+                      !isSelected && (
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => handleSubscribe(cert.id)}
+                          disabled={isSubscribing}
+                          className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-500/50 text-white text-xs font-semibold rounded-xl transition-colors shadow-lg shadow-blue-500/20"
+                        >
+                          {isSubscribing ? (
+                            <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Inscription...</>
+                          ) : (
+                            <>S'inscrire<ArrowRight className="w-3.5 h-3.5" /></>
+                          )}
+                        </motion.button>
+                      )
                     )}
                   </div>
                 </div>
