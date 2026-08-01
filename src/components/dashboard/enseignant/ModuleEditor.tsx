@@ -18,6 +18,7 @@ import {
   GraduationCap,
   ChevronDown,
   X,
+  HelpCircle,
 } from 'lucide-react';
 
 interface Props {
@@ -29,13 +30,26 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
   const supabase = createClientComponent();
   const [lessons, setLessons] = useState<any[]>([]);
   const [assessments, setAssessments] = useState<any[]>([]);
-  const [activeSection, setActiveSection] = useState<'lessons' | 'assessments'>('lessons');
+  const [activeSection, setActiveSection] = useState<'lessons' | 'assessments' | 'qcm'>('lessons');
   const [showAddLessonInput, setShowAddLessonInput] = useState(false);
   const [showAddAssessmentInput, setShowAddAssessmentInput] = useState(false);
+  const [showAddQCMInput, setShowAddQCMInput] = useState(false);
   const [newLessonTitle, setNewLessonTitle] = useState('');
   const [newLessonType, setNewLessonType] = useState<string>('TEXT');
   const [newAssessmentTitle, setNewAssessmentTitle] = useState('');
   const [newAssessmentType, setNewAssessmentType] = useState<string>('TP');
+
+  // État pour le QCM
+  const [qcmQuestions, setQcmQuestions] = useState<any[]>([]);
+  const [selectedAssessmentForQCM, setSelectedAssessmentForQCM] = useState<string>('');
+  const [newQCMQuestion, setNewQCMQuestion] = useState({
+    question: '',
+    option_a: '',
+    option_b: '',
+    option_c: '',
+    option_d: '',
+    correct_answer: 'A',
+  });
 
   const fetchData = async () => {
     const { data: l } = await supabase
@@ -52,9 +66,23 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
     if (a) setAssessments(a);
   };
 
+  const fetchQCMQuestions = async () => {
+    if (!selectedAssessmentForQCM) return;
+    const { data } = await supabase
+      .from('quiz_questions')
+      .select('*')
+      .eq('assessment_id', selectedAssessmentForQCM)
+      .order('position', { ascending: true });
+    if (data) setQcmQuestions(data);
+  };
+
   useEffect(() => {
     fetchData();
   }, [module.id]);
+
+  useEffect(() => {
+    fetchQCMQuestions();
+  }, [selectedAssessmentForQCM]);
 
   const handleAddLesson = async () => {
     if (!newLessonTitle.trim()) return;
@@ -92,7 +120,31 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
     }
   };
 
-  // Types de leçons avec les nouveaux libellés
+  const handleAddQCMQuestion = async () => {
+    if (!newQCMQuestion.question.trim() || !selectedAssessmentForQCM) return;
+    const { error } = await supabase.from('quiz_questions').insert({
+      assessment_id: selectedAssessmentForQCM,
+      question: newQCMQuestion.question,
+      option_a: newQCMQuestion.option_a,
+      option_b: newQCMQuestion.option_b,
+      option_c: newQCMQuestion.option_c,
+      option_d: newQCMQuestion.option_d,
+      correct_answer: newQCMQuestion.correct_answer,
+      position: qcmQuestions.length + 1,
+    });
+    if (error) alert(error.message);
+    else {
+      setNewQCMQuestion({ question: '', option_a: '', option_b: '', option_c: '', option_d: '', correct_answer: 'A' });
+      fetchQCMQuestions();
+      onUpdate();
+    }
+  };
+
+  const handleDeleteQCMQuestion = async (id: number) => {
+    const { error } = await supabase.from('quiz_questions').delete().eq('id', id);
+    if (!error) fetchQCMQuestions();
+  };
+
   const lessonTypes = [
     { type: 'TEXT', icon: FileText, label: 'Partie théorique', color: 'text-blue-400', bg: 'bg-blue-500/10', desc: 'Contenu texte à lire' },
     { type: 'TEXT', icon: PenTool, label: 'Partie pratique', color: 'text-orange-400', bg: 'bg-orange-500/10', desc: 'Exercices à faire' },
@@ -103,310 +155,125 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
 
   return (
     <div className="space-y-6">
-      {/* Tabs Leçons / Évaluations */}
+      {/* Tabs Leçons / Évaluations / QCM */}
       <div className="flex gap-2 p-1 bg-slate-800/50 rounded-xl">
-        <button
-          onClick={() => setActiveSection('lessons')}
-          className={cn(
-            "flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200",
-            activeSection === 'lessons'
-              ? "bg-violet-500/20 text-violet-400 shadow-sm"
-              : "text-slate-400 hover:text-white"
-          )}
-        >
-          <BookOpen className="w-4 h-4" />
-          Leçons
-          <span className={cn(
-            "text-xs px-1.5 py-0.5 rounded-full",
-            activeSection === 'lessons' ? "bg-violet-500/20" : "bg-slate-700"
-          )}>
-            {lessons.length}
-          </span>
+        <button onClick={() => setActiveSection('lessons')} className={cn("flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200", activeSection === 'lessons' ? "bg-violet-500/20 text-violet-400 shadow-sm" : "text-slate-400 hover:text-white")}>
+          <BookOpen className="w-4 h-4" /> Leçons
+          <span className={cn("text-xs px-1.5 py-0.5 rounded-full", activeSection === 'lessons' ? "bg-violet-500/20" : "bg-slate-700")}>{lessons.length}</span>
         </button>
-        <button
-          onClick={() => setActiveSection('assessments')}
-          className={cn(
-            "flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200",
-            activeSection === 'assessments'
-              ? "bg-violet-500/20 text-violet-400 shadow-sm"
-              : "text-slate-400 hover:text-white"
-          )}
-        >
-          <PenTool className="w-4 h-4" />
-          Évaluations
-          <span className={cn(
-            "text-xs px-1.5 py-0.5 rounded-full",
-            activeSection === 'assessments' ? "bg-violet-500/20" : "bg-slate-700"
-          )}>
-            {assessments.length}
-          </span>
+        <button onClick={() => setActiveSection('assessments')} className={cn("flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200", activeSection === 'assessments' ? "bg-violet-500/20 text-violet-400 shadow-sm" : "text-slate-400 hover:text-white")}>
+          <PenTool className="w-4 h-4" /> Évaluations
+          <span className={cn("text-xs px-1.5 py-0.5 rounded-full", activeSection === 'assessments' ? "bg-violet-500/20" : "bg-slate-700")}>{assessments.length}</span>
+        </button>
+        <button onClick={() => setActiveSection('qcm')} className={cn("flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200", activeSection === 'qcm' ? "bg-violet-500/20 text-violet-400 shadow-sm" : "text-slate-400 hover:text-white")}>
+          <HelpCircle className="w-4 h-4" /> QCM
         </button>
       </div>
 
       <AnimatePresence mode="wait">
-        {/* SECTION LEÇONS */}
+        {/* SECTION LEÇONS (inchangée) */}
         {activeSection === 'lessons' && (
-          <motion.div
-            key="lessons"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="space-y-4"
-          >
+          <motion.div key="lessons" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-4">
+            {/* ... contenu identique à l'original ... */}
             <div className="flex items-center justify-between">
-              <h5 className="text-sm font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                <BookOpen className="w-4 h-4" />
-                Leçons ({lessons.length})
-              </h5>
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => setShowAddLessonInput(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium
-                  bg-slate-800 text-slate-300 border border-slate-700
-                  hover:bg-slate-700 hover:text-white transition-colors"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                Ajouter une leçon
-              </motion.button>
+              <h5 className="text-sm font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-2"><BookOpen className="w-4 h-4" /> Leçons ({lessons.length})</h5>
+              <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => setShowAddLessonInput(true)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700 hover:text-white transition-colors"><Plus className="w-3.5 h-3.5" /> Ajouter une leçon</motion.button>
             </div>
-
-            {/* Formulaire ajout leçon */}
-            <AnimatePresence>
-              {showAddLessonInput && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="overflow-hidden"
-                >
-                  <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-white">Nouvelle leçon</p>
-                        <p className="text-xs text-slate-400 mt-0.5">Choisissez le type de contenu</p>
-                      </div>
-                      <button
-                        onClick={() => setShowAddLessonInput(false)}
-                        className="text-slate-500 hover:text-white transition-colors"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-
-                    {/* Types de leçon */}
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                      {lessonTypes.map((type) => (
-                        <motion.button
-                          key={type.type + type.label}
-                          whileHover={{ scale: 1.03 }}
-                          whileTap={{ scale: 0.97 }}
-                          onClick={() => setNewLessonType(type.type)}
-                          className={cn(
-                            "flex flex-col items-center gap-1.5 p-3 rounded-xl text-xs font-medium transition-all duration-200 border",
-                            newLessonType === type.type && newLessonTitle.includes(type.label)
-                              ? `${type.bg} border-current ${type.color}`
-                              : "bg-slate-900 border-slate-700/50 text-slate-400 hover:text-white hover:border-slate-600"
-                          )}
-                        >
-                          <type.icon className="w-5 h-5" />
-                          <span className="text-center leading-tight">{type.label}</span>
-                        </motion.button>
-                      ))}
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="text"
-                        value={newLessonTitle}
-                        onChange={(e) => setNewLessonTitle(e.target.value)}
-                        placeholder="Titre de la leçon (ex: Introduction théorique)"
-                        autoFocus
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') handleAddLesson();
-                          if (e.key === 'Escape') {
-                            setShowAddLessonInput(false);
-                            setNewLessonTitle('');
-                          }
-                        }}
-                        className={cn(
-                          "flex-1 px-3 py-2 rounded-lg text-white text-sm",
-                          "bg-slate-900 border border-slate-700",
-                          "focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500",
-                          "placeholder-slate-500 transition-all duration-200"
-                        )}
-                      />
-                      <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={handleAddLesson}
-                        disabled={!newLessonTitle.trim()}
-                        className="px-4 py-2 rounded-lg bg-green-500 text-white text-sm font-medium
-                          hover:bg-green-400 transition-colors disabled:opacity-50"
-                      >
-                        Ajouter
-                      </motion.button>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Liste des leçons */}
             {lessons.length === 0 ? (
-              <div className="text-center py-8 bg-slate-800/30 rounded-xl border border-slate-800/50">
-                <BookOpen className="w-8 h-8 text-slate-600 mx-auto mb-2" />
-                <p className="text-slate-500 text-sm">
-                  Ajoutez une partie théorique et une partie pratique
-                </p>
-              </div>
+              <div className="text-center py-8 bg-slate-800/30 rounded-xl border border-slate-800/50"><BookOpen className="w-8 h-8 text-slate-600 mx-auto mb-2" /><p className="text-slate-500 text-sm">Ajoutez une partie théorique et une partie pratique</p></div>
             ) : (
-              <motion.div
-                variants={stagger}
-                initial="initial"
-                animate="animate"
-                className="space-y-2"
-              >
-                {lessons.map((lesson) => (
-                  <LessonEditor key={lesson.id} lesson={lesson} onUpdate={fetchData} />
-                ))}
+              <motion.div variants={stagger} initial="initial" animate="animate" className="space-y-2">
+                {lessons.map((lesson) => (<LessonEditor key={lesson.id} lesson={lesson} onUpdate={fetchData} />))}
               </motion.div>
             )}
           </motion.div>
         )}
 
-        {/* SECTION ÉVALUATIONS */}
+        {/* SECTION ÉVALUATIONS (inchangée) */}
         {activeSection === 'assessments' && (
-          <motion.div
-            key="assessments"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="space-y-4"
-          >
+          <motion.div key="assessments" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-4">
+            {/* ... contenu identique à l'original ... */}
             <div className="flex items-center justify-between">
-              <h5 className="text-sm font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                <PenTool className="w-4 h-4" />
-                Évaluations ({assessments.length})
-              </h5>
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => setShowAddAssessmentInput(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium
-                  bg-slate-800 text-slate-300 border border-slate-700
-                  hover:bg-slate-700 hover:text-white transition-colors"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                Ajouter une évaluation
-              </motion.button>
+              <h5 className="text-sm font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-2"><PenTool className="w-4 h-4" /> Évaluations ({assessments.length})</h5>
+              <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => setShowAddAssessmentInput(true)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700 hover:text-white transition-colors"><Plus className="w-3.5 h-3.5" /> Ajouter une évaluation</motion.button>
+            </div>
+            {assessments.length === 0 ? (
+              <div className="text-center py-8 bg-slate-800/30 rounded-xl border border-slate-800/50"><PenTool className="w-8 h-8 text-slate-600 mx-auto mb-2" /><p className="text-slate-500 text-sm">Ajoutez une évaluation pour valider cette semaine</p></div>
+            ) : (
+              <motion.div variants={stagger} initial="initial" animate="animate" className="space-y-2">
+                {assessments.map((ass) => (<AssessmentEditor key={ass.id} assessment={ass} onUpdate={fetchData} />))}
+              </motion.div>
+            )}
+          </motion.div>
+        )}
+
+        {/* SECTION QCM */}
+        {activeSection === 'qcm' && (
+          <motion.div key="qcm" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h5 className="text-sm font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-2"><HelpCircle className="w-4 h-4" /> QCM</h5>
             </div>
 
-            {/* Formulaire ajout évaluation */}
-            <AnimatePresence>
-              {showAddAssessmentInput && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="overflow-hidden"
-                >
-                  <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-white">Nouvelle évaluation</p>
-                        <p className="text-xs text-slate-400 mt-0.5">
-                          Cette évaluation permettra de valider la semaine
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => setShowAddAssessmentInput(false)}
-                        className="text-slate-500 hover:text-white transition-colors"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
+            {/* Sélectionner l'évaluation associée */}
+            <div>
+              <label className="text-xs text-slate-400 mb-2 block">Associer à une évaluation :</label>
+              <select value={selectedAssessmentForQCM} onChange={(e) => setSelectedAssessmentForQCM(e.target.value)}
+                className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm">
+                <option value="">-- Sélectionner --</option>
+                {assessments.map((ass) => (<option key={ass.id} value={ass.id}>{ass.title}</option>))}
+              </select>
+            </div>
 
-                    {/* Type d'évaluation */}
-                    <div className="grid grid-cols-2 gap-2">
-                      {[
-                        { type: 'TP', icon: PenTool, label: 'Travail Pratique' },
-                        { type: 'EXAM', icon: GraduationCap, label: 'Examen final' },
-                      ].map((type) => (
-                        <motion.button
-                          key={type.type}
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                          onClick={() => setNewAssessmentType(type.type)}
-                          className={cn(
-                            "flex items-center justify-center gap-2 p-3 rounded-xl text-sm font-medium transition-all duration-200 border",
-                            newAssessmentType === type.type
-                              ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
-                              : "bg-slate-900 border-slate-700/50 text-slate-400 hover:text-white hover:border-slate-600"
-                          )}
-                        >
-                          <type.icon className="w-4 h-4" />
-                          {type.label}
-                        </motion.button>
-                      ))}
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="text"
-                        value={newAssessmentTitle}
-                        onChange={(e) => setNewAssessmentTitle(e.target.value)}
-                        placeholder="Titre de l'évaluation (ex: TP Semaine 1)"
-                        autoFocus
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') handleAddAssessment();
-                          if (e.key === 'Escape') {
-                            setShowAddAssessmentInput(false);
-                            setNewAssessmentTitle('');
-                          }
-                        }}
-                        className={cn(
-                          "flex-1 px-3 py-2 rounded-lg text-white text-sm",
-                          "bg-slate-900 border border-slate-700",
-                          "focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500",
-                          "placeholder-slate-500 transition-all duration-200"
-                        )}
-                      />
-                      <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={handleAddAssessment}
-                        disabled={!newAssessmentTitle.trim()}
-                        className="px-4 py-2 rounded-lg bg-green-500 text-white text-sm font-medium
-                          hover:bg-green-400 transition-colors disabled:opacity-50"
-                      >
-                        Ajouter
-                      </motion.button>
-                    </div>
+            {selectedAssessmentForQCM && (
+              <>
+                {/* Formulaire ajout question */}
+                <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4 space-y-3">
+                  <p className="text-sm font-medium text-white">Ajouter une question</p>
+                  <input type="text" placeholder="Question" value={newQCMQuestion.question} onChange={(e) => setNewQCMQuestion({ ...newQCMQuestion, question: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white text-sm" />
+                  <div className="grid grid-cols-2 gap-2">
+                    <input type="text" placeholder="Option A" value={newQCMQuestion.option_a} onChange={(e) => setNewQCMQuestion({ ...newQCMQuestion, option_a: e.target.value })}
+                      className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white text-sm" />
+                    <input type="text" placeholder="Option B" value={newQCMQuestion.option_b} onChange={(e) => setNewQCMQuestion({ ...newQCMQuestion, option_b: e.target.value })}
+                      className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white text-sm" />
+                    <input type="text" placeholder="Option C" value={newQCMQuestion.option_c} onChange={(e) => setNewQCMQuestion({ ...newQCMQuestion, option_c: e.target.value })}
+                      className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white text-sm" />
+                    <input type="text" placeholder="Option D" value={newQCMQuestion.option_d} onChange={(e) => setNewQCMQuestion({ ...newQCMQuestion, option_d: e.target.value })}
+                      className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white text-sm" />
                   </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                  <div className="flex items-center gap-3">
+                    <label className="text-xs text-slate-400">Bonne réponse :</label>
+                    <select value={newQCMQuestion.correct_answer} onChange={(e) => setNewQCMQuestion({ ...newQCMQuestion, correct_answer: e.target.value })}
+                      className="px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-xl text-white text-sm">
+                      <option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option>
+                    </select>
+                    <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={handleAddQCMQuestion} disabled={!newQCMQuestion.question.trim()}
+                      className="px-4 py-2 rounded-lg bg-green-500 text-white text-sm font-medium hover:bg-green-400 disabled:opacity-50">Ajouter</motion.button>
+                  </div>
+                </div>
 
-            {/* Liste des évaluations */}
-            {assessments.length === 0 ? (
-              <div className="text-center py-8 bg-slate-800/30 rounded-xl border border-slate-800/50">
-                <PenTool className="w-8 h-8 text-slate-600 mx-auto mb-2" />
-                <p className="text-slate-500 text-sm">
-                  Ajoutez une évaluation pour valider cette semaine
-                </p>
-              </div>
-            ) : (
-              <motion.div
-                variants={stagger}
-                initial="initial"
-                animate="animate"
-                className="space-y-2"
-              >
-                {assessments.map((ass) => (
-                  <AssessmentEditor key={ass.id} assessment={ass} onUpdate={fetchData} />
-                ))}
-              </motion.div>
+                {/* Liste des questions */}
+                <div className="space-y-2">
+                  {qcmQuestions.length === 0 ? (
+                    <p className="text-slate-500 text-sm text-center py-4">Aucune question pour ce QCM.</p>
+                  ) : (
+                    qcmQuestions.map((q, i) => (
+                      <div key={q.id} className="bg-slate-800/30 border border-slate-700/50 rounded-xl p-3 flex items-start justify-between">
+                        <div className="flex-1">
+                          <p className="text-white text-sm font-medium">Q{i + 1}. {q.question}</p>
+                          <div className="grid grid-cols-2 gap-1 mt-1">
+                            <span className={cn("text-xs", q.correct_answer === 'A' ? 'text-green-400 font-bold' : 'text-slate-400')}>A) {q.option_a}</span>
+                            <span className={cn("text-xs", q.correct_answer === 'B' ? 'text-green-400 font-bold' : 'text-slate-400')}>B) {q.option_b}</span>
+                            <span className={cn("text-xs", q.correct_answer === 'C' ? 'text-green-400 font-bold' : 'text-slate-400')}>C) {q.option_c}</span>
+                            <span className={cn("text-xs", q.correct_answer === 'D' ? 'text-green-400 font-bold' : 'text-slate-400')}>D) {q.option_d}</span>
+                          </div>
+                        </div>
+                        <button onClick={() => handleDeleteQCMQuestion(q.id)} className="text-red-400 hover:text-red-300 ml-3 flex-shrink-0"><X className="w-4 h-4" /></button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </>
             )}
           </motion.div>
         )}

@@ -3,13 +3,15 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
+import { createClientComponent } from '@/lib/supabase/client';
+import { useStudent } from '@/context/StudentContext';
 import { 
   Lock, Unlock, CheckCircle2, AlertCircle, 
   Clock, FileText, Video, Link as LinkIcon, 
   Send, ChevronDown, ChevronRight, Award,
   BookOpen, Loader2, Trophy, Star, PenTool,
   Calendar, Play, Target, Users, Download,
-  Shield, Zap
+  Shield, Zap, HelpCircle, Check, X
 } from 'lucide-react';
 import { SubmissionModal } from './SubmissionModal';
 import ContentViewer from './ContentViewer';
@@ -30,10 +32,16 @@ interface CourseProgramProps {
 }
 
 export function CourseProgram({ courses, userStatus, passedAssessments, submissionsMap, certificateInfo }: CourseProgramProps) {
+  const { profile } = useStudent();
+  const supabase = createClientComponent();
   const isPaid = userStatus?.trim().toUpperCase() === 'PAID';
   const [selectedAssessment, setSelectedAssessment] = useState<{ id: string; title: string } | null>(null);
   const [expandedCourses, setExpandedCourses] = useState<Record<string, boolean>>({});
   const [expandedModules, setExpandedModules] = useState<Record<string, boolean>>({});
+  
+  const [quizQuestions, setQuizQuestions] = useState<Record<string, any[]>>({});
+  const [quizAnswers, setQuizAnswers] = useState<Record<string, any>>({});
+  const [selectedAnswer, setSelectedAnswer] = useState<Record<string, string>>({});
 
   const toggleCourse = (courseId: string) => {
     setExpandedCourses(prev => ({ ...prev, [courseId]: !prev[courseId] }));
@@ -41,6 +49,61 @@ export function CourseProgram({ courses, userStatus, passedAssessments, submissi
 
   const toggleModule = (moduleId: string) => {
     setExpandedModules(prev => ({ ...prev, [moduleId]: !prev[moduleId] }));
+  };
+
+  const loadQuizForModule = async (moduleId: string, assessmentIds: string[]) => {
+    if (assessmentIds.length === 0) return;
+    const { data: questions } = await (supabase as any)
+      .from('quiz_questions')
+      .select('*')
+      .in('assessment_id', assessmentIds)
+      .order('position', { ascending: true });
+    
+    if (questions && questions.length > 0) {
+      setQuizQuestions(prev => ({ ...prev, [moduleId]: questions }));
+      
+      if (profile) {
+        const { data: answers } = await (supabase as any)
+          .from('quiz_answers')
+          .select('*')
+          .eq('student_id', profile.id)
+          .in('question_id', questions.map((q: any) => q.id));
+        
+        if (answers) {
+          const answersMap: Record<string, any> = {};
+          answers.forEach((a: any) => { 
+            const qid = a.question_id ?? 0;
+            if (qid) answersMap[qid] = a; 
+          });
+          setQuizAnswers(prev => ({ ...prev, [moduleId]: answersMap }));
+        }
+      }
+    }
+  };
+
+  const handleAnswerQuestion = async (question: any, answer: string, moduleId: string) => {
+    if (!profile) return;
+    
+    setSelectedAnswer(prev => ({ ...prev, [question.id]: answer }));
+    
+    const isCorrect = answer === question.correct_answer;
+    
+    const { error } = await (supabase as any).from('quiz_answers').upsert({
+      question_id: question.id,
+      student_id: profile.id,
+      selected_answer: answer,
+      is_correct: isCorrect,
+    }, { onConflict: 'question_id,student_id' });
+
+    if (!error) {
+      setQuizAnswers(prev => ({
+        ...prev,
+        [moduleId]: {
+          ...(prev[moduleId] || {}),
+          [question.id]: { selected_answer: answer, is_correct: isCorrect },
+        },
+      }));
+    }
   };
 
   const getLessonType = (lesson: any, index: number) => {
@@ -83,24 +146,15 @@ export function CourseProgram({ courses, userStatus, passedAssessments, submissi
     <div className="space-y-6">
       {/* 4 icônes clés */}
       {isPaid && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="grid grid-cols-2 md:grid-cols-4 gap-3"
-        >
+        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
             { icon: Calendar, label: '4 semaines', color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20' },
             { icon: Play, label: '8 séances', color: 'text-green-400', bg: 'bg-green-500/10', border: 'border-green-500/20' },
             { icon: Target, label: '4 étapes', color: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/20' },
             { icon: Shield, label: '100% pratique', color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20' },
           ].map((item, index) => (
-            <motion.div
-              key={index}
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: index * 0.1 }}
-              className={`flex flex-col items-center gap-2 p-4 rounded-2xl border ${item.border} ${item.bg} text-center`}
-            >
+            <motion.div key={index} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: index * 0.1 }}
+              className={`flex flex-col items-center gap-2 p-4 rounded-2xl border ${item.border} ${item.bg} text-center`}>
               <item.icon className={`w-6 h-6 ${item.color}`} />
               <span className={`text-sm font-bold ${item.color}`}>{item.label}</span>
             </motion.div>
@@ -110,25 +164,15 @@ export function CourseProgram({ courses, userStatus, passedAssessments, submissi
 
       {/* Certificat disponible */}
       {isPaid && allCoursesCompleted && (
-        <motion.div
-          initial={{ opacity: 0, y: -20, scale: 0.95 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-yellow-500/10 border border-amber-500/30 p-5 lg:p-6"
-        >
+        <motion.div initial={{ opacity: 0, y: -20, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }}
+          className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-yellow-500/10 border border-amber-500/30 p-5 lg:p-6">
           <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full blur-3xl" />
           <div className="relative flex items-start gap-4">
-            <div className="p-3 bg-amber-500/10 rounded-2xl flex-shrink-0">
-              <Trophy className="w-6 h-6 text-amber-400" />
-            </div>
+            <div className="p-3 bg-amber-500/10 rounded-2xl flex-shrink-0"><Trophy className="w-6 h-6 text-amber-400" /></div>
             <div>
               <h3 className="text-lg font-bold text-amber-400 mb-1">🎉 Félicitations !</h3>
-              <p className="text-sm text-slate-300 mb-3">
-                Vous avez terminé tous les cours. Votre certificat est en cours de génération.
-              </p>
-              <div className="flex items-center gap-2 text-xs text-amber-400/80">
-                <Star className="w-4 h-4" />
-                <span>Les cabinets s'arrachent nos certifiés</span>
-              </div>
+              <p className="text-sm text-slate-300 mb-3">Vous avez terminé tous les cours. Votre certificat est en cours de génération.</p>
+              <div className="flex items-center gap-2 text-xs text-amber-400/80"><Star className="w-4 h-4" /><span>Les cabinets s'arrachent nos certifiés</span></div>
             </div>
           </div>
         </motion.div>
@@ -136,20 +180,13 @@ export function CourseProgram({ courses, userStatus, passedAssessments, submissi
 
       {/* Message Non Payé */}
       {!isPaid && (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-500/10 to-orange-500/10 border border-amber-500/20 p-6"
-        >
+        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+          className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-500/10 to-orange-500/10 border border-amber-500/20 p-6">
           <div className="flex items-start gap-4">
-            <div className="p-2.5 bg-amber-500/10 rounded-xl flex-shrink-0">
-              <Lock className="w-5 h-5 text-amber-400" />
-            </div>
+            <div className="p-2.5 bg-amber-500/10 rounded-xl flex-shrink-0"><Lock className="w-5 h-5 text-amber-400" /></div>
             <div>
               <h3 className="text-base font-bold text-amber-400 mb-2">Contenu Verrouillé</h3>
-              <p className="text-sm text-slate-300 mb-4">
-                Finalisez votre paiement pour accéder à tous les modules.
-              </p>
+              <p className="text-sm text-slate-300 mb-4">Finalisez votre paiement pour accéder à tous les modules.</p>
               <Link href="/checkout" className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold rounded-xl transition-colors">
                 Débloquer l'accès maintenant <ChevronRight className="w-4 h-4" />
               </Link>
@@ -165,13 +202,8 @@ export function CourseProgram({ courses, userStatus, passedAssessments, submissi
           const isCourseExpanded = expandedCourses[course.id] ?? true;
           
           return (
-            <motion.div
-              key={course.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: courseIndex * 0.1 }}
-              className="bg-[#0f172a] border border-[#1e293b] rounded-2xl overflow-hidden"
-            >
+            <motion.div key={course.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: courseIndex * 0.1 }}
+              className="bg-[#0f172a] border border-[#1e293b] rounded-2xl overflow-hidden">
               <button onClick={() => toggleCourse(course.id)} className="w-full flex items-center justify-between p-5 lg:p-6 hover:bg-[#1e293b]/50 transition-colors">
                 <div className="flex items-center gap-4 flex-1 min-w-0">
                   <div className={`p-2.5 rounded-xl flex-shrink-0 ${courseProgress.isCompleted ? 'bg-green-500/10' : 'bg-blue-500/10'}`}>
@@ -202,8 +234,7 @@ export function CourseProgram({ courses, userStatus, passedAssessments, submissi
 
               <AnimatePresence>
                 {isCourseExpanded && (
-                  <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
-                    className="border-t border-[#1e293b]">
+                  <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="border-t border-[#1e293b]">
                     <div className="p-5 lg:p-6 space-y-3">
                       {course.modules?.map((mod: any, index: number, arr: any[]) => {
                         const isFirstModule = index === 0;
@@ -214,9 +245,13 @@ export function CourseProgram({ courses, userStatus, passedAssessments, submissi
                         const moduleAssessmentId = mod.assessments?.[0]?.id;
                         const isModulePassed = moduleAssessmentId && passedAssessments.includes(moduleAssessmentId);
 
+                        const assessmentIds = mod.assessments?.map((a: any) => a.id) || [];
+                        const hasQuiz = quizQuestions[mod.id] && quizQuestions[mod.id].length > 0;
+
                         return (
                           <div key={mod.id} className={`rounded-xl border transition-all ${isUnlocked ? 'bg-[#020617] border-[#1e293b]' : 'bg-[#020617]/50 border-[#1e293b]/50 opacity-75'}`}>
-                            <button onClick={() => isUnlocked && toggleModule(mod.id)} className="w-full flex items-center justify-between p-4">
+                            <button onClick={() => { if (isUnlocked) { toggleModule(mod.id); if (!hasQuiz) loadQuizForModule(mod.id, assessmentIds); } }}
+                              className="w-full flex items-center justify-between p-4">
                               <div className="flex items-center gap-3">
                                 <div className={`p-1.5 rounded-lg ${isUnlocked ? 'bg-blue-500/10' : 'bg-slate-700/50'}`}>
                                   {isUnlocked ? <Unlock className="w-4 h-4 text-blue-400" /> : <Lock className="w-4 h-4 text-slate-500" />}
@@ -234,9 +269,10 @@ export function CourseProgram({ courses, userStatus, passedAssessments, submissi
                               </div>
                               {isUnlocked && <ChevronDown className="w-4 h-4 text-slate-400" />}
                             </button>
-                            {/* Contenu leçons/TP (inchangé) */}
+
                             {isModuleExpanded && isUnlocked && (
                               <div className="border-t border-[#1e293b] p-4 space-y-4">
+                                {/* Leçons */}
                                 {mod.lessons?.map((lesson: any, lessonIndex: number) => {
                                   const lessonType = getLessonType(lesson, lessonIndex);
                                   return (
@@ -251,6 +287,58 @@ export function CourseProgram({ courses, userStatus, passedAssessments, submissi
                                     </div>
                                   );
                                 })}
+
+                                {/* 🧠 QCM */}
+                                {quizQuestions[mod.id] && quizQuestions[mod.id].length > 0 && (
+                                  <div className="bg-[#0f172a] rounded-xl p-4 border border-purple-500/20">
+                                    <div className="flex items-center gap-2 mb-4">
+                                      <HelpCircle className="w-4 h-4 text-purple-400" />
+                                      <span className="text-sm font-bold text-white">🧠 QCM d'auto-évaluation</span>
+                                      <span className="text-xs text-purple-400 ml-auto">
+                                        {Object.keys(quizAnswers[mod.id] || {}).length}/{quizQuestions[mod.id].length} répondues
+                                      </span>
+                                    </div>
+                                    <div className="space-y-4">
+                                      {quizQuestions[mod.id].map((q: any, qi: number) => {
+                                        const answer = (quizAnswers[mod.id] || {})[q.id];
+                                        const selected = selectedAnswer[q.id];
+                                        return (
+                                          <div key={q.id} className={`p-3 rounded-xl border ${answer ? (answer.is_correct ? 'bg-green-500/5 border-green-500/20' : 'bg-red-500/5 border-red-500/20') : 'bg-[#020617] border-[#1e293b]'}`}>
+                                            <p className="text-white text-sm font-medium mb-2">Q{qi + 1}. {q.question}</p>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                              {['A', 'B', 'C', 'D'].map((letter) => (
+                                                <button
+                                                  key={letter}
+                                                  onClick={() => !answer && handleAnswerQuestion(q, letter, mod.id)}
+                                                  disabled={!!answer}
+                                                  className={`text-left px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                                                    answer && letter === q.correct_answer ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
+                                                    answer && letter === answer.selected_answer && !answer.is_correct ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
+                                                    selected === letter ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' :
+                                                    'bg-[#1e293b] text-slate-400 hover:text-white hover:bg-[#334155] border border-transparent'
+                                                  }`}
+                                                >
+                                                  <span className="font-bold mr-1">{letter})</span>
+                                                  {q[`option_${letter.toLowerCase()}`]}
+                                                  {answer && letter === q.correct_answer && <Check className="w-3 h-3 inline ml-1 text-green-400" />}
+                                                  {answer && letter === answer.selected_answer && !answer.is_correct && <X className="w-3 h-3 inline ml-1 text-red-400" />}
+                                                </button>
+                                              ))}
+                                            </div>
+                                            {/* Texte de confirmation */}
+                                            {answer && (
+                                              <p className={`mt-2 text-xs font-medium ${answer.is_correct ? 'text-green-400' : 'text-red-400'}`}>
+                                                {answer.is_correct ? '✅ Bonne réponse ! Félicitations.' : `❌ Réponse incorrecte. La bonne réponse est ${q.correct_answer}.`}
+                                              </p>
+                                            )}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* TP */}
                                 {mod.assessments?.map((ass: any) => {
                                   const sub = submissionsMap[ass.id];
                                   return (
@@ -267,7 +355,16 @@ export function CourseProgram({ courses, userStatus, passedAssessments, submissi
                                           : <span className="text-red-400 text-xs">❌ Non validé • {sub.grade}/20</span>
                                         ) : <span className="text-slate-500 text-xs">Non soumis</span>}
                                       </div>
-                                      {sub?.feedback && <div className="mb-3 p-3 bg-blue-500/5 border border-blue-500/10 rounded-xl"><p className="text-xs text-blue-400">Feedback : {sub.feedback}</p></div>}
+                                      
+                                      {/* 📋 Consignes du TP */}
+                                      {ass.description && (
+                                        <div className="mb-3 p-3 bg-amber-500/5 border border-amber-500/10 rounded-xl">
+                                          <p className="text-xs text-amber-400 font-medium mb-1">📋 Consignes :</p>
+                                          <p className="text-sm text-slate-300 whitespace-pre-wrap">{ass.description}</p>
+                                        </div>
+                                      )}
+
+                                      {sub?.feedback && <div className="mb-3 p-3 bg-blue-500/5 border border-blue-500/10 rounded-xl"><p className="text-xs text-blue-400 font-medium mb-1">💬 Feedback du formateur :</p><p className="text-sm text-slate-300">{sub.feedback}</p></div>}
                                       {sub?.submission_url && <div className="mb-3"><SubmissionViewer submissionUrl={sub.submission_url} /></div>}
                                       {isPaid && !sub && (
                                         <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
@@ -294,69 +391,39 @@ export function CourseProgram({ courses, userStatus, passedAssessments, submissi
         })}
       </div>
 
-      {/* Blocs inférieurs : Compétences, Public, Avantages, Brochure */}
+      {/* Blocs inférieurs */}
       {isPaid && certificateInfo && (
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
-          {/* Compétences acquises */}
           {certificateInfo.skills && (
             <div className="bg-[#0f172a] border border-[#1e293b] rounded-2xl p-5 lg:p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 bg-blue-500/10 rounded-xl"><Award className="w-5 h-5 text-blue-400" /></div>
-                <h3 className="text-base font-bold text-white">Compétences Acquises</h3>
-              </div>
-              <ul className="space-y-2">
-                {certificateInfo.skills.split('\n').filter(Boolean).map((skill, i) => (
-                  <li key={i} className="flex items-start gap-2 text-sm text-slate-300">
-                    <CheckCircle2 className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
-                    {skill.replace(/^[•\-]\s*/, '')}
-                  </li>
-                ))}
-              </ul>
+              <div className="flex items-center gap-3 mb-4"><div className="p-2 bg-blue-500/10 rounded-xl"><Award className="w-5 h-5 text-blue-400" /></div><h3 className="text-base font-bold text-white">Compétences Acquises</h3></div>
+              <ul className="space-y-2">{certificateInfo.skills.split('\n').filter(Boolean).map((skill, i) => (
+                <li key={i} className="flex items-start gap-2 text-sm text-slate-300"><CheckCircle2 className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />{skill.replace(/^[•\-]\s*/, '')}</li>
+              ))}</ul>
             </div>
           )}
-
-          {/* Public cible */}
           {certificateInfo.targetAudience && (
             <div className="bg-[#0f172a] border border-[#1e293b] rounded-2xl p-5 lg:p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 bg-purple-500/10 rounded-xl"><Users className="w-5 h-5 text-purple-400" /></div>
-                <h3 className="text-base font-bold text-white">Pour qui ?</h3>
-              </div>
-              <ul className="space-y-2">
-                {certificateInfo.targetAudience.split('\n').filter(Boolean).map((audience, i) => (
-                  <li key={i} className="flex items-start gap-2 text-sm text-slate-300">
-                    <Zap className="w-4 h-4 text-purple-400 mt-0.5 flex-shrink-0" />
-                    {audience.replace(/^[•\-]\s*/, '')}
-                  </li>
-                ))}
-              </ul>
+              <div className="flex items-center gap-3 mb-4"><div className="p-2 bg-purple-500/10 rounded-xl"><Users className="w-5 h-5 text-purple-400" /></div><h3 className="text-base font-bold text-white">Pour qui ?</h3></div>
+              <ul className="space-y-2">{certificateInfo.targetAudience.split('\n').filter(Boolean).map((audience, i) => (
+                <li key={i} className="flex items-start gap-2 text-sm text-slate-300"><Zap className="w-4 h-4 text-purple-400 mt-0.5 flex-shrink-0" />{audience.replace(/^[•\-]\s*/, '')}</li>
+              ))}</ul>
             </div>
           )}
-
-          {/* Avantages + Brochure */}
           {(certificateInfo.benefits || certificateInfo.brochureUrl) && (
             <div className="bg-[#0f172a] border border-[#1e293b] rounded-2xl p-5 lg:p-6">
               {certificateInfo.benefits && (
                 <>
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2 bg-amber-500/10 rounded-xl"><Star className="w-5 h-5 text-amber-400" /></div>
-                    <h3 className="text-base font-bold text-white">Avantages</h3>
-                  </div>
-                  <ul className="space-y-2 mb-4">
-                    {certificateInfo.benefits.split('\n').filter(Boolean).map((benefit, i) => (
-                      <li key={i} className="flex items-start gap-2 text-sm text-slate-300">
-                        <Star className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
-                        {benefit.replace(/^[•\-]\s*/, '')}
-                      </li>
-                    ))}
-                  </ul>
+                  <div className="flex items-center gap-3 mb-4"><div className="p-2 bg-amber-500/10 rounded-xl"><Star className="w-5 h-5 text-amber-400" /></div><h3 className="text-base font-bold text-white">Avantages</h3></div>
+                  <ul className="space-y-2 mb-4">{certificateInfo.benefits.split('\n').filter(Boolean).map((benefit, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm text-slate-300"><Star className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />{benefit.replace(/^[•\-]\s*/, '')}</li>
+                  ))}</ul>
                 </>
               )}
               {certificateInfo.brochureUrl && (
                 <a href={certificateInfo.brochureUrl} target="_blank" rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 px-5 py-3 bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold rounded-xl transition-colors shadow-lg shadow-blue-500/20">
-                  <Download className="w-4 h-4" />
-                  Télécharger le programme détaillé (PDF)
+                  <Download className="w-4 h-4" /> Télécharger le programme détaillé (PDF)
                 </a>
               )}
             </div>
