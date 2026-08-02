@@ -35,7 +35,6 @@ export function CourseProgram({ courses, userStatus, passedAssessments, submissi
   const [activeModuleIndex, setActiveModuleIndex] = useState(0);
   const [quizQuestions, setQuizQuestions] = useState<Record<string, any[]>>({});
   const [quizAnswers, setQuizAnswers] = useState<Record<string, any>>({});
-  const [selectedAnswer, setSelectedAnswer] = useState<Record<string, string>>({});
 
   const activeCourse = courses[activeCourseIndex];
   const modules = activeCourse?.modules || [];
@@ -82,24 +81,16 @@ export function CourseProgram({ courses, userStatus, passedAssessments, submissi
 
   const handleAnswer = async (question: any, answer: string, moduleId: string) => {
     if (!profile) return;
-    setSelectedAnswer(prev => ({ ...prev, [question.id]: answer }));
     const isCorrect = answer === question.correct_answer;
     await (supabase as any).from('quiz_answers').upsert({ question_id: question.id, student_id: profile.id, selected_answer: answer, is_correct: isCorrect }, { onConflict: 'question_id,student_id' });
     setQuizAnswers(prev => ({ ...prev, [moduleId]: { ...(prev[moduleId] || {}), [question.id]: { selected_answer: answer, is_correct: isCorrect } } }));
   };
 
-  const getLessonType = (lesson: any, index: number) => {
-    const t = (lesson.title || '').toLowerCase();
-    if (t.includes('théorie') || t.includes('theorie') || index === 0) return 'theorie';
-    if (t.includes('pratique') || t.includes('exercice') || index === 1) return 'pratique';
-    return 'standard';
-  };
-
   if (!courses?.length) {
     return (
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-16 md:py-20">
-        <BookOpen className="w-12 h-12 md:w-16 md:h-16 text-slate-600 mx-auto mb-4" />
-        <p className="text-slate-400 text-base md:text-lg">Aucune formation disponible.</p>
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-20">
+        <BookOpen className="w-14 h-14 text-slate-600 mx-auto mb-4" />
+        <p className="text-slate-400 text-base">Aucune formation disponible pour le moment.</p>
       </motion.div>
     );
   }
@@ -110,132 +101,160 @@ export function CourseProgram({ courses, userStatus, passedAssessments, submissi
   }
 
   return (
-    <div className="w-full max-w-3xl mx-auto space-y-4 md:space-y-6 pb-16 md:pb-20">
+    <div className="w-full max-w-3xl mx-auto pb-20 md:pb-24">
       {/* Barre de progression */}
       {isPaid && totalModules > 0 && (
-        <div className="bg-[#0f172a] border border-[#1e293b] rounded-xl md:rounded-2xl p-3 md:p-4">
+        <div className="mb-6 md:mb-8 px-1">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[11px] md:text-xs text-slate-400 font-medium">Progression</span>
-            <span className="text-[11px] md:text-xs text-blue-400 font-bold">{progressPercent}%</span>
+            <span className="text-xs text-slate-500 font-medium uppercase tracking-wider">Progression</span>
+            <span className="text-xs text-blue-400 font-bold">{progressPercent}%</span>
           </div>
-          <div className="h-1 md:h-1.5 bg-[#1e293b] rounded-full overflow-hidden">
+          <div className="h-1 bg-[#1e293b] rounded-full overflow-hidden">
             <motion.div initial={{ width: 0 }} animate={{ width: `${progressPercent}%` }} transition={{ duration: 0.8, ease: 'easeOut' }}
               className="h-full bg-gradient-to-r from-blue-500 to-blue-400 rounded-full" />
           </div>
         </div>
       )}
 
-      {/* 🧭 Navigation sticky */}
-      <div className="sticky top-0 z-20 bg-[#020617]/95 backdrop-blur-xl border-b border-[#1e293b] -mx-4 px-3 md:px-4 py-2.5 md:py-3 flex items-center justify-between">
+      {/* 🧭 Navigation */}
+      <div className="sticky top-0 z-20 bg-[#020617]/95 backdrop-blur-xl border-b border-[#1e293b] -mx-4 px-4 py-3 flex items-center justify-between mb-8 md:mb-10">
         <button onClick={goToPrevModule} disabled={activeModuleIndex === 0 && activeCourseIndex === 0}
-          className="flex items-center gap-1 text-xs md:text-sm text-slate-400 hover:text-white disabled:opacity-20 transition-colors p-1.5 md:p-1">
-          <ArrowLeft className="w-4 h-4" />
+          className="text-slate-400 hover:text-white disabled:opacity-20 transition-colors p-2">
+          <ArrowLeft className="w-5 h-5" />
         </button>
         
-        <div className="flex items-center gap-1 md:gap-2">
+        <div className="flex items-center gap-2">
           {modules.map((_: any, i: number) => {
             const modId = modules[i]?.assessments?.[0]?.id;
             const isPassed = modId && passedAssessments.includes(modId);
             return (
               <button key={i} onClick={() => setActiveModuleIndex(i)}
-                className={`w-8 h-8 md:w-9 md:h-9 rounded-lg md:rounded-xl text-xs md:text-sm font-bold transition-all flex items-center justify-center ${
+                className={`w-9 h-9 rounded-xl text-sm font-bold transition-all flex items-center justify-center ${
                   i === activeModuleIndex ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20 scale-110' : 
                   isPassed ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
                   'bg-[#1e293b] text-slate-500 hover:bg-[#334155]'
                 }`}>
-                {isPassed ? <CheckCircle2 className="w-3.5 h-3.5 md:w-4 md:h-4" /> : i + 1}
+                {isPassed ? <CheckCircle2 className="w-4 h-4" /> : i + 1}
               </button>
             );
           })}
         </div>
 
         <button onClick={goToNextModule} disabled={activeModuleIndex === modules.length - 1 && activeCourseIndex === courses.length - 1}
-          className="flex items-center gap-1 text-xs md:text-sm text-slate-400 hover:text-white disabled:opacity-20 transition-colors p-1.5 md:p-1">
-          <ArrowRight className="w-4 h-4" />
+          className="text-slate-400 hover:text-white disabled:opacity-20 transition-colors p-2">
+          <ArrowRight className="w-5 h-5" />
         </button>
       </div>
 
       {/* 📄 Contenu */}
       {activeModule && (
-        <motion.div key={activeModule.id} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }}>
-          {/* En-tête */}
-          <div className="mb-4 md:mb-6">
-            <div className="flex items-center gap-2 md:gap-3 mb-2">
-              <span className="text-[10px] md:text-xs font-bold text-blue-400 uppercase tracking-wider bg-blue-500/10 px-2 md:px-3 py-1 rounded-full">
-                S{activeModule.week_number}/{totalModules}
+        <motion.div key={activeModule.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
+          
+          {/* En-tête de la semaine */}
+          <div className="mb-10 md:mb-12">
+            <div className="flex items-center gap-3 mb-3">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-500/10 text-blue-400 text-xs font-bold rounded-full border border-blue-500/20">
+                📅 Semaine {activeModule.week_number}/{totalModules}
               </span>
               {isModulePassed && (
-                <span className="inline-flex items-center gap-1 px-2 md:px-2.5 py-0.5 md:py-1 bg-green-500/10 text-green-400 text-[10px] md:text-xs font-bold rounded-full border border-green-500/20">
-                  <CheckCircle2 className="w-3 h-3" /> Validée
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-500/10 text-green-400 text-xs font-bold rounded-full border border-green-500/20">
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Validée
                 </span>
               )}
             </div>
-            <h2 className="text-lg md:text-xl lg:text-2xl font-bold text-white leading-tight">{activeModule.title}</h2>
+            <h2 className="text-2xl md:text-3xl font-bold text-white leading-tight">{activeModule.title}</h2>
           </div>
 
           {!isModuleUnlocked ? (
-            <div className="text-center py-16 md:py-20">
-              <div className="w-16 h-16 md:w-20 md:h-20 bg-slate-800 rounded-3xl flex items-center justify-center mx-auto mb-4 md:mb-6">
-                <Lock className="w-8 h-8 md:w-10 md:h-10 text-slate-500" />
-              </div>
-              <h3 className="text-base md:text-lg font-bold text-white mb-2">Semaine verrouillée</h3>
-              <p className="text-slate-400 text-xs md:text-sm">Validez la semaine {activeModule.week_number - 1} pour accéder à celle-ci.</p>
+            <div className="text-center py-20">
+              <Lock className="w-12 h-12 text-slate-600 mx-auto mb-4" />
+              <p className="text-slate-400">Validez la semaine {activeModule.week_number - 1} pour débloquer celle-ci.</p>
             </div>
           ) : (
-            <div className="space-y-3 md:space-y-5">
-              {/* Leçons */}
-              {activeModule.lessons?.map((lesson: any, li: number) => {
-                const lessonType = getLessonType(lesson, li);
-                return (
-                  <div key={lesson.id} className="bg-[#0f172a] border border-[#1e293b] rounded-xl md:rounded-2xl p-4 md:p-5 lg:p-6">
-                    <div className="flex items-center gap-2 md:gap-3 mb-3 md:mb-4">
-                      {lessonType === 'theorie' && <span className="inline-flex items-center gap-1 md:gap-1.5 px-2 md:px-3 py-1 md:py-1.5 bg-blue-500/10 text-blue-400 text-[10px] md:text-xs font-bold rounded-full border border-blue-500/20">📚 Théorie</span>}
-                      {lessonType === 'pratique' && <span className="inline-flex items-center gap-1 md:gap-1.5 px-2 md:px-3 py-1 md:py-1.5 bg-orange-500/10 text-orange-400 text-[10px] md:text-xs font-bold rounded-full border border-orange-500/20">✍️ Pratique</span>}
-                      {lesson.content_type === 'VIDEO' && <Video className="w-3.5 h-3.5 md:w-4 md:h-4 text-red-400" />}
-                      <h3 className="text-sm md:text-base font-bold text-white">{lesson.title}</h3>
+            <div className="space-y-12 md:space-y-14">
+              
+              {/* 📚 LEÇONS */}
+              {activeModule.lessons?.length > 0 && (
+                <div className="space-y-8 md:space-y-10">
+                  {activeModule.lessons?.map((lesson: any, li: number) => (
+                    <div key={lesson.id}>
+                      {/* Badge de section */}
+                      <div className="flex items-center gap-2 mb-4">
+                        <div className="w-8 h-8 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center flex-shrink-0">
+                          <FileText className="w-4 h-4 text-blue-400" />
+                        </div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="text-base md:text-lg font-bold text-white">{lesson.title}</h3>
+                          {lesson.content_type === 'VIDEO' && (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-red-500/10 text-red-400 text-[10px] font-bold rounded-full border border-red-500/20">
+                              🎥 Vidéo
+                            </span>
+                          )}
+                          {lesson.content_type === 'PDF' && (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-orange-500/10 text-orange-400 text-[10px] font-bold rounded-full border border-orange-500/20">
+                              📄 PDF
+                            </span>
+                          )}
+                          {(lesson.title || '').toLowerCase().includes('théorie') && (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-500/10 text-blue-400 text-[10px] font-bold rounded-full border border-blue-500/20">
+                              📚 Théorie
+                            </span>
+                          )}
+                          {(lesson.title || '').toLowerCase().includes('pratique') && (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-orange-500/10 text-orange-400 text-[10px] font-bold rounded-full border border-orange-500/20">
+                              ✍️ Pratique
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      {/* Contenu de la leçon */}
+                      <div className="text-slate-300 leading-relaxed text-sm md:text-base">
+                        {isPaid ? (
+                          <ContentViewer contentType={lesson.content_type} contentUrl={lesson.content_url} contentBody={lesson.content_body} title={lesson.title} />
+                        ) : (
+                          <div className="text-amber-400"><Lock className="w-4 h-4 inline mr-1" />Réservé aux membres payants</div>
+                        )}
+                      </div>
                     </div>
-                    {isPaid ? (
-                      <ContentViewer contentType={lesson.content_type} contentUrl={lesson.content_url} contentBody={lesson.content_body} title={lesson.title} />
-                    ) : (
-                      <div className="text-amber-400 text-xs md:text-sm"><Lock className="w-3.5 h-3.5 md:w-4 md:h-4 inline mr-1" />Réservé aux membres payants</div>
-                    )}
-                  </div>
-                );
-              })}
+                  ))}
+                </div>
+              )}
 
-              {/* QCM */}
+              {/* 🧠 QCM */}
               {quizQuestions[activeModule.id]?.length > 0 && (
-                <div className="bg-[#0f172a] border border-purple-500/20 rounded-xl md:rounded-2xl p-4 md:p-5 lg:p-6">
-                  <div className="flex items-center gap-2 md:gap-3 mb-4 md:mb-5">
-                    <div className="p-1.5 md:p-2 bg-purple-500/10 rounded-lg md:rounded-xl"><HelpCircle className="w-4 h-4 md:w-5 md:h-5 text-purple-400" /></div>
-                    <h3 className="text-sm md:text-base font-bold text-white">🧠 QCM d'auto-évaluation</h3>
-                    <span className="text-xs md:text-sm text-purple-400 ml-auto bg-purple-500/10 px-2 md:px-3 py-1 rounded-full font-bold">
+                <div>
+                  <div className="flex items-center gap-2 mb-6">
+                    <div className="w-8 h-8 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center flex-shrink-0">
+                      <HelpCircle className="w-4 h-4 text-purple-400" />
+                    </div>
+                    <h3 className="text-base md:text-lg font-bold text-white">🧠 QCM d'auto-évaluation</h3>
+                    <span className="text-sm text-purple-400 ml-auto bg-purple-500/10 px-3 py-1 rounded-full font-bold">
                       {Object.keys(quizAnswers[activeModule.id] || {}).length}/{quizQuestions[activeModule.id]?.length || 0}
                     </span>
                   </div>
-                  <div className="space-y-3 md:space-y-4">
+                  <div className="space-y-5">
                     {quizQuestions[activeModule.id]?.map((q: any, qi: number) => {
                       const answer = (quizAnswers[activeModule.id] || {})[q.id];
                       return (
-                        <div key={q.id} className={`p-3 md:p-4 rounded-lg md:rounded-xl border ${answer ? (answer.is_correct ? 'bg-green-500/5 border-green-500/20' : 'bg-red-500/5 border-red-500/20') : 'bg-[#020617] border-[#1e293b]'}`}>
-                          <p className="text-white text-sm md:text-base font-semibold mb-2 md:mb-3">Q{qi + 1}. {q.question}</p>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 md:gap-2">
+                        <div key={q.id} className={`p-4 md:p-5 rounded-xl border ${answer ? (answer.is_correct ? 'border-green-500/30 bg-green-500/5' : 'border-red-500/30 bg-red-500/5') : 'border-[#1e293b]'}`}>
+                          <p className="text-white font-semibold mb-3">Q{qi + 1}. {q.question}</p>
+                          <div className="grid sm:grid-cols-2 gap-2">
                             {['A', 'B', 'C', 'D'].map((letter: string) => (
                               <button key={letter} onClick={() => !answer && handleAnswer(q, letter, activeModule.id)} disabled={!!answer}
-                                className={`text-left px-3 md:px-4 py-2.5 md:py-3 rounded-lg md:rounded-xl text-xs md:text-sm font-medium transition-all ${
+                                className={`text-left px-4 py-3 rounded-xl text-sm font-medium transition-all ${
                                   answer && letter === q.correct_answer ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
                                   answer && letter === answer.selected_answer && !answer.is_correct ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
                                   'bg-[#1e293b] text-slate-400 hover:text-white hover:bg-[#334155] border border-transparent'
                                 }`}>
-                                <span className="font-bold mr-1.5 md:mr-2">{letter})</span>{q[`option_${letter.toLowerCase()}`]}
-                                {answer && letter === q.correct_answer && <Check className="w-3.5 h-3.5 md:w-4 md:h-4 inline ml-1 text-green-400" />}
-                                {answer && letter === answer.selected_answer && !answer.is_correct && <X className="w-3.5 h-3.5 md:w-4 md:h-4 inline ml-1 text-red-400" />}
+                                <span className="font-bold mr-2">{letter})</span>{q[`option_${letter.toLowerCase()}`]}
+                                {answer && letter === q.correct_answer && <Check className="w-4 h-4 inline ml-1 text-green-400" />}
+                                {answer && letter === answer.selected_answer && !answer.is_correct && <X className="w-4 h-4 inline ml-1 text-red-400" />}
                               </button>
                             ))}
                           </div>
                           {answer && (
-                            <p className={`mt-2 md:mt-3 text-xs md:text-sm font-medium ${answer.is_correct ? 'text-green-400' : 'text-red-400'}`}>
-                              {answer.is_correct ? '✅ Bonne réponse !' : `❌ Incorrect. Bonne réponse : ${q.correct_answer}.`}
+                            <p className={`mt-3 text-sm font-medium ${answer.is_correct ? 'text-green-400' : 'text-red-400'}`}>
+                              {answer.is_correct ? '✅ Bonne réponse !' : `❌ La bonne réponse était ${q.correct_answer}.`}
                             </p>
                           )}
                         </div>
@@ -245,57 +264,63 @@ export function CourseProgram({ courses, userStatus, passedAssessments, submissi
                 </div>
               )}
 
-              {/* TP */}
+              {/* 🎯 TP */}
               {activeModule.assessments?.map((ass: any) => {
                 const sub = submissionsMap[ass.id];
                 return (
-                  <div key={ass.id} className="bg-[#0f172a] border border-[#1e293b] rounded-xl md:rounded-2xl p-4 md:p-5 lg:p-6">
-                    <div className="flex items-center justify-between mb-3 md:mb-4">
-                      <div className="flex items-center gap-2 md:gap-3">
-                        <div className="p-1.5 md:p-2 bg-yellow-500/10 rounded-lg md:rounded-xl"><PenTool className="w-4 h-4 md:w-5 md:h-5 text-yellow-400" /></div>
-                        <h3 className="text-sm md:text-base font-bold text-white">{ass.title}</h3>
-                        <span className="inline-flex items-center gap-1 px-2 md:px-2.5 py-0.5 md:py-1 bg-yellow-500/10 text-yellow-400 text-[10px] md:text-xs font-bold rounded-full border border-yellow-500/20">🎯 Validation</span>
+                  <div key={ass.id}>
+                    <div className="flex items-center gap-2 mb-4 md:mb-6">
+                      <div className="w-8 h-8 rounded-xl bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center flex-shrink-0">
+                        <PenTool className="w-4 h-4 text-yellow-400" />
                       </div>
+                      <h3 className="text-base md:text-lg font-bold text-white">{ass.title}</h3>
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-yellow-500/10 text-yellow-400 text-[10px] font-bold rounded-full border border-yellow-500/20">
+                        🎯 Validation
+                      </span>
                       {sub ? (
-                        sub.status === 'PENDING' ? <span className="text-amber-400 text-xs md:text-sm font-medium">⏳ En attente</span> :
-                        sub.status === 'PASSED' ? <span className="text-green-400 text-xs md:text-sm font-medium">✅ {sub.grade}/20</span> :
-                        <span className="text-red-400 text-xs md:text-sm font-medium">❌ {sub.grade}/20</span>
-                      ) : <span className="text-slate-500 text-xs md:text-sm">Non soumis</span>}
+                        sub.status === 'PENDING' ? <span className="text-amber-400 text-sm ml-auto">⏳ En attente</span> :
+                        sub.status === 'PASSED' ? <span className="text-green-400 text-sm ml-auto">✅ {sub.grade}/20</span> :
+                        <span className="text-red-400 text-sm ml-auto">❌ {sub.grade}/20</span>
+                      ) : <span className="text-slate-500 text-sm ml-auto">Non soumis</span>}
                     </div>
+
                     {ass.description && (
-                      <div className="mb-3 md:mb-4 p-3 md:p-4 bg-amber-500/5 border border-amber-500/10 rounded-lg md:rounded-xl">
-                        <p className="text-xs md:text-sm text-amber-400 font-semibold mb-1">📋 Consignes :</p>
-                        <p className="text-slate-300 text-xs md:text-sm leading-relaxed whitespace-pre-wrap">{ass.description}</p>
+                      <div className="mb-6 p-4 md:p-5 bg-amber-500/5 border border-amber-500/10 rounded-xl">
+                        <p className="text-sm text-amber-400 font-semibold mb-2">📋 Consignes</p>
+                        <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">{ass.description}</p>
                       </div>
                     )}
+
                     {sub?.feedback && (
-                      <div className="mb-3 md:mb-4 p-3 md:p-4 bg-blue-500/5 border border-blue-500/10 rounded-lg md:rounded-xl">
-                        <p className="text-xs md:text-sm text-blue-400 font-semibold mb-1">💬 Feedback :</p>
-                        <p className="text-slate-300 text-xs md:text-sm">{sub.feedback}</p>
+                      <div className="mb-6 p-4 md:p-5 bg-blue-500/5 border border-blue-500/10 rounded-xl">
+                        <p className="text-sm text-blue-400 font-semibold mb-2">💬 Feedback du formateur</p>
+                        <p className="text-slate-300 text-sm">{sub.feedback}</p>
                       </div>
                     )}
-                    {sub?.submission_url && <div className="mb-3 md:mb-4"><SubmissionViewer submissionUrl={sub.submission_url} /></div>}
+
+                    {sub?.submission_url && <div className="mb-6"><SubmissionViewer submissionUrl={sub.submission_url} /></div>}
+
                     {isPaid && !sub && (
-                      <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                      <button
                         onClick={() => setSelectedAssessment({ id: ass.id, title: ass.title })}
-                        className="w-full flex items-center justify-center gap-2 px-5 md:px-6 py-3 md:py-3.5 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-bold rounded-xl shadow-lg shadow-green-500/20 transition-all text-sm md:text-base">
-                        <Send className="w-4 h-4 md:w-5 md:h-5" /> Soumettre mon travail
-                      </motion.button>
+                        className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-bold rounded-xl transition-all shadow-lg shadow-green-500/20 text-sm md:text-base">
+                        <Send className="w-5 h-5" /> Soumettre mon travail
+                      </button>
                     )}
                   </div>
                 );
               })}
 
-              {/* Navigation bas */}
-              <div className="flex items-center justify-between pt-4 md:pt-6 border-t border-[#1e293b]">
+              {/* ⬅️➡️ Navigation bas avec boutons bien visibles */}
+              <div className="flex items-center justify-between pt-8 border-t border-[#1e293b]">
                 <button onClick={goToPrevModule} disabled={activeModuleIndex === 0 && activeCourseIndex === 0}
-                  className="flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-2 md:py-2.5 text-slate-400 hover:text-white disabled:opacity-20 transition-colors rounded-lg md:rounded-xl hover:bg-[#1e293b] text-xs md:text-sm">
-                  <ArrowLeft className="w-3.5 h-3.5 md:w-4 md:h-4" /> Précédent
+                  className="flex items-center gap-2 px-5 py-3 bg-[#1e293b] hover:bg-[#334155] text-white rounded-xl font-medium transition-colors disabled:opacity-20 text-sm shadow-lg">
+                  <ArrowLeft className="w-4 h-4" /> Semaine précédente
                 </button>
-                <span className="text-[10px] md:text-xs text-slate-500">{activeModuleIndex + 1} / {totalModules}</span>
+                <span className="text-xs text-slate-500 font-medium">{activeModuleIndex + 1} / {totalModules}</span>
                 <button onClick={goToNextModule} disabled={activeModuleIndex === modules.length - 1 && activeCourseIndex === courses.length - 1}
-                  className="flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-2 md:py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg md:rounded-xl font-medium transition-colors disabled:opacity-20 text-xs md:text-sm shadow-lg shadow-blue-500/20">
-                  Suivant <ArrowRight className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                  className="flex items-center gap-2 px-5 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-medium transition-colors disabled:opacity-20 text-sm shadow-lg shadow-blue-500/20">
+                  Semaine suivante <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
             </div>
