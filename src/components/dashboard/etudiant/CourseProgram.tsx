@@ -12,7 +12,7 @@ import {
   BookOpen, Loader2, Trophy, Star, PenTool,
   Calendar, Play, Target, Users, Download,
   Shield, Zap, HelpCircle, Check, X,
-  ArrowLeft, ArrowRight
+  ArrowLeft, ArrowRight, ExternalLink
 } from 'lucide-react';
 import { SubmissionModal } from './SubmissionModal';
 import ContentViewer from './ContentViewer';
@@ -175,46 +175,66 @@ export function CourseProgram({ courses, userStatus, passedAssessments, submissi
               
               {/* 📚 LEÇONS */}
               {activeModule.lessons?.length > 0 && (
-                <div className="space-y-8 md:space-y-10">
+                <div className="space-y-10">
                   {activeModule.lessons?.map((lesson: any, li: number) => (
                     <div key={lesson.id}>
-                      {/* Badge de section */}
-                      <div className="flex items-center gap-2 mb-4">
-                        <div className="w-8 h-8 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center flex-shrink-0">
-                          <FileText className="w-4 h-4 text-blue-400" />
+                      {/* En-tête de la leçon avec badge clair */}
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 border ${
+                          lesson.content_type === 'VIDEO' ? 'bg-red-500/10 border-red-500/20' :
+                          lesson.content_type === 'PDF' ? 'bg-orange-500/10 border-orange-500/20' :
+                          lesson.content_type === 'LINK' ? 'bg-purple-500/10 border-purple-500/20' :
+                          'bg-blue-500/10 border-blue-500/20'
+                        }`}>
+                          {lesson.content_type === 'VIDEO' ? <Play className="w-5 h-5 text-red-400" /> :
+                           lesson.content_type === 'PDF' ? <FileText className="w-5 h-5 text-orange-400" /> :
+                           lesson.content_type === 'LINK' ? <ExternalLink className="w-5 h-5 text-purple-400" /> :
+                           <FileText className="w-5 h-5 text-blue-400" />}
                         </div>
-                        <div className="flex items-center gap-2 flex-wrap">
+                        <div>
                           <h3 className="text-base md:text-lg font-bold text-white">{lesson.title}</h3>
-                          {lesson.content_type === 'VIDEO' && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-red-500/10 text-red-400 text-[10px] font-bold rounded-full border border-red-500/20">
-                              🎥 Vidéo
-                            </span>
-                          )}
-                          {lesson.content_type === 'PDF' && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-orange-500/10 text-orange-400 text-[10px] font-bold rounded-full border border-orange-500/20">
-                              📄 PDF
-                            </span>
-                          )}
-                          {(lesson.title || '').toLowerCase().includes('théorie') && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-500/10 text-blue-400 text-[10px] font-bold rounded-full border border-blue-500/20">
-                              📚 Théorie
-                            </span>
-                          )}
-                          {(lesson.title || '').toLowerCase().includes('pratique') && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-orange-500/10 text-orange-400 text-[10px] font-bold rounded-full border border-orange-500/20">
-                              ✍️ Pratique
-                            </span>
-                          )}
+                          <div className="flex items-center gap-2 mt-1">
+                            {lesson.content_type === 'VIDEO' && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-500/10 text-red-400 text-[10px] font-bold rounded-full border border-red-500/20">
+                                🎥 Vidéo
+                              </span>
+                            )}
+                            {lesson.content_type === 'PDF' && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-500/10 text-orange-400 text-[10px] font-bold rounded-full border border-orange-500/20">
+                                📄 Document PDF
+                              </span>
+                            )}
+                            {lesson.content_type === 'LINK' && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-500/10 text-purple-400 text-[10px] font-bold rounded-full border border-purple-500/20">
+                                🔗 Ressource externe
+                              </span>
+                            )}
+                            {(lesson.title || '').toLowerCase().includes('théorie') || (!['VIDEO','PDF','LINK'].includes(lesson.content_type) && li === 0) ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-500/10 text-blue-400 text-[10px] font-bold rounded-full border border-blue-500/20">
+                                📚 Partie théorique
+                              </span>
+                            ) : (lesson.title || '').toLowerCase().includes('pratique') || (!['VIDEO','PDF','LINK'].includes(lesson.content_type) && li === 1) ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-500/10 text-orange-400 text-[10px] font-bold rounded-full border border-orange-500/20">
+                                ✍️ Partie pratique
+                              </span>
+                            ) : null}
+                          </div>
                         </div>
                       </div>
+                      
                       {/* Contenu de la leçon */}
-                      <div className="text-slate-300 leading-relaxed text-sm md:text-base">
+                      <div className="ml-13">
                         {isPaid ? (
                           <ContentViewer contentType={lesson.content_type} contentUrl={lesson.content_url} contentBody={lesson.content_body} title={lesson.title} />
                         ) : (
-                          <div className="text-amber-400"><Lock className="w-4 h-4 inline mr-1" />Réservé aux membres payants</div>
+                          <div className="text-amber-400 text-sm"><Lock className="w-4 h-4 inline mr-1" />Réservé aux membres payants</div>
                         )}
                       </div>
+
+                      {/* Séparateur entre les leçons (sauf la dernière) */}
+                      {li < activeModule.lessons.length - 1 && (
+                        <div className="mt-10 border-t border-[#1e293b]" />
+                      )}
                     </div>
                   ))}
                 </div>
@@ -222,96 +242,111 @@ export function CourseProgram({ courses, userStatus, passedAssessments, submissi
 
               {/* 🧠 QCM */}
               {quizQuestions[activeModule.id]?.length > 0 && (
-                <div>
-                  <div className="flex items-center gap-2 mb-6">
-                    <div className="w-8 h-8 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center flex-shrink-0">
-                      <HelpCircle className="w-4 h-4 text-purple-400" />
+                <>
+                  <div className="border-t border-[#1e293b] pt-10" />
+                  <div>
+                    <div className="flex items-center gap-2 mb-6">
+                      <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center flex-shrink-0">
+                        <HelpCircle className="w-5 h-5 text-purple-400" />
+                      </div>
+                      <div>
+                        <h3 className="text-base md:text-lg font-bold text-white">🧠 QCM d'auto-évaluation</h3>
+                        <p className="text-xs text-purple-400 mt-0.5">Testez votre compréhension</p>
+                      </div>
+                      <span className="text-sm text-purple-400 ml-auto bg-purple-500/10 px-3 py-1 rounded-full font-bold">
+                        {Object.keys(quizAnswers[activeModule.id] || {}).length}/{quizQuestions[activeModule.id]?.length || 0}
+                      </span>
                     </div>
-                    <h3 className="text-base md:text-lg font-bold text-white">🧠 QCM d'auto-évaluation</h3>
-                    <span className="text-sm text-purple-400 ml-auto bg-purple-500/10 px-3 py-1 rounded-full font-bold">
-                      {Object.keys(quizAnswers[activeModule.id] || {}).length}/{quizQuestions[activeModule.id]?.length || 0}
-                    </span>
-                  </div>
-                  <div className="space-y-5">
-                    {quizQuestions[activeModule.id]?.map((q: any, qi: number) => {
-                      const answer = (quizAnswers[activeModule.id] || {})[q.id];
-                      return (
-                        <div key={q.id} className={`p-4 md:p-5 rounded-xl border ${answer ? (answer.is_correct ? 'border-green-500/30 bg-green-500/5' : 'border-red-500/30 bg-red-500/5') : 'border-[#1e293b]'}`}>
-                          <p className="text-white font-semibold mb-3">Q{qi + 1}. {q.question}</p>
-                          <div className="grid sm:grid-cols-2 gap-2">
-                            {['A', 'B', 'C', 'D'].map((letter: string) => (
-                              <button key={letter} onClick={() => !answer && handleAnswer(q, letter, activeModule.id)} disabled={!!answer}
-                                className={`text-left px-4 py-3 rounded-xl text-sm font-medium transition-all ${
-                                  answer && letter === q.correct_answer ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
-                                  answer && letter === answer.selected_answer && !answer.is_correct ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
-                                  'bg-[#1e293b] text-slate-400 hover:text-white hover:bg-[#334155] border border-transparent'
-                                }`}>
-                                <span className="font-bold mr-2">{letter})</span>{q[`option_${letter.toLowerCase()}`]}
-                                {answer && letter === q.correct_answer && <Check className="w-4 h-4 inline ml-1 text-green-400" />}
-                                {answer && letter === answer.selected_answer && !answer.is_correct && <X className="w-4 h-4 inline ml-1 text-red-400" />}
-                              </button>
-                            ))}
+                    <div className="space-y-5">
+                      {quizQuestions[activeModule.id]?.map((q: any, qi: number) => {
+                        const answer = (quizAnswers[activeModule.id] || {})[q.id];
+                        return (
+                          <div key={q.id} className={`p-4 md:p-5 rounded-xl border ${answer ? (answer.is_correct ? 'border-green-500/30 bg-green-500/5' : 'border-red-500/30 bg-red-500/5') : 'border-[#1e293b]'}`}>
+                            <p className="text-white font-semibold mb-3">Q{qi + 1}. {q.question}</p>
+                            <div className="grid sm:grid-cols-2 gap-2">
+                              {['A', 'B', 'C', 'D'].map((letter: string) => (
+                                <button key={letter} onClick={() => !answer && handleAnswer(q, letter, activeModule.id)} disabled={!!answer}
+                                  className={`text-left px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                                    answer && letter === q.correct_answer ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
+                                    answer && letter === answer.selected_answer && !answer.is_correct ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
+                                    'bg-[#1e293b] text-slate-400 hover:text-white hover:bg-[#334155] border border-transparent'
+                                  }`}>
+                                  <span className="font-bold mr-2">{letter})</span>{q[`option_${letter.toLowerCase()}`]}
+                                  {answer && letter === q.correct_answer && <Check className="w-4 h-4 inline ml-1 text-green-400" />}
+                                  {answer && letter === answer.selected_answer && !answer.is_correct && <X className="w-4 h-4 inline ml-1 text-red-400" />}
+                                </button>
+                              ))}
+                            </div>
+                            {answer && (
+                              <p className={`mt-3 text-sm font-medium ${answer.is_correct ? 'text-green-400' : 'text-red-400'}`}>
+                                {answer.is_correct ? '✅ Bonne réponse !' : `❌ La bonne réponse était ${q.correct_answer}.`}
+                              </p>
+                            )}
                           </div>
-                          {answer && (
-                            <p className={`mt-3 text-sm font-medium ${answer.is_correct ? 'text-green-400' : 'text-red-400'}`}>
-                              {answer.is_correct ? '✅ Bonne réponse !' : `❌ La bonne réponse était ${q.correct_answer}.`}
-                            </p>
-                          )}
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
+                </>
               )}
 
               {/* 🎯 TP */}
-              {activeModule.assessments?.map((ass: any) => {
-                const sub = submissionsMap[ass.id];
-                return (
-                  <div key={ass.id}>
-                    <div className="flex items-center gap-2 mb-4 md:mb-6">
-                      <div className="w-8 h-8 rounded-xl bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center flex-shrink-0">
-                        <PenTool className="w-4 h-4 text-yellow-400" />
+              {activeModule.assessments?.length > 0 && (
+                <>
+                  <div className="border-t border-[#1e293b] pt-10" />
+                  {activeModule.assessments?.map((ass: any) => {
+                    const sub = submissionsMap[ass.id];
+                    return (
+                      <div key={ass.id}>
+                        <div className="flex items-center gap-2 mb-4 md:mb-6">
+                          <div className="w-10 h-10 rounded-xl bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center flex-shrink-0">
+                            <PenTool className="w-5 h-5 text-yellow-400" />
+                          </div>
+                          <div>
+                            <h3 className="text-base md:text-lg font-bold text-white">{ass.title}</h3>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-yellow-500/10 text-yellow-400 text-[10px] font-bold rounded-full border border-yellow-500/20">
+                                🎯 Validation
+                              </span>
+                              {sub ? (
+                                sub.status === 'PENDING' ? <span className="text-amber-400 text-xs">⏳ En attente</span> :
+                                sub.status === 'PASSED' ? <span className="text-green-400 text-xs">✅ {sub.grade}/20</span> :
+                                <span className="text-red-400 text-xs">❌ {sub.grade}/20</span>
+                              ) : <span className="text-slate-500 text-xs">Non soumis</span>}
+                            </div>
+                          </div>
+                        </div>
+
+                        {ass.description && (
+                          <div className="mb-6 p-4 md:p-5 bg-amber-500/5 border border-amber-500/10 rounded-xl">
+                            <p className="text-sm text-amber-400 font-semibold mb-2">📋 Consignes</p>
+                            <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">{ass.description}</p>
+                          </div>
+                        )}
+
+                        {sub?.feedback && (
+                          <div className="mb-6 p-4 md:p-5 bg-blue-500/5 border border-blue-500/10 rounded-xl">
+                            <p className="text-sm text-blue-400 font-semibold mb-2">💬 Feedback du formateur</p>
+                            <p className="text-slate-300 text-sm">{sub.feedback}</p>
+                          </div>
+                        )}
+
+                        {sub?.submission_url && <div className="mb-6"><SubmissionViewer submissionUrl={sub.submission_url} /></div>}
+
+                        {isPaid && !sub && (
+                          <button
+                            onClick={() => setSelectedAssessment({ id: ass.id, title: ass.title })}
+                            className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-bold rounded-xl transition-all shadow-lg shadow-green-500/20 text-sm md:text-base">
+                            <Send className="w-5 h-5" /> Soumettre mon travail
+                          </button>
+                        )}
                       </div>
-                      <h3 className="text-base md:text-lg font-bold text-white">{ass.title}</h3>
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-yellow-500/10 text-yellow-400 text-[10px] font-bold rounded-full border border-yellow-500/20">
-                        🎯 Validation
-                      </span>
-                      {sub ? (
-                        sub.status === 'PENDING' ? <span className="text-amber-400 text-sm ml-auto">⏳ En attente</span> :
-                        sub.status === 'PASSED' ? <span className="text-green-400 text-sm ml-auto">✅ {sub.grade}/20</span> :
-                        <span className="text-red-400 text-sm ml-auto">❌ {sub.grade}/20</span>
-                      ) : <span className="text-slate-500 text-sm ml-auto">Non soumis</span>}
-                    </div>
+                    );
+                  })}
+                </>
+              )}
 
-                    {ass.description && (
-                      <div className="mb-6 p-4 md:p-5 bg-amber-500/5 border border-amber-500/10 rounded-xl">
-                        <p className="text-sm text-amber-400 font-semibold mb-2">📋 Consignes</p>
-                        <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">{ass.description}</p>
-                      </div>
-                    )}
-
-                    {sub?.feedback && (
-                      <div className="mb-6 p-4 md:p-5 bg-blue-500/5 border border-blue-500/10 rounded-xl">
-                        <p className="text-sm text-blue-400 font-semibold mb-2">💬 Feedback du formateur</p>
-                        <p className="text-slate-300 text-sm">{sub.feedback}</p>
-                      </div>
-                    )}
-
-                    {sub?.submission_url && <div className="mb-6"><SubmissionViewer submissionUrl={sub.submission_url} /></div>}
-
-                    {isPaid && !sub && (
-                      <button
-                        onClick={() => setSelectedAssessment({ id: ass.id, title: ass.title })}
-                        className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-bold rounded-xl transition-all shadow-lg shadow-green-500/20 text-sm md:text-base">
-                        <Send className="w-5 h-5" /> Soumettre mon travail
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-
-              {/* ⬅️➡️ Navigation bas avec boutons bien visibles */}
+              {/* ⬅️➡️ Navigation bas */}
               <div className="flex items-center justify-between pt-8 border-t border-[#1e293b]">
                 <button onClick={goToPrevModule} disabled={activeModuleIndex === 0 && activeCourseIndex === 0}
                   className="flex items-center gap-2 px-5 py-3 bg-[#1e293b] hover:bg-[#334155] text-white rounded-xl font-medium transition-colors disabled:opacity-20 text-sm shadow-lg">

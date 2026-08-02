@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClientComponent } from '@/lib/supabase/client';
 import { GradingTable } from '@/components/dashboard/enseignant/GradingTable';
-import { fadeIn, stagger, scaleIn } from '@/lib/animations';
 import { cn } from '@/lib/utils';
 import {
   BookOpen,
@@ -14,6 +13,9 @@ import {
   Loader2,
   FileText,
   ChevronDown,
+  GraduationCap,
+  AlertCircle,
+  ArrowRight,
 } from 'lucide-react';
 
 interface Props {
@@ -64,10 +66,7 @@ export default function EnseignantDashboardView({
           return;
         }
 
-        const { data: courses } = await supabase
-          .from('courses')
-          .select('id')
-          .in('certificate_id', targetCertIds);
+        const { data: courses } = await supabase.from('courses').select('id').in('certificate_id', targetCertIds);
         const courseIds = courses?.map((c) => c.id) || [];
         if (courseIds.length === 0) {
           setSubmissions([]);
@@ -76,11 +75,9 @@ export default function EnseignantDashboardView({
           return;
         }
 
-        const { data: assessments } = await supabase
-          .from('assessments')
-          .select('id')
-          .in('course_id', courseIds);
-        const assessmentIds = assessments?.map((a) => a.id) || [];
+        const { data: assessments } = await supabase.from('assessments').select('id, title').in('course_id', courseIds);
+        const assessmentMap = new Map(assessments?.map((a: any) => [a.id, a]) || []);
+        const assessmentIds = [...assessmentMap.keys()];
         if (assessmentIds.length === 0) {
           setSubmissions([]);
           setStats({ pending: 0, graded: 0, totalAssignments: targetCertIds.length });
@@ -90,7 +87,7 @@ export default function EnseignantDashboardView({
 
         const { data: subs } = await supabase
           .from('submissions')
-          .select('id, submission_url, grade, feedback, status, created_at, student_id, assessment_id')
+          .select('*')
           .in('assessment_id', assessmentIds)
           .order('created_at', { ascending: false });
 
@@ -101,24 +98,19 @@ export default function EnseignantDashboardView({
           return;
         }
 
-        const studentIds = [...new Set(subs.map((s: any) => s.student_id))];
+        // Récupérer les profils étudiants
+        const studentIds = [...new Set(subs.map((s: any) => s.student_id).filter(Boolean))];
         const { data: students } = await supabase
           .from('profiles')
           .select('id, full_name, email')
           .in('id', studentIds);
-        const studentMap = new Map(students?.map((s: any) => [s.id, s]));
+        const studentMap = new Map(students?.map((s: any) => [s.id, s]) || []);
 
-        const assessmentIdsUnique = [...new Set(subs.map((s: any) => s.assessment_id))];
-        const { data: assessmentsData } = await supabase
-          .from('assessments')
-          .select('id, title')
-          .in('id', assessmentIdsUnique);
-        const assessmentMap = new Map(assessmentsData?.map((a: any) => [a.id, a]));
-
+        // Enrichir les soumissions
         const enrichedSubs = subs.map((s: any) => ({
           ...s,
-          profiles: studentMap.get(s.student_id) || null,
-          assessments: assessmentMap.get(s.assessment_id) || null,
+          profiles: studentMap.get(s.student_id) || { full_name: 'Étudiant inconnu', email: '' },
+          assessments: assessmentMap.get(s.assessment_id) || { title: 'Évaluation' },
         }));
 
         setSubmissions(enrichedSubs);
@@ -128,7 +120,7 @@ export default function EnseignantDashboardView({
           totalAssignments: targetCertIds.length,
         });
       } catch (err) {
-        console.error('Erreur chargement soumissions enseignant:', err);
+        console.error(err);
         setSubmissions([]);
       } finally {
         setLoading(false);
@@ -140,212 +132,103 @@ export default function EnseignantDashboardView({
   const currentCert = certId === 'all' ? null : assignedCertificates.find((c) => c.id === certId);
 
   const kpiCards = [
-    {
-      label: 'Formations assignées',
-      value: stats.totalAssignments,
-      icon: BookOpen,
-      bgColor: 'bg-blue-500/10',
-      textColor: 'text-blue-400',
-      borderColor: 'border-blue-500/20',
-    },
-    {
-      label: 'En attente',
-      value: stats.pending,
-      icon: Clock,
-      bgColor: 'bg-amber-500/10',
-      textColor: 'text-amber-400',
-      borderColor: 'border-amber-500/20',
-      pulse: stats.pending > 0,
-    },
-    {
-      label: 'Corrigées',
-      value: stats.graded,
-      icon: CheckCircle2,
-      bgColor: 'bg-green-500/10',
-      textColor: 'text-green-400',
-      borderColor: 'border-green-500/20',
-    },
+    { label: 'Mes formations', value: stats.totalAssignments, icon: BookOpen, color: 'blue', pulse: false },
+    { label: 'À corriger', value: stats.pending, icon: AlertCircle, color: 'amber', pulse: stats.pending > 0 },
+    { label: 'Corrigées', value: stats.graded, icon: CheckCircle2, color: 'green', pulse: false },
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-6xl mx-auto space-y-6 md:space-y-8">
       {/* Header */}
-      <motion.div {...fadeIn} className="space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl lg:text-3xl font-bold text-white">
-              👋 Bonjour, {profile?.full_name?.split(' ')[0] || 'Enseignant'}
-            </h1>
-            <p className="text-slate-400 flex items-center gap-2 mt-1">
-              <TrendingUp className="w-4 h-4" />
-              {certId === 'all'
-                ? "Vue d'ensemble de toutes vos formations"
-                : 'Tableau de bord de la formation'}
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {/* Sélecteur de formation */}
-            <div className="relative">
-              <button
-                onClick={() => setShowCertSelector(!showCertSelector)}
-                className={cn(
-                  "flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200",
-                  "bg-slate-800 border border-slate-700 text-slate-300",
-                  "hover:border-slate-600 hover:text-white"
-                )}
-              >
-                <BookOpen className="w-4 h-4 text-slate-400" />
-                <span className="max-w-[160px] truncate">
-                  {currentCert ? currentCert.title : 'Toutes les formations'}
-                </span>
-                <ChevronDown className={cn(
-                  "w-4 h-4 text-slate-400 transition-transform",
-                  showCertSelector && "rotate-180"
-                )} />
-              </button>
-
-              <AnimatePresence>
-                {showCertSelector && (
-                  <>
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      onClick={() => setShowCertSelector(false)}
-                      className="fixed inset-0 z-40"
-                    />
-                    <motion.div
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      className="absolute right-0 mt-2 w-72 max-h-80 overflow-y-auto bg-slate-800 border border-slate-700 rounded-xl shadow-xl z-50"
-                    >
-                      <div className="p-2">
-                        <button
-                          onClick={() => {
-                            onShowAll();
-                            setShowCertSelector(false);
-                          }}
-                          className={cn(
-                            "w-full text-left px-3 py-2 rounded-lg text-sm transition-colors",
-                            certId === 'all'
-                              ? "bg-violet-500/10 text-violet-400"
-                              : "text-slate-300 hover:bg-slate-700"
-                          )}
-                        >
-                          📊 Toutes les formations
-                        </button>
-                        <div className="my-1 border-t border-slate-700" />
-                        {assignedCertificates.map((cert) => (
-                          <button
-                            key={cert.id}
-                            onClick={() => {
-                              onSelectCert(cert.id);
-                              setShowCertSelector(false);
-                            }}
-                            className={cn(
-                              "w-full text-left px-3 py-2 rounded-lg text-sm transition-colors flex items-center gap-2",
-                              certId === cert.id
-                                ? "bg-violet-500/10 text-violet-400"
-                                : "text-slate-300 hover:bg-slate-700"
-                            )}
-                          >
-                            <BookOpen className="w-3.5 h-3.5 flex-shrink-0" />
-                            <span className="truncate">{cert.title}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </motion.div>
-                  </>
-                )}
-              </AnimatePresence>
-            </div>
-
-            {/* Bouton Gérer les cours */}
-            {currentCert && (
-              <motion.button
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => onManageContent(certId as number)}
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium
-                  bg-blue-500/10 text-blue-400 border border-blue-500/20
-                  hover:bg-blue-500/20 transition-all duration-200"
-              >
-                <FileText className="w-4 h-4" />
-                Gérer les cours
-              </motion.button>
-            )}
-          </div>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-xl md:text-2xl font-bold text-white">
+            👋 Bonjour, {profile?.full_name?.split(' ')[0] || 'Enseignant'}
+          </h1>
+          <p className="text-slate-400 text-sm mt-0.5">
+            {certId === 'all' ? "Vue d'ensemble de toutes vos formations" : 'Tableau de bord'}
+          </p>
         </div>
-      </motion.div>
+
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <button onClick={() => setShowCertSelector(!showCertSelector)}
+              className="flex items-center gap-2 px-4 py-2.5 bg-[#0f172a] border border-[#1e293b] rounded-xl text-sm text-slate-300 hover:border-slate-600 transition-colors">
+              <GraduationCap className="w-4 h-4 text-slate-400" />
+              <span className="max-w-[140px] truncate">{currentCert ? currentCert.title : 'Toutes mes formations'}</span>
+              <ChevronDown className={cn("w-4 h-4 text-slate-400 transition-transform", showCertSelector && "rotate-180")} />
+            </button>
+
+            <AnimatePresence>
+              {showCertSelector && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowCertSelector(false)} />
+                  <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+                    className="absolute right-0 mt-2 w-72 max-h-80 overflow-y-auto bg-[#0f172a] border border-[#1e293b] rounded-xl shadow-xl z-50">
+                    <div className="p-2">
+                      <button onClick={() => { onShowAll(); setShowCertSelector(false); }}
+                        className={cn("w-full text-left px-3 py-2 rounded-lg text-sm transition-colors", certId === 'all' ? "bg-blue-500/10 text-blue-400" : "text-slate-300 hover:bg-[#1e293b]")}>
+                        📊 Toutes mes formations
+                      </button>
+                      <div className="my-1 border-t border-[#1e293b]" />
+                      {assignedCertificates.map((cert) => (
+                        <button key={cert.id} onClick={() => { onSelectCert(cert.id); setShowCertSelector(false); }}
+                          className={cn("w-full text-left px-3 py-2 rounded-lg text-sm transition-colors flex items-center gap-2", certId === cert.id ? "bg-blue-500/10 text-blue-400" : "text-slate-300 hover:bg-[#1e293b]")}>
+                          <BookOpen className="w-3.5 h-3.5 flex-shrink-0" />
+                          <span className="truncate">{cert.title}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {currentCert && (
+            <button onClick={() => onManageContent(certId as number)}
+              className="flex items-center gap-2 px-4 py-2.5 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-xl transition-colors shadow-lg shadow-blue-500/20">
+              <FileText className="w-4 h-4" /> Gérer les cours
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+      </div>
 
       {/* KPIs */}
-      <motion.div
-        variants={stagger}
-        initial="initial"
-        animate="animate"
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
-      >
-        {kpiCards.map((kpi) => (
-          <motion.div
-            key={kpi.label}
-            variants={scaleIn}
-            whileHover={{ y: -2, scale: 1.02 }}
-            className={cn(
-              "relative overflow-hidden rounded-xl border p-5",
-              "bg-slate-900/50 backdrop-blur-sm",
-              kpi.borderColor,
-              "transition-shadow duration-300 hover:shadow-lg"
-            )}
-          >
-            <div className="absolute top-0 right-0 w-32 h-32 opacity-5">
-              <kpi.icon className="w-full h-full text-white" />
-            </div>
-
-            <div className="relative flex items-start justify-between">
-              <div className="space-y-3">
-                <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center", kpi.bgColor)}>
-                  <kpi.icon className={cn("w-5 h-5", kpi.textColor)} />
+      <div className="grid grid-cols-3 gap-3 md:gap-4">
+        {kpiCards.map((kpi) => {
+          const colors: Record<string, any> = {
+            blue: { bg: 'bg-blue-500/10', text: 'text-blue-400', border: 'border-blue-500/20' },
+            amber: { bg: 'bg-amber-500/10', text: 'text-amber-400', border: 'border-amber-500/20' },
+            green: { bg: 'bg-green-500/10', text: 'text-green-400', border: 'border-green-500/20' },
+          };
+          const c = colors[kpi.color];
+          return (
+            <motion.div key={kpi.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+              className={cn("rounded-2xl border p-4 md:p-5 bg-[#0f172a]", c.border)}>
+              <div className="flex items-center justify-between mb-3">
+                <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", c.bg)}>
+                  <kpi.icon className={cn("w-5 h-5", c.text)} />
                 </div>
-                <div>
-                  <p className="text-slate-400 text-sm font-medium">{kpi.label}</p>
-                  <div className="flex items-baseline gap-2 mt-1">
-                    <motion.span
-                      key={kpi.value}
-                      initial={{ scale: 1.5, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      className={cn("text-3xl font-bold", kpi.textColor)}
-                    >
-                      {loading ? (
-                        <Loader2 className="w-8 h-8 animate-spin" />
-                      ) : (
-                        kpi.value
-                      )}
-                    </motion.span>
-                    {kpi.pulse && (
-                      <motion.span
-                        animate={{ scale: [1, 1.1, 1] }}
-                        transition={{ duration: 2, repeat: Infinity }}
-                        className="w-2 h-2 bg-amber-400 rounded-full"
-                      />
-                    )}
-                  </div>
-                </div>
+                {kpi.pulse && (
+                  <span className="relative flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-400" />
+                  </span>
+                )}
               </div>
-            </div>
-          </motion.div>
-        ))}
-      </motion.div>
+              <p className={cn("text-2xl md:text-3xl font-bold", c.text)}>
+                {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : kpi.value}
+              </p>
+              <p className="text-slate-500 text-xs md:text-sm mt-1">{kpi.label}</p>
+            </motion.div>
+          );
+        })}
+      </div>
 
-      {/* Tableau des soumissions */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2, duration: 0.5 }}
-      >
+      {/* Tableau */}
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
         <GradingTable submissions={submissions} loading={loading} />
       </motion.div>
     </div>
