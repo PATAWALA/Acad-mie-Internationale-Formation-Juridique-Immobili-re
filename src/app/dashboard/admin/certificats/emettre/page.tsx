@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClientComponent } from '@/lib/supabase/client';
 import { CertificateGenerator } from '@/components/dashboard/admin/CertificateGenerator';
+import { notifyCertificatDisponible, sendEmailCertificat } from '@/lib/notifications';
 import { cn } from '@/lib/utils';
 import { fadeIn, stagger } from '@/lib/animations';
 import {
@@ -97,6 +98,17 @@ export default function AdminEmissionPage() {
           const safeProfile = profile as any;
           const safeExistingCert = existingCert as any;
 
+          // Récupérer le titre du certificat
+          let certificateTitle = course.title;
+          if (course.certificate_id) {
+            const { data: cert } = await supabase
+              .from('certificates')
+              .select('title')
+              .eq('id', course.certificate_id)
+              .single();
+            if (cert?.title) certificateTitle = cert.title;
+          }
+
           eligible.push({
             studentId,
             studentName: safeProfile?.full_name || 'Inconnu',
@@ -104,6 +116,7 @@ export default function AdminEmissionPage() {
             courseId: course.id,
             courseTitle: course.title,
             certificateId: course.certificate_id,
+            certificateTitle,
             hasCert: !!safeExistingCert,
             certUrl: safeExistingCert?.certificate_url || '',
             issueDate: new Date().toLocaleDateString('fr-FR', {
@@ -122,7 +135,7 @@ export default function AdminEmissionPage() {
     setLoading(false);
   };
 
-  const handleFileUpload = async (studentId: string, courseId: string, file: File) => {
+  const handleFileUpload = async (studentId: string, courseId: string, file: File, studentName: string, certificateTitle: string, studentEmail: string) => {
     setUploadingId(studentId);
     try {
       const fileExt = file.name.split('.').pop();
@@ -135,17 +148,26 @@ export default function AdminEmissionPage() {
       const { data: publicUrlData } = supabase.storage
         .from('documents')
         .getPublicUrl(fileName);
-    const { error: insertError } = await (supabase as any)
-  .from('issued_certificates')
-  .upsert(
-    {
-      student_id: studentId,
-      course_id: courseId,
-      certificate_url: publicUrlData.publicUrl,
-    },
-    { onConflict: 'student_id,course_id' }
-  );
+      
+      const { error: insertError } = await (supabase as any)
+        .from('issued_certificates')
+        .upsert(
+          {
+            student_id: studentId,
+            course_id: courseId,
+            certificate_url: publicUrlData.publicUrl,
+          },
+          { onConflict: 'student_id,course_id' }
+        );
       if (insertError) throw insertError;
+
+      // 🔔 Notification in-app : certificat disponible
+      await notifyCertificatDisponible(studentId, certificateTitle);
+
+      // 📧 Email : certificat disponible
+      if (studentEmail) {
+        await sendEmailCertificat(studentEmail, studentName, certificateTitle);
+      }
 
       fetchEligibleStudents();
     } catch (err: any) {
@@ -222,18 +244,8 @@ export default function AdminEmissionPage() {
           onChange={(e) => setSearchTerm(e.target.value)}
           className="w-full px-4 py-3 pl-12 bg-slate-900 border border-slate-800 rounded-xl text-white text-sm placeholder-slate-500 focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/20 transition-all"
         />
-        <svg
-          className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-          />
+        <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
         </svg>
       </motion.div>
 
@@ -241,13 +253,8 @@ export default function AdminEmissionPage() {
       {loading ? (
         <div className="space-y-4">
           {[1, 2, 3].map((i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: i * 0.1 }}
-              className="bg-slate-900 border border-slate-800 rounded-2xl p-6 animate-pulse"
-            >
+            <motion.div key={i} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.1 }}
+              className="bg-slate-900 border border-slate-800 rounded-2xl p-6 animate-pulse">
               <div className="flex items-center gap-4 mb-4">
                 <div className="w-12 h-12 bg-slate-800 rounded-full" />
                 <div className="space-y-2 flex-1">
@@ -268,9 +275,7 @@ export default function AdminEmissionPage() {
             <GraduationCap className="w-10 h-10 text-slate-600" />
           </div>
           <h3 className="text-lg font-semibold text-white mb-1">
-            {eligibleStudents.length === 0
-              ? 'Aucun étudiant éligible'
-              : 'Aucun résultat trouvé'}
+            {eligibleStudents.length === 0 ? 'Aucun étudiant éligible' : 'Aucun résultat trouvé'}
           </h3>
           <p className="text-slate-400 text-sm">
             {eligibleStudents.length === 0
@@ -282,15 +287,10 @@ export default function AdminEmissionPage() {
         <motion.div variants={stagger} className="space-y-4">
           <AnimatePresence>
             {filteredStudents.map((item, index) => (
-              <motion.div
-                key={item.studentId + item.courseId}
-                variants={fadeIn}
-                initial="initial"
-                animate="animate"
-                exit={{ opacity: 0, y: -10 }}
+              <motion.div key={item.studentId + item.courseId} variants={fadeIn} initial="initial" animate="animate" exit={{ opacity: 0, y: -10 }}
                 transition={{ delay: index * 0.05 }}
-                className="bg-slate-900 border border-slate-800 rounded-2xl p-6 hover:border-slate-700 transition-all duration-300 group"
-              >
+                className="bg-slate-900 border border-slate-800 rounded-2xl p-6 hover:border-slate-700 transition-all duration-300 group">
+                
                 <div className="flex flex-col lg:flex-row lg:items-center gap-6">
                   {/* Infos étudiant */}
                   <div className="flex-1 space-y-3">
@@ -325,13 +325,8 @@ export default function AdminEmissionPage() {
                     {item.submissions.length > 0 && (
                       <div className="ml-16 flex flex-wrap gap-2">
                         {item.submissions.map((sub: any) => (
-                          <a
-                            key={sub.assessment_id}
-                            href={sub.submission_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-medium rounded-lg transition-colors border border-slate-700 hover:border-slate-600"
-                          >
+                          <a key={sub.assessment_id} href={sub.submission_url} target="_blank" rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-medium rounded-lg transition-colors border border-slate-700 hover:border-slate-600">
                             <FileText className="w-3.5 h-3.5" />
                             {sub.assessments?.title || 'Copie'}
                             <ExternalLink className="w-3 h-3 opacity-50" />
@@ -386,7 +381,14 @@ export default function AdminEmissionPage() {
                         disabled={uploadingId === item.studentId}
                         onChange={(e) => {
                           if (e.target.files?.[0])
-                            handleFileUpload(item.studentId, item.courseId, e.target.files[0]);
+                            handleFileUpload(
+                              item.studentId,
+                              item.courseId,
+                              e.target.files[0],
+                              item.studentName,
+                              item.certificateTitle,
+                              item.email
+                            );
                         }}
                       />
                     </label>

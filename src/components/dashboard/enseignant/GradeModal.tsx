@@ -20,7 +20,7 @@ interface GradeModalProps {
   isOpen: boolean;
   onClose: () => void;
   submission: any;
-  onSuccess: () => void;
+  onSuccess: (grade: number, status: string) => void; // 🆕 signature
 }
 
 export function GradeModal({ isOpen, onClose, submission, onSuccess }: GradeModalProps) {
@@ -63,7 +63,8 @@ export function GradeModal({ isOpen, onClose, submission, onSuccess }: GradeModa
     }
 
     setLoading(false);
-    onSuccess();
+    // 🆕 Passer grade et status au parent
+    onSuccess(numGrade, status);
     onClose();
   };
 
@@ -73,7 +74,6 @@ export function GradeModal({ isOpen, onClose, submission, onSuccess }: GradeModa
     <AnimatePresence>
       {isOpen && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
-          {/* Overlay */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -82,7 +82,6 @@ export function GradeModal({ isOpen, onClose, submission, onSuccess }: GradeModa
             className="absolute inset-0 bg-black/80 backdrop-blur-sm"
           />
 
-          {/* Modal */}
           <motion.div
             variants={scaleIn}
             initial="initial"
@@ -102,12 +101,8 @@ export function GradeModal({ isOpen, onClose, submission, onSuccess }: GradeModa
                   <Star className="w-5 h-5 text-violet-400" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-white">
-                    Évaluer la soumission
-                  </h3>
-                  <p className="text-sm text-slate-400">
-                    Attribution de la note et feedback
-                  </p>
+                  <h3 className="text-lg font-semibold text-white">Évaluer la soumission</h3>
+                  <p className="text-sm text-slate-400">Attribution de la note et feedback</p>
                 </div>
               </div>
               <motion.button
@@ -150,7 +145,6 @@ export function GradeModal({ isOpen, onClose, submission, onSuccess }: GradeModa
 
             {/* Formulaire */}
             <form onSubmit={handleSubmit} className="p-6 space-y-5">
-              {/* Message d'erreur */}
               <AnimatePresence>
                 {error && (
                   <motion.div
@@ -173,11 +167,7 @@ export function GradeModal({ isOpen, onClose, submission, onSuccess }: GradeModa
                 </label>
                 <div className="relative">
                   <input
-                    type="number"
-                    min="0"
-                    max="20"
-                    step="0.5"
-                    required
+                    type="number" min="0" max="20" step="0.5" required
                     value={grade}
                     onChange={(e) => {
                       const val = e.target.value === '' ? '' : Number(e.target.value);
@@ -196,24 +186,12 @@ export function GradeModal({ isOpen, onClose, submission, onSuccess }: GradeModa
                     )}
                     placeholder="0 - 20"
                   />
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-500">
-                    /20
-                  </div>
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-500">/20</div>
                 </div>
-                {/* Prévisualisation du statut */}
                 {predictedStatus && (
-                  <motion.p
-                    initial={{ opacity: 0, y: -5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className={cn(
-                      "text-xs flex items-center gap-1.5",
-                      predictedStatus === 'PASSED' ? "text-green-400" : "text-red-400"
-                    )}
-                  >
-                    <span className={cn(
-                      "w-1.5 h-1.5 rounded-full",
-                      predictedStatus === 'PASSED' ? "bg-green-400" : "bg-red-400"
-                    )} />
+                  <motion.p initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }}
+                    className={cn("text-xs flex items-center gap-1.5", predictedStatus === 'PASSED' ? "text-green-400" : "text-red-400")}>
+                    <span className={cn("w-1.5 h-1.5 rounded-full", predictedStatus === 'PASSED' ? "bg-green-400" : "bg-red-400")} />
                     Statut : {predictedStatus === 'PASSED' ? 'Réussite (≥ 10/20)' : 'Échec (< 10/20)'}
                   </motion.p>
                 )}
@@ -237,29 +215,16 @@ export function GradeModal({ isOpen, onClose, submission, onSuccess }: GradeModa
                   )}
                   placeholder="Feedback pour l'étudiant (points forts, axes d'amélioration...)"
                 />
-                <p className="text-xs text-slate-500 text-right">
-                  {feedback.length} caractères
-                </p>
+                <p className="text-xs text-slate-500 text-right">{feedback.length} caractères</p>
               </div>
 
               {/* Actions */}
               <div className="flex items-center justify-end gap-3 pt-2">
-                <motion.button
-                  type="button"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={onClose}
-                  className="px-4 py-2.5 rounded-xl text-sm font-medium
-                    bg-slate-800 text-slate-300 border border-slate-700
-                    hover:bg-slate-700 hover:text-white transition-colors"
-                >
+                <motion.button type="button" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={onClose}
+                  className="px-4 py-2.5 rounded-xl text-sm font-medium bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700 hover:text-white transition-colors">
                   Annuler
                 </motion.button>
-                <motion.button
-                  type="submit"
-                  disabled={loading}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
+                <motion.button type="submit" disabled={loading} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                   className={cn(
                     "inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium",
                     "bg-gradient-to-r from-green-500 to-emerald-600",
@@ -267,18 +232,11 @@ export function GradeModal({ isOpen, onClose, submission, onSuccess }: GradeModa
                     "hover:shadow-green-500/30 hover:from-green-400 hover:to-emerald-500",
                     "transition-all duration-200",
                     "disabled:opacity-50 disabled:cursor-not-allowed"
-                  )}
-                >
+                  )}>
                   {loading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Enregistrement...
-                    </>
+                    <><Loader2 className="w-4 h-4 animate-spin" />Enregistrement...</>
                   ) : (
-                    <>
-                      <Send className="w-4 h-4" />
-                      Valider la note
-                    </>
+                    <><Send className="w-4 h-4" />Valider la note</>
                   )}
                 </motion.button>
               </div>

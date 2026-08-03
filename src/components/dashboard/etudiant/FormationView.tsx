@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { CourseProgram } from './CourseProgram';
 import { StudentCertificates } from './StudentCertificates';
+import { notifyNouveauTP } from '@/lib/notifications';
 
 interface FormationViewProps {
   certId: number;
@@ -95,7 +96,6 @@ export default function FormationView({ certId, onPaymentSuccess, onPayClick }: 
     setEnrollmentStatus(enr.payment_status);
     setEnrollment(enr);
 
-    // Récupérer les infos du certificat (slogan, skills, etc.)
     const { data: certInfo } = await supabase
       .from('certificates')
       .select('slogan, skills, target_audience, benefits, brochure_url')
@@ -164,6 +164,27 @@ export default function FormationView({ certId, onPaymentSuccess, onPayClick }: 
     setRefreshing(false);
   };
 
+  // 🆕 Fonction appelée après soumission d'un TP
+  const handleTPSubmitted = async (courseTitle: string) => {
+    if (!profile) return;
+
+    // Récupérer les enseignants assignés à ce certificat
+    const { data: teachers } = await supabase
+      .from('certificate_teachers')
+      .select('teacher_id')
+      .eq('certificate_id', certId);
+
+    if (teachers && teachers.length > 0) {
+      const studentName = profile.full_name || 'Un étudiant';
+      for (const teacher of teachers) {
+        await notifyNouveauTP(teacher.teacher_id, studentName, courseTitle);
+      }
+    }
+
+    // Rafraîchir les données
+    await handleRefresh();
+  };
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -189,7 +210,7 @@ export default function FormationView({ certId, onPaymentSuccess, onPayClick }: 
           <BookOpen className="w-8 h-8 text-slate-500" />
         </div>
         <h3 className="text-lg font-semibold text-white mb-2">Formation non disponible</h3>
-        <p className="text-sm text-slate-400">Vous n'êtes pas inscrit à cette formation. Parcourez le catalogue pour vous inscrire.</p>
+        <p className="text-sm text-slate-400">Vous n&apos;êtes pas inscrit à cette formation. Parcourez le catalogue pour vous inscrire.</p>
       </motion.div>
     );
   }
@@ -211,7 +232,7 @@ export default function FormationView({ certId, onPaymentSuccess, onPayClick }: 
             <div className="p-2.5 bg-amber-500/10 rounded-xl"><Trophy className="w-5 h-5 text-amber-400" /></div>
             <div>
               <p className="text-sm font-bold text-amber-400">🎉 Tous les cours sont validés !</p>
-              <p className="text-xs text-slate-400 mt-0.5">Votre certificat sera disponible dans votre espace après validation par l'administration.</p>
+              <p className="text-xs text-slate-400 mt-0.5">Votre certificat sera disponible dans votre espace après validation par l&apos;administration.</p>
             </div>
           </div>
         </motion.div>
@@ -255,7 +276,7 @@ export default function FormationView({ certId, onPaymentSuccess, onPayClick }: 
                 <div>
                   <h3 className="text-lg lg:text-xl font-bold text-amber-400 mb-2">Votre inscription est en attente de validation</h3>
                   <p className="text-sm text-slate-300 leading-relaxed">
-                    Vous avez fait le premier pas ! Pour débloquer immédiatement l'accès à tous les modules, 
+                    Vous avez fait le premier pas ! Pour débloquer immédiatement l&apos;accès à tous les modules, 
                     télécharger les supports et obtenir votre <strong className="text-white">Certificat de Fin de Formation</strong>, 
                     finalisez votre règlement dès maintenant.
                   </p>
@@ -285,6 +306,7 @@ export default function FormationView({ certId, onPaymentSuccess, onPayClick }: 
               passedAssessments={passedAssessments}
               submissionsMap={submissionsMap}
               certificateInfo={certificateInfo}
+              onTPSubmitted={handleTPSubmitted}
             />
           </motion.div>
         )}

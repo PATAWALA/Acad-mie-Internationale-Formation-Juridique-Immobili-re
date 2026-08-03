@@ -13,6 +13,8 @@ import MesFormationsView from './MesFormationsView';
 import ProfilView from './ProfilView';
 import SupportView from './SupportForm';
 import PaymentModal from './PaymentModal';
+import NotificationBell from '@/components/notifications/NotificationBell';
+import NotificationDropdown from '@/components/notifications/NotificationDropdown';
 
 type View = 'home' | 'formation' | 'catalogue' | 'mesformations' | 'pending' | 'profil' | 'support';
 
@@ -26,6 +28,7 @@ export default function DashboardLayout() {
   const [payLoading, setPayLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [currentTitle, setCurrentTitle] = useState('Tableau de bord');
+  const [notifOpen, setNotifOpen] = useState(false);
   
   const [globalStats, setGlobalStats] = useState({
     completedCourses: 0,
@@ -123,7 +126,6 @@ export default function DashboardLayout() {
     setPayLoading(false);
   };
 
-  // ✅ Fonction de déconnexion unifiée
   const handleLogout = async () => {
     await supabase.auth.signOut();
     window.location.href = '/';
@@ -137,7 +139,6 @@ export default function DashboardLayout() {
     );
   }
 
-  // Props communes pour la Sidebar
   const sidebarProps = {
     enrollments,
     selectedCertId,
@@ -197,7 +198,7 @@ export default function DashboardLayout() {
               </div>
             </div>
 
-            {/* Badges */}
+            {/* Badges + Notifications */}
             <div className="flex items-center gap-3">
               {globalStats.hasCertificatAvailable && (
                 <motion.div
@@ -223,6 +224,20 @@ export default function DashboardLayout() {
                   {enrollments.filter(e => e.payment_status === 'PAID').length} actives
                 </span>
               </div>
+
+              {/* 🔔 Cloche de notifications */}
+              <div className="relative">
+                <NotificationBell 
+                  userId={profile.id} 
+                  onClick={() => setNotifOpen(!notifOpen)} 
+                />
+                <NotificationDropdown 
+                  userId={profile.id}
+                  isOpen={notifOpen}
+                  onClose={() => setNotifOpen(false)}
+                />
+              </div>
+
               <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white text-xs font-bold">
                 {profile?.full_name?.charAt(0) || 'E'}
               </div>
@@ -252,6 +267,7 @@ export default function DashboardLayout() {
                 {currentView === 'mesformations' && (
                   <MesFormationsView
                     enrollments={enrollments}
+                    profile={profile}
                     onSelectFormation={(certId) => navigate('formation', 'Formation', certId)}
                     onPayClick={(enrollmentId, amount) => setPaymentModal({ enrollmentId, amount })}
                     onAddFormation={() => navigate('catalogue', 'Catalogue des formations')}
@@ -260,18 +276,19 @@ export default function DashboardLayout() {
                 {currentView === 'pending' && (
                   <MesFormationsView
                     enrollments={enrollments.filter(e => e.payment_status !== 'PAID')}
+                    profile={profile}
                     onSelectFormation={(certId) => navigate('formation', 'Formation', certId)}
                     onPayClick={(enrollmentId, amount) => setPaymentModal({ enrollmentId, amount })}
                     onAddFormation={() => navigate('catalogue', 'Catalogue des formations')}
                   />
                 )}
                 {currentView === 'formation' && selectedCertId && (
-  <FormationView 
-    certId={selectedCertId} 
-    onPaymentSuccess={refreshEnrollments}
-    onPayClick={(enrollmentId, amount) => setPaymentModal({ enrollmentId, amount })}
-  />
-)}
+                  <FormationView 
+                    certId={selectedCertId} 
+                    onPaymentSuccess={refreshEnrollments}
+                    onPayClick={(enrollmentId, amount) => setPaymentModal({ enrollmentId, amount })}
+                  />
+                )}
                 {currentView === 'catalogue' && (
                   <CatalogueView
                     profile={profile}
@@ -297,6 +314,8 @@ export default function DashboardLayout() {
             onPay={handlePay}
             amount={paymentModal.amount}
             loading={payLoading}
+            profileType={profile?.profile_type || 'Etudiant'}
+            totalFormations={enrollments.length}
           />
         )}
       </AnimatePresence>

@@ -58,11 +58,9 @@ export default function CertificatesGrid() {
   // Catégories de filtres
   const categories = ['Tous', 'Droit', 'Immobilier', 'Rédaction', 'Construction'];
 
-  // Filtrer les certificats
   const getFilteredCertificates = () => {
     let filtered = certificates;
 
-    // Filtre par catégorie
     if (activeFilter === 'Droit') {
       filtered = filtered.filter(c => 
         c.title?.toLowerCase().includes('droit') || 
@@ -92,7 +90,6 @@ export default function CertificatesGrid() {
       );
     }
 
-    // Filtre par recherche
     if (searchTerm.trim()) {
       filtered = filtered.filter(c =>
         c.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -106,12 +103,23 @@ export default function CertificatesGrid() {
 
   const filteredCertificates = getFilteredCertificates();
 
+  // 🎓 Total prix bourse pour étudiants (SOMME SIMPLE)
+  const totalBourse = selected.reduce((sum, id) => {
+    const cert = certificates.find((c) => c.id === id);
+    return sum + (cert?.price_bourse || 0);
+  }, 0);
+
+  // Prix normal total
   const totalNormal = selected.reduce((sum, id) => {
     const cert = certificates.find((c) => c.id === id);
     return sum + (cert?.price_normal || 0);
   }, 0);
 
+  // 👤 Prix stagiaire : -25% sur le total
   const getStagiairePrice = (price: number) => Math.round(price * 0.75);
+
+  // 💼 Prix pro selon nombre de certifs
+  const getProPrice = (price: number, percent: number) => Math.round(price * (1 - percent / 100));
 
   if (loading) {
     return (
@@ -146,7 +154,6 @@ export default function CertificatesGrid() {
 
       {/* FILTRES + RECHERCHE */}
       <div className="mb-10 space-y-4">
-        {/* Barre de recherche */}
         <div className="relative max-w-md mx-auto">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
           <input
@@ -158,7 +165,6 @@ export default function CertificatesGrid() {
           />
         </div>
 
-        {/* Filtres par catégorie */}
         <div className="flex items-center justify-center gap-2 flex-wrap">
           <Filter className="w-4 h-4 text-gray-500 mr-1" />
           {categories.map((cat) => (
@@ -176,7 +182,6 @@ export default function CertificatesGrid() {
           ))}
         </div>
 
-        {/* Compteur de résultats */}
         <p className="text-center text-xs text-gray-500">
           {filteredCertificates.length} certification{filteredCertificates.length > 1 ? 's' : ''} trouvée{filteredCertificates.length > 1 ? 's' : ''}
           {activeFilter !== 'Tous' && <span> dans « {activeFilter} »</span>}
@@ -211,9 +216,11 @@ export default function CertificatesGrid() {
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
           {filteredCertificates.map((cert) => {
             const isSelected = selected.includes(cert.id);
-            const proPrice1 = Math.round(cert.price_normal * 0.90);
-            const proPrice2 = Math.round(cert.price_normal * 0.85);
-            const proPrice3 = Math.round(cert.price_normal * 0.80);
+            // Prix PRO selon nombre de certifs sélectionnés
+            const proPercent = selected.length <= 2 ? 10 : selected.length <= 4 ? 15 : 20;
+            const proPrice1 = getProPrice(cert.price_normal, 10);
+            const proPrice2 = getProPrice(cert.price_normal, 15);
+            const proPrice3 = getProPrice(cert.price_normal, 20);
 
             return (
               <motion.div
@@ -229,7 +236,6 @@ export default function CertificatesGrid() {
                     : 'border-[#1E293B] hover:border-[#D4AF37]/30'
                 }`}
               >
-                {/* Checkmark */}
                 {isSelected && (
                   <div className="absolute top-4 right-4 w-8 h-8 bg-[#D4AF37] rounded-full flex items-center justify-center z-10 shadow-lg">
                     <Check className="w-5 h-5 text-[#0B0F19]" />
@@ -262,7 +268,6 @@ export default function CertificatesGrid() {
 
                 {/* Contenu */}
                 <div className="p-6">
-                  {/* Titre */}
                   <h3
                     onClick={() => setDetailCert(cert)}
                     className="text-base font-bold text-white mb-2 cursor-pointer hover:text-[#D4AF37] transition-colors line-clamp-2"
@@ -270,22 +275,19 @@ export default function CertificatesGrid() {
                     {cert.title}
                   </h3>
 
-                  {/* Infos rapides */}
                   <div className="flex items-center gap-2 text-xs text-gray-400 mb-5">
                     <span className="flex items-center gap-1.5 bg-[#020617] px-2 py-1 rounded-lg">
-                      <Clock className="w-3.5 h-3.5" />
-                      4 semaines
+                      <Clock className="w-3.5 h-3.5" />4 semaines
                     </span>
                     <span className="flex items-center gap-1.5 bg-[#020617] px-2 py-1 rounded-lg">
-                      <Star className="w-3.5 h-3.5 text-[#D4AF37]" />
-                      Certifié
+                      <Star className="w-3.5 h-3.5 text-[#D4AF37]" />Certifié
                     </span>
                   </div>
 
                   {/* TABLEAU DES TARIFS */}
                   <div className="bg-[#020617] border border-[#1E293B] rounded-xl overflow-hidden mb-5 text-sm">
                     
-                    {/* ÉTUDIANTS */}
+                    {/* 🎓 ÉTUDIANTS - Prix bourse DIRECT */}
                     <div className="p-4 border-b border-[#1E293B]">
                       <div className="flex items-center gap-2 mb-3">
                         <GraduationCap className="w-4 h-4 text-blue-400" />
@@ -312,7 +314,7 @@ export default function CertificatesGrid() {
                       </div>
                     </div>
 
-                    {/* STAGIAIRES */}
+                    {/* 👤 STAGIAIRES */}
                     <div className="p-4 border-b border-[#1E293B]">
                       <div className="flex items-center gap-2 mb-3">
                         <User className="w-4 h-4 text-green-400" />
@@ -339,7 +341,7 @@ export default function CertificatesGrid() {
                       </div>
                     </div>
 
-                    {/* PROFESSIONNELS */}
+                    {/* 💼 PROFESSIONNELS */}
                     <div className="p-4">
                       <div className="flex items-center gap-2 mb-3">
                         <Briefcase className="w-4 h-4 text-amber-400" />

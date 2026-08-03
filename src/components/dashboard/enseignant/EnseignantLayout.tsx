@@ -7,6 +7,8 @@ import EnseignantSidebar from './EnseignantSidebar';
 import EnseignantDashboardView from './EnseignantDashboardView';
 import CourseContentManager from './CourseContentManager';
 import FormationsListView from './FormationsListView';
+import NotificationBell from '@/components/notifications/NotificationBell';
+import NotificationDropdown from '@/components/notifications/NotificationDropdown';
 import { fadeIn } from '@/lib/animations';
 import { cn } from '@/lib/utils';
 import {
@@ -22,8 +24,8 @@ export default function EnseignantLayout() {
   const [currentView, setCurrentView] = useState<ViewType>('dashboard');
   const [selectedCertId, setSelectedCertId] = useState<number | 'all'>('all');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
 
-  // --- LOADING STATE ---
   if (loading || !profile) {
     return (
       <div className="h-screen bg-[#020617] flex items-center justify-center">
@@ -44,7 +46,6 @@ export default function EnseignantLayout() {
     );
   }
 
-  // --- HANDLERS ---
   const handleShowAll = () => {
     setSelectedCertId('all');
     setCurrentView('dashboard');
@@ -84,7 +85,6 @@ export default function EnseignantLayout() {
       .slice(0, 2);
   };
 
-  // --- RENDER ---
   return (
     <div className="h-screen bg-[#020617] flex overflow-hidden">
       {/* ===== SIDEBAR DESKTOP ===== */}
@@ -152,9 +152,22 @@ export default function EnseignantLayout() {
               </div>
             </div>
 
-            {/* Avatar simple */}
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white text-xs font-bold">
-              {getInitials(profile.full_name || '??')}
+            {/* 🔔 Notifications + Avatar */}
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <NotificationBell 
+                  userId={profile.id} 
+                  onClick={() => setNotifOpen(!notifOpen)} 
+                />
+                <NotificationDropdown 
+                  userId={profile.id}
+                  isOpen={notifOpen}
+                  onClose={() => setNotifOpen(false)}
+                />
+              </div>
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white text-xs font-bold">
+                {getInitials(profile.full_name || '??')}
+              </div>
             </div>
           </div>
         </header>
@@ -197,18 +210,10 @@ export default function EnseignantLayout() {
               )}
 
               {currentView === 'content' && selectedCertId === 'all' && (
-                <motion.div
-                  key="no-cert"
-                  {...fadeIn}
-                  className="flex flex-col items-center justify-center min-h-[60vh] text-center"
-                >
+                <motion.div key="no-cert" {...fadeIn} className="flex flex-col items-center justify-center min-h-[60vh] text-center">
                   <GraduationCap className="w-12 h-12 text-slate-600 mx-auto mb-4" />
-                  <h2 className="text-lg font-semibold text-white mb-2">
-                    Aucune formation sélectionnée
-                  </h2>
-                  <p className="text-sm text-slate-400 max-w-sm">
-                    Veuillez choisir une formation dans le menu latéral pour accéder à son contenu.
-                  </p>
+                  <h2 className="text-lg font-semibold text-white mb-2">Aucune formation sélectionnée</h2>
+                  <p className="text-sm text-slate-400 max-w-sm">Veuillez choisir une formation dans le menu latéral pour accéder à son contenu.</p>
                 </motion.div>
               )}
             </AnimatePresence>

@@ -13,6 +13,7 @@ import {
   ChevronRight, Loader2
 } from 'lucide-react';
 import { formatEUR } from '@/lib/currency';
+import { notifyNouvelleInscription } from '@/lib/notifications';
 
 export default function RegistrationForm() {
   const router = useRouter();
@@ -85,23 +86,19 @@ export default function RegistrationForm() {
 
   const totalNormal = selectedDetails.reduce((sum, cert) => sum + (cert?.price_normal || 0), 0);
 
-  // 🆕 Calcul du prix selon le profil
   const getFinalPrice = () => {
     const count = formData.selectedCerts.length;
     
     if (formData.profileType === 'Etudiant') {
-      // Étudiant : prix bourse
       const totalBourse = selectedDetails.reduce((sum, cert) => sum + (cert?.price_bourse || 0), 0);
       return { price: totalBourse, discount: totalNormal - totalBourse, percent: Math.round(((totalNormal - totalBourse) / totalNormal) * 100) || 0, type: 'bourse' };
     }
     
     if (formData.profileType === 'Stagiaire') {
-      // Stagiaire : -25% sur le total
       const discount = Math.round(totalNormal * 0.25);
       return { price: totalNormal - discount, discount, percent: 25, type: 'stagiaire' };
     }
     
-    // Professionnel : réduction selon nombre de certifs
     let percent = 10;
     if (count >= 3 && count <= 4) percent = 15;
     if (count >= 5) percent = 20;
@@ -112,7 +109,6 @@ export default function RegistrationForm() {
 
   const finalPrice = getFinalPrice();
 
-  // Prix unitaire pour chaque certificat
   const getCertPrice = (cert: any) => {
     if (formData.selectedCerts.length === 0) return cert.price_normal;
     const ratio = cert.price_normal / (totalNormal || 1);
@@ -179,7 +175,6 @@ export default function RegistrationForm() {
         return;
       }
 
-      // 🆕 Enregistrer les prix réduits
       const { error: enrollError } = await supabase.from('enrollments').insert(
         formData.selectedCerts.map((certId) => {
           const cert = certificates.find((c) => c.id === certId);
@@ -200,6 +195,28 @@ export default function RegistrationForm() {
         setError(enrollError.message);
         setSubmitting(false);
         return;
+      }
+
+      // 🔔 NOTIFIER LES ADMINS DE LA NOUVELLE INSCRIPTION
+      const { data: admins } = await supabase
+        .from('profiles')
+        .select('id')
+        .or('role.eq.ADMIN,role.eq.SUPER_ADMIN');
+
+      if (admins && admins.length > 0) {
+        const certNames = formData.selectedCerts
+          .map(id => certificates.find(c => c.id === id)?.title)
+          .filter(Boolean)
+          .join(', ');
+
+        for (const admin of admins) {
+          await notifyNouvelleInscription(
+            admin.id,
+            fullName,
+            certNames,
+            formData.profileType
+          );
+        }
       }
 
       if (authData.session) {
@@ -237,7 +254,6 @@ export default function RegistrationForm() {
       </div>
 
       <div className="max-w-xl mx-auto relative z-10">
-        {/* Header */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-10">
           <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.2, type: "spring" }}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-sm font-medium mb-6">
@@ -252,7 +268,6 @@ export default function RegistrationForm() {
           </p>
         </motion.div>
 
-        {/* Progress Steps */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
@@ -272,14 +287,12 @@ export default function RegistrationForm() {
           </div>
         </div>
 
-        {/* Form Card */}
         <motion.div key={step} initial={{ opacity: 0, x: step === 1 ? -20 : 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }}
           className="bg-[#0f172a] border border-[#1e293b] rounded-2xl p-5 sm:p-6 md:p-8 shadow-2xl shadow-black/20">
           <form onSubmit={(e) => { e.preventDefault(); if (step === 1) setStep(2); else if (step === 2) handleSubmit(); }} className="space-y-4 sm:space-y-5">
             <AnimatePresence mode="wait">
               {step === 1 && (
                 <motion.div key="step1" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-4 sm:space-y-5">
-                  {/* ... STEP 1 IDENTIQUE ... */}
                   <div className="flex items-center gap-3 mb-4 sm:mb-6">
                     <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-blue-500/10 flex items-center justify-center flex-shrink-0">
                       <User className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />

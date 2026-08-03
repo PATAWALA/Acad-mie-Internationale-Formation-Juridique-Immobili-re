@@ -24,9 +24,13 @@ interface CourseProgramProps {
   passedAssessments: string[];
   submissionsMap: Record<string, any>;
   certificateInfo?: any;
+  onTPSubmitted?: (courseTitle: string) => void; // 🆕 callback
 }
 
-export function CourseProgram({ courses, userStatus, passedAssessments, submissionsMap, certificateInfo }: CourseProgramProps) {
+export function CourseProgram({ 
+  courses, userStatus, passedAssessments, submissionsMap, certificateInfo,
+  onTPSubmitted 
+}: CourseProgramProps) {
   const { profile } = useStudent();
   const supabase = createClientComponent();
   const isPaid = userStatus?.trim().toUpperCase() === 'PAID';
@@ -84,6 +88,15 @@ export function CourseProgram({ courses, userStatus, passedAssessments, submissi
     const isCorrect = answer === question.correct_answer;
     await (supabase as any).from('quiz_answers').upsert({ question_id: question.id, student_id: profile.id, selected_answer: answer, is_correct: isCorrect }, { onConflict: 'question_id,student_id' });
     setQuizAnswers(prev => ({ ...prev, [moduleId]: { ...(prev[moduleId] || {}), [question.id]: { selected_answer: answer, is_correct: isCorrect } } }));
+  };
+
+  // 🆕 Gérer la fermeture du modal de soumission et notifier
+  const handleSubmissionClose = () => {
+    setSelectedAssessment(null);
+    // Notifier que le TP a été soumis
+    if (selectedAssessment && activeCourse && onTPSubmitted) {
+      onTPSubmitted(activeCourse.title || 'TP');
+    }
   };
 
   if (!courses?.length) {
@@ -178,7 +191,6 @@ export function CourseProgram({ courses, userStatus, passedAssessments, submissi
                 <div className="space-y-10">
                   {activeModule.lessons?.map((lesson: any, li: number) => (
                     <div key={lesson.id}>
-                      {/* En-tête de la leçon avec badge clair */}
                       <div className="flex items-center gap-3 mb-4">
                         <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 border ${
                           lesson.content_type === 'VIDEO' ? 'bg-red-500/10 border-red-500/20' :
@@ -195,34 +207,18 @@ export function CourseProgram({ courses, userStatus, passedAssessments, submissi
                           <h3 className="text-base md:text-lg font-bold text-white">{lesson.title}</h3>
                           <div className="flex items-center gap-2 mt-1">
                             {lesson.content_type === 'VIDEO' && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-500/10 text-red-400 text-[10px] font-bold rounded-full border border-red-500/20">
-                                🎥 Vidéo
-                              </span>
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-500/10 text-red-400 text-[10px] font-bold rounded-full border border-red-500/20">🎥 Vidéo</span>
                             )}
                             {lesson.content_type === 'PDF' && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-500/10 text-orange-400 text-[10px] font-bold rounded-full border border-orange-500/20">
-                                📄 Document PDF
-                              </span>
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-500/10 text-orange-400 text-[10px] font-bold rounded-full border border-orange-500/20">📄 Document PDF</span>
                             )}
                             {lesson.content_type === 'LINK' && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-500/10 text-purple-400 text-[10px] font-bold rounded-full border border-purple-500/20">
-                                🔗 Ressource externe
-                              </span>
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-500/10 text-purple-400 text-[10px] font-bold rounded-full border border-purple-500/20">🔗 Ressource externe</span>
                             )}
-                            {(lesson.title || '').toLowerCase().includes('théorie') || (!['VIDEO','PDF','LINK'].includes(lesson.content_type) && li === 0) ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-500/10 text-blue-400 text-[10px] font-bold rounded-full border border-blue-500/20">
-                                📚 Partie théorique
-                              </span>
-                            ) : (lesson.title || '').toLowerCase().includes('pratique') || (!['VIDEO','PDF','LINK'].includes(lesson.content_type) && li === 1) ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-500/10 text-orange-400 text-[10px] font-bold rounded-full border border-orange-500/20">
-                                ✍️ Partie pratique
-                              </span>
-                            ) : null}
                           </div>
                         </div>
                       </div>
                       
-                      {/* Contenu de la leçon */}
                       <div className="ml-13">
                         {isPaid ? (
                           <ContentViewer contentType={lesson.content_type} contentUrl={lesson.content_url} contentBody={lesson.content_body} title={lesson.title} />
@@ -231,7 +227,6 @@ export function CourseProgram({ courses, userStatus, passedAssessments, submissi
                         )}
                       </div>
 
-                      {/* Séparateur entre les leçons (sauf la dernière) */}
                       {li < activeModule.lessons.length - 1 && (
                         <div className="mt-10 border-t border-[#1e293b]" />
                       )}
@@ -250,7 +245,7 @@ export function CourseProgram({ courses, userStatus, passedAssessments, submissi
                         <HelpCircle className="w-5 h-5 text-purple-400" />
                       </div>
                       <div>
-                        <h3 className="text-base md:text-lg font-bold text-white">🧠 QCM d'auto-évaluation</h3>
+                        <h3 className="text-base md:text-lg font-bold text-white">🧠 QCM d&apos;auto-évaluation</h3>
                         <p className="text-xs text-purple-400 mt-0.5">Testez votre compréhension</p>
                       </div>
                       <span className="text-sm text-purple-400 ml-auto bg-purple-500/10 px-3 py-1 rounded-full font-bold">
@@ -305,9 +300,7 @@ export function CourseProgram({ courses, userStatus, passedAssessments, submissi
                           <div>
                             <h3 className="text-base md:text-lg font-bold text-white">{ass.title}</h3>
                             <div className="flex items-center gap-2 mt-1">
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-yellow-500/10 text-yellow-400 text-[10px] font-bold rounded-full border border-yellow-500/20">
-                                🎯 Validation
-                              </span>
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-yellow-500/10 text-yellow-400 text-[10px] font-bold rounded-full border border-yellow-500/20">🎯 Validation</span>
                               {sub ? (
                                 sub.status === 'PENDING' ? <span className="text-amber-400 text-xs">⏳ En attente</span> :
                                 sub.status === 'PASSED' ? <span className="text-green-400 text-xs">✅ {sub.grade}/20</span> :
@@ -365,8 +358,12 @@ export function CourseProgram({ courses, userStatus, passedAssessments, submissi
 
       <AnimatePresence>
         {selectedAssessment && (
-          <SubmissionModal isOpen={!!selectedAssessment} onClose={() => setSelectedAssessment(null)}
-            assessmentId={selectedAssessment.id} userStatus={userStatus} />
+          <SubmissionModal 
+            isOpen={!!selectedAssessment} 
+            onClose={handleSubmissionClose}
+            assessmentId={selectedAssessment.id} 
+            userStatus={userStatus} 
+          />
         )}
       </AnimatePresence>
     </div>

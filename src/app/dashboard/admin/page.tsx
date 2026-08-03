@@ -33,6 +33,7 @@ export default function AdminDashboardPage() {
   });
   const [loadingStats, setLoadingStats] = useState(true);
   const [authorized, setAuthorized] = useState(false);
+  const [adminId, setAdminId] = useState<string>('');
   const [filterCertId, setFilterCertId] = useState<number | 'all'>('all');
   const [certList, setCertList] = useState<any[]>([]);
   const [certDetails, setCertDetails] = useState<any[]>([]);
@@ -52,6 +53,7 @@ export default function AdminDashboardPage() {
         return;
       }
       setAuthorized(true);
+      setAdminId(user.id);
     };
     checkAuth();
   }, []);
@@ -275,25 +277,27 @@ export default function AdminDashboardPage() {
             Tableau de bord
           </h1>
           <p className="text-slate-400 text-sm mt-1">
-            Vue d'ensemble de la plateforme
+            Vue d&apos;ensemble de la plateforme
           </p>
         </div>
 
-        {/* Filtre certificat */}
-        <div className="flex items-center gap-3 bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 hover:border-slate-700 transition-colors">
-          <Filter className="w-4 h-4 text-slate-500" />
-          <select
-            value={filterCertId}
-            onChange={(e) => setFilterCertId(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-            className="bg-transparent text-white text-sm font-medium outline-none cursor-pointer pr-8"
-          >
-            <option value="all" className="bg-slate-900">Tous les certificats</option>
-            {certList.map((cert) => (
-              <option key={cert.id} value={cert.id} className="bg-slate-900">
-                {cert.title}
-              </option>
-            ))}
-          </select>
+        <div className="flex items-center gap-4">
+          {/* Filtre certificat */}
+          <div className="flex items-center gap-3 bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 hover:border-slate-700 transition-colors">
+            <Filter className="w-4 h-4 text-slate-500" />
+            <select
+              value={filterCertId}
+              onChange={(e) => setFilterCertId(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+              className="bg-transparent text-white text-sm font-medium outline-none cursor-pointer pr-8"
+            >
+              <option value="all" className="bg-slate-900">Tous les certificats</option>
+              {certList.map((cert) => (
+                <option key={cert.id} value={cert.id} className="bg-slate-900">
+                  {cert.title}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </motion.div>
 
