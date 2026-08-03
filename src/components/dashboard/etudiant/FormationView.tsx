@@ -12,7 +12,6 @@ import {
 } from 'lucide-react';
 import { CourseProgram } from './CourseProgram';
 import { StudentCertificates } from './StudentCertificates';
-import { notifyNouveauTP } from '@/lib/notifications';
 
 interface FormationViewProps {
   certId: number;
@@ -25,7 +24,7 @@ export default function FormationView({ certId, onPaymentSuccess, onPayClick }: 
   const supabase = createClientComponent();
   const [courses, setCourses] = useState<any[]>([]);
   const [passedAssessments, setPassedAssessments] = useState<string[]>([]);
-  const [certificates, setCertificates] = useState<any[]>([]);
+  const [allCertificates, setAllCertificates] = useState<any[]>([]);
   const [enrollmentStatus, setEnrollmentStatus] = useState<string | null>(null);
   const [enrollment, setEnrollment] = useState<any>(null);
   const [submissionsMap, setSubmissionsMap] = useState<Record<string, any>>({});
@@ -81,10 +80,11 @@ export default function FormationView({ certId, onPaymentSuccess, onPayClick }: 
     
     setLoading(true);
     
-    const { data: certs } = await supabase
-      .from('issued_certificates')
-      .select('id, certificate_url, course_id')
-      .eq('student_id', profile.id);
+    // 1. Récupérer l'enrollment
+    const { data: enr } = await supabase
+      .from('enrollments')
+      .select('id, payment_status, remaining_balance')
+      .eq('student_id', profile.id)
       .eq('certificate_id', certId)
       .maybeSingle();
 
@@ -96,6 +96,7 @@ export default function FormationView({ certId, onPaymentSuccess, onPayClick }: 
     setEnrollmentStatus(enr.payment_status);
     setEnrollment(enr);
 
+    // 2. Récupérer les infos du certificat
     const { data: certInfo } = await supabase
       .from('certificates')
       .select('slogan, skills, target_audience, benefits, brochure_url')
@@ -103,6 +104,7 @@ export default function FormationView({ certId, onPaymentSuccess, onPayClick }: 
       .single();
     if (certInfo) setCertificateInfo(certInfo);
 
+    // 3. Si payé, charger les cours et soumissions
     if (enr.payment_status === 'PAID') {
       const { data: coursesData } = await supabase
         .from('courses')
@@ -129,11 +131,14 @@ export default function FormationView({ certId, onPaymentSuccess, onPayClick }: 
       computeCertStats(coursesData || [], passed);
     }
 
+    // 4. 🆕 Charger TOUS les certificats émis pour cet étudiant
     const { data: certs } = await supabase
       .from('issued_certificates')
-      .select('id, certificate_url')
-      .eq('student_id', profile.id);
-    if (certs) setCertificates(certs);
+      .select('id, certificate_url, course_id, issued_at')
+      .eq('student_id', profile.id)
+      .order('issued_at', { ascending: false });
+    
+    if (certs) setAllCertificates(certs);
 
     setLoading(false);
   }, [certId, profile, supabase, computeCertStats]);
@@ -160,29 +165,16 @@ export default function FormationView({ certId, onPaymentSuccess, onPayClick }: 
       const passed = subs?.filter(s => s.status === 'PASSED' && s.assessment_id).map(s => s.assessment_id!) || [];
       setPassedAssessments(passed);
       computeCertStats(courses, passed);
+
+      // Rafraîchir aussi les certificats
+      const { data: certs } = await supabase
+        .from('issued_certificates')
+        .select('id, certificate_url, course_id, issued_at')
+        .eq('student_id', profile.id)
+        .order('issued_at', { ascending: false });
+      if (certs) setAllCertificates(certs);
     }
     setRefreshing(false);
-  };
-
-  // 🆕 Fonction appelée après soumission d'un TP
-  const handleTPSubmitted = async (courseTitle: string) => {
-    if (!profile) return;
-
-    // Récupérer les enseignants assignés à ce certificat
-    const { data: teachers } = await supabase
-      .from('certificate_teachers')
-      .select('teacher_id')
-      .eq('certificate_id', certId);
-
-    if (teachers && teachers.length > 0) {
-      const studentName = profile.full_name || 'Un étudiant';
-      for (const teacher of teachers) {
-        await notifyNouveauTP(teacher.teacher_id, studentName, courseTitle);
-      }
-    }
-
-    // Rafraîchir les données
-    await handleRefresh();
   };
 
   if (loading) {
@@ -217,14 +209,16 @@ export default function FormationView({ certId, onPaymentSuccess, onPayClick }: 
 
   return (
     <div className="space-y-6 lg:space-y-8">
+      {/* 🆕 Certificats obtenus (tous les certificats de l'étudiant) */}
       <AnimatePresence>
-        {certificates.length > 0 && (
+        {allCertificates.length > 0 && (
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
-            <StudentCertificates certificates={certificates} />
+            <StudentCertificates certificates={allCertificates} />
           </motion.div>
         )}
       </AnimatePresence>
 
+      {/* Alerte "Tous les cours validés" */}
       {enrollmentStatus === 'PAID' && certStats.isFullyCompleted && (
         <motion.div initial={{ opacity: 0, y: -10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }}
           className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-yellow-500/10 border border-amber-500/30 p-5">
@@ -238,6 +232,7 @@ export default function FormationView({ certId, onPaymentSuccess, onPayClick }: 
         </motion.div>
       )}
 
+      {/* Barre d'actions */}
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
         <div>
           <h2 className="text-xl lg:text-2xl font-bold text-white flex items-center gap-2">
@@ -265,6 +260,7 @@ export default function FormationView({ certId, onPaymentSuccess, onPayClick }: 
         )}
       </motion.div>
 
+      {/* Contenu selon le statut */}
       <AnimatePresence mode="wait">
         {enrollmentStatus !== 'PAID' ? (
           <motion.div key="pending" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
@@ -306,7 +302,6 @@ export default function FormationView({ certId, onPaymentSuccess, onPayClick }: 
               passedAssessments={passedAssessments}
               submissionsMap={submissionsMap}
               certificateInfo={certificateInfo}
-              onTPSubmitted={handleTPSubmitted}
             />
           </motion.div>
         )}
