@@ -81,10 +81,10 @@ export default function FormationView({ certId, onPaymentSuccess, onPayClick }: 
     
     setLoading(true);
     
-    const { data: enr } = await supabase
-      .from('enrollments')
-      .select('id, payment_status, remaining_balance')
-      .eq('student_id', profile.id)
+    const { data: certs } = await supabase
+      .from('issued_certificates')
+      .select('id, certificate_url, course_id')
+      .eq('student_id', profile.id);
       .eq('certificate_id', certId)
       .maybeSingle();
 

@@ -328,7 +328,7 @@ export async function sendEmail(
   subject: string,
   htmlContent: string
 ) {
-  const { data, error } = await supabase.functions.invoke('send-email', {
+  const { data, error } = await supabase.functions.invoke('resend-email', {
     body: { to, subject, html: htmlContent },
   });
 
