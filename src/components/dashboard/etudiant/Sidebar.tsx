@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { 
   GraduationCap, LayoutDashboard, BookOpen, Clock, 
   PlusCircle, User, HelpCircle, LogOut, ChevronRight,
-  ImageIcon
+  Award
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -15,6 +15,7 @@ interface SidebarProps {
   onGoHome: () => void;
   onGoMesFormations: () => void;
   onGoPending: () => void;
+  onGoCertificates: () => void; // 🆕
   onGoSupport: () => void;
   onGoProfil: () => void;
   onPayClick: (enrollmentId: number, amount: number) => void;
@@ -27,11 +28,11 @@ export default function Sidebar({
   onGoHome,
   onGoMesFormations,
   onGoPending,
+  onGoCertificates, // 🆕
   onGoProfil,
   onGoSupport,
   onLogout,
 }: SidebarProps) {
-  const paidCount = enrollments.filter(e => e.payment_status === 'PAID').length;
   const pendingCount = enrollments.filter(e => e.payment_status !== 'PAID').length;
   const totalCount = enrollments.length;
 
@@ -77,6 +78,18 @@ export default function Sidebar({
               {totalCount}
             </span>
           )}
+          <ChevronRight className="w-3.5 h-3.5 text-slate-600 group-hover:text-slate-400 transition-colors" />
+        </motion.button>
+
+        {/* 🆕 Mes Certificats */}
+        <motion.button
+          whileHover={{ x: 3 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={onGoCertificates}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-300 hover:text-white hover:bg-[#1e293b] transition-all group"
+        >
+          <Award className="w-4 h-4 text-amber-400 group-hover:text-amber-300 transition-colors flex-shrink-0" />
+          <span className="text-sm font-medium flex-1 text-left">Mes Certificats</span>
           <ChevronRight className="w-3.5 h-3.5 text-slate-600 group-hover:text-slate-400 transition-colors" />
         </motion.button>
 

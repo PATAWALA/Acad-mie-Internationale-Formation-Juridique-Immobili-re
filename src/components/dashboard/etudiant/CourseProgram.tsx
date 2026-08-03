@@ -24,12 +24,11 @@ interface CourseProgramProps {
   passedAssessments: string[];
   submissionsMap: Record<string, any>;
   certificateInfo?: any;
-  onTPSubmitted?: (courseTitle: string) => void; // 🆕 callback
+  courseCertificate?: any; // 🆕 certificat de cette formation
 }
 
 export function CourseProgram({ 
-  courses, userStatus, passedAssessments, submissionsMap, certificateInfo,
-  onTPSubmitted 
+  courses, userStatus, passedAssessments, submissionsMap, certificateInfo, courseCertificate 
 }: CourseProgramProps) {
   const { profile } = useStudent();
   const supabase = createClientComponent();
@@ -56,6 +55,11 @@ export function CourseProgram({
     return aid && passedAssessments.includes(aid);
   }).length;
   const progressPercent = totalModules > 0 ? Math.round((completedModules / totalModules) * 100) : 0;
+  
+  // 🆕 Est-ce qu'on est sur la dernière semaine ?
+  const isLastModule = activeModuleIndex === totalModules - 1;
+  // 🆕 Toutes les semaines sont validées ?
+  const allModulesCompleted = completedModules === totalModules && totalModules > 0;
 
   const goToNextModule = () => {
     if (activeModuleIndex < modules.length - 1) setActiveModuleIndex(prev => prev + 1);
@@ -88,15 +92,6 @@ export function CourseProgram({
     const isCorrect = answer === question.correct_answer;
     await (supabase as any).from('quiz_answers').upsert({ question_id: question.id, student_id: profile.id, selected_answer: answer, is_correct: isCorrect }, { onConflict: 'question_id,student_id' });
     setQuizAnswers(prev => ({ ...prev, [moduleId]: { ...(prev[moduleId] || {}), [question.id]: { selected_answer: answer, is_correct: isCorrect } } }));
-  };
-
-  // 🆕 Gérer la fermeture du modal de soumission et notifier
-  const handleSubmissionClose = () => {
-    setSelectedAssessment(null);
-    // Notifier que le TP a été soumis
-    if (selectedAssessment && activeCourse && onTPSubmitted) {
-      onTPSubmitted(activeCourse.title || 'TP');
-    }
   };
 
   if (!courses?.length) {
@@ -174,9 +169,40 @@ export function CourseProgram({
                   <CheckCircle2 className="w-3.5 h-3.5" /> Validée
                 </span>
               )}
+              {isLastModule && allModulesCompleted && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 text-amber-400 text-xs font-bold rounded-full border border-amber-500/20">
+                  🎉 Formation terminée
+                </span>
+              )}
             </div>
             <h2 className="text-2xl md:text-3xl font-bold text-white leading-tight">{activeModule.title}</h2>
           </div>
+
+          {/* 🆕 Certificat à la fin de la dernière semaine */}
+          {isLastModule && allModulesCompleted && courseCertificate && (
+            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
+              className="mb-10 p-6 bg-gradient-to-br from-green-500/10 to-emerald-500/10 border border-green-500/30 rounded-2xl">
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-green-500/10 rounded-2xl flex-shrink-0">
+                  <Trophy className="w-7 h-7 text-green-400" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-green-400 mb-1">🎉 Félicitations !</h3>
+                  <p className="text-sm text-slate-300 mb-4">
+                    Vous avez terminé cette formation avec succès. Votre certificat est prêt.
+                  </p>
+                  <a
+                    href={courseCertificate.certificate_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-green-500 hover:bg-green-600 text-white text-sm font-bold rounded-xl transition-colors shadow-lg shadow-green-500/20"
+                  >
+                    <Download className="w-4 h-4" /> Télécharger mon certificat
+                  </a>
+                </div>
+              </div>
+            </motion.div>
+          )}
 
           {!isModuleUnlocked ? (
             <div className="text-center py-20">
@@ -360,7 +386,7 @@ export function CourseProgram({
         {selectedAssessment && (
           <SubmissionModal 
             isOpen={!!selectedAssessment} 
-            onClose={handleSubmissionClose}
+            onClose={() => setSelectedAssessment(null)}
             assessmentId={selectedAssessment.id} 
             userStatus={userStatus} 
           />

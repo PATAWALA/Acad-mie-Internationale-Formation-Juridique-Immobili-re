@@ -24,7 +24,7 @@ export default function FormationView({ certId, onPaymentSuccess, onPayClick }: 
   const supabase = createClientComponent();
   const [courses, setCourses] = useState<any[]>([]);
   const [passedAssessments, setPassedAssessments] = useState<string[]>([]);
-  const [allCertificates, setAllCertificates] = useState<any[]>([]);
+  const [courseCertificate, setCourseCertificate] = useState<any>(null); // 🆕 Certificat de CE cours uniquement
   const [enrollmentStatus, setEnrollmentStatus] = useState<string | null>(null);
   const [enrollment, setEnrollment] = useState<any>(null);
   const [submissionsMap, setSubmissionsMap] = useState<Record<string, any>>({});
@@ -90,6 +90,7 @@ export default function FormationView({ certId, onPaymentSuccess, onPayClick }: 
 
     if (!enr) {
       setEnrollmentStatus(null);
+      setCourseCertificate(null);
       setLoading(false);
       return;
     }
@@ -129,16 +130,27 @@ export default function FormationView({ certId, onPaymentSuccess, onPayClick }: 
       setPassedAssessments(passed);
 
       computeCertStats(coursesData || [], passed);
-    }
 
-    // 4. 🆕 Charger TOUS les certificats émis pour cet étudiant
-    const { data: certs } = await supabase
-      .from('issued_certificates')
-      .select('id, certificate_url, course_id, issued_at')
-      .eq('student_id', profile.id)
-      .order('issued_at', { ascending: false });
-    
-    if (certs) setAllCertificates(certs);
+      // 4. 🆕 Charger le certificat de CETTE formation uniquement
+      if (coursesData && coursesData.length > 0) {
+        const courseIds = coursesData.map((c: any) => c.id);
+        const { data: certs } = await supabase
+          .from('issued_certificates')
+          .select('id, certificate_url, course_id, issued_at')
+          .eq('student_id', profile.id)
+          .in('course_id', courseIds)
+          .order('issued_at', { ascending: false })
+          .limit(1);
+        
+        if (certs && certs.length > 0) {
+          setCourseCertificate(certs[0]);
+        } else {
+          setCourseCertificate(null);
+        }
+      }
+    } else {
+      setCourseCertificate(null);
+    }
 
     setLoading(false);
   }, [certId, profile, supabase, computeCertStats]);
@@ -166,13 +178,21 @@ export default function FormationView({ certId, onPaymentSuccess, onPayClick }: 
       setPassedAssessments(passed);
       computeCertStats(courses, passed);
 
-      // Rafraîchir aussi les certificats
-      const { data: certs } = await supabase
-        .from('issued_certificates')
-        .select('id, certificate_url, course_id, issued_at')
-        .eq('student_id', profile.id)
-        .order('issued_at', { ascending: false });
-      if (certs) setAllCertificates(certs);
+      // Rafraîchir le certificat de cette formation
+      if (courses.length > 0) {
+        const courseIds = courses.map((c: any) => c.id);
+        const { data: certs } = await supabase
+          .from('issued_certificates')
+          .select('id, certificate_url, course_id, issued_at')
+          .eq('student_id', profile.id)
+          .in('course_id', courseIds)
+          .order('issued_at', { ascending: false })
+          .limit(1);
+        
+        if (certs && certs.length > 0) {
+          setCourseCertificate(certs[0]);
+        }
+      }
     }
     setRefreshing(false);
   };
@@ -209,17 +229,17 @@ export default function FormationView({ certId, onPaymentSuccess, onPayClick }: 
 
   return (
     <div className="space-y-6 lg:space-y-8">
-      {/* 🆕 Certificats obtenus (tous les certificats de l'étudiant) */}
+      {/* 🆕 Certificat de CETTE formation uniquement */}
       <AnimatePresence>
-        {allCertificates.length > 0 && (
+        {courseCertificate && (
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
-            <StudentCertificates certificates={allCertificates} />
+            <StudentCertificates certificates={[courseCertificate]} />
           </motion.div>
         )}
       </AnimatePresence>
 
       {/* Alerte "Tous les cours validés" */}
-      {enrollmentStatus === 'PAID' && certStats.isFullyCompleted && (
+      {enrollmentStatus === 'PAID' && certStats.isFullyCompleted && !courseCertificate && (
         <motion.div initial={{ opacity: 0, y: -10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }}
           className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-yellow-500/10 border border-amber-500/30 p-5">
           <div className="flex items-center gap-3">
@@ -302,6 +322,7 @@ export default function FormationView({ certId, onPaymentSuccess, onPayClick }: 
               passedAssessments={passedAssessments}
               submissionsMap={submissionsMap}
               certificateInfo={certificateInfo}
+              courseCertificate={courseCertificate} // 🆕
             />
           </motion.div>
         )}

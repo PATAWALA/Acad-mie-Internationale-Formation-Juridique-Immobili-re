@@ -10,13 +10,14 @@ import HomeView from './HomeView';
 import FormationView from './FormationView';
 import CatalogueView from './CatalogueView';
 import MesFormationsView from './MesFormationsView';
+import CertificatesView from './CertificatesView'; // 🆕
 import ProfilView from './ProfilView';
 import SupportView from './SupportForm';
 import PaymentModal from './PaymentModal';
 import NotificationBell from '@/components/notifications/NotificationBell';
 import NotificationDropdown from '@/components/notifications/NotificationDropdown';
 
-type View = 'home' | 'formation' | 'catalogue' | 'mesformations' | 'pending' | 'profil' | 'support';
+type View = 'home' | 'formation' | 'catalogue' | 'mesformations' | 'pending' | 'certificates' | 'profil' | 'support';
 
 export default function DashboardLayout() {
   const { profile, loading } = useStudent();
@@ -147,6 +148,7 @@ export default function DashboardLayout() {
     onGoHome: () => navigate('home', 'Tableau de bord'),
     onGoMesFormations: () => navigate('mesformations', 'Mes formations'),
     onGoPending: () => navigate('pending', 'Formations en attente'),
+    onGoCertificates: () => navigate('certificates', 'Mes Certificats'), // 🆕
     onGoProfil: () => navigate('profil', 'Mon Profil'),
     onGoSupport: () => navigate('support', 'Aide & Support'),
     onPayClick: (enrollmentId: number, amount: number) => setPaymentModal({ enrollmentId, amount }),
@@ -282,6 +284,8 @@ export default function DashboardLayout() {
                     onAddFormation={() => navigate('catalogue', 'Catalogue des formations')}
                   />
                 )}
+                {/* 🆕 Certificats */}
+                {currentView === 'certificates' && <CertificatesView />}
                 {currentView === 'formation' && selectedCertId && (
                   <FormationView 
                     certId={selectedCertId} 
