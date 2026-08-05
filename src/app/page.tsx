@@ -5,6 +5,7 @@ import CertificatesGrid from '@/components/public/CertificatesGrid';
 import WhyThisFormation from '@/components/public/WhyThisFormation';
 import { SocialProofSection } from '@/components/public/SocialProofSection';
 import FacultySection from '@/components/public/FacultySection';
+import BoutiqueSection from '@/components/public/BoutiqueSection'; // 🆕
 import { MomentsDeFierte } from '@/components/public/MomentsDeFierte'; 
 import DynamicRegistrationForm from '@/components/public/DynamicRegistrationForm';
 import StickyMobileCTA from '@/components/public/StickyMobileCTA';
@@ -20,7 +21,8 @@ export default function HomePage() {
       <WhyThisFormation />
       <SocialProofSection />
       <FacultySection />
-       <MomentsDeFierte />  
+      <BoutiqueSection /> {/* 🆕 Juste après le corps enseignant */}
+      <MomentsDeFierte />  
       <DynamicRegistrationForm />
       <Footer />
       <StickyMobileCTA />

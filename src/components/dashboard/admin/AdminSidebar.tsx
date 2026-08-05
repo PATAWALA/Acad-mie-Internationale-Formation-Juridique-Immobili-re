@@ -20,6 +20,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ClipboardList,
+  ShoppingBag,
 } from 'lucide-react';
 
 const navItems = [
@@ -30,6 +31,7 @@ const navItems = [
   { href: '/dashboard/admin/certificats', label: 'Certificats', icon: GraduationCap },
   { href: '/dashboard/admin/certificats/emettre', label: 'Émettre certificats', icon: ScrollText },
   { href: '/dashboard/admin/assignations', label: 'Assignations', icon: UserCheck },
+  { href: '/dashboard/admin/boutique', label: 'Boutique', icon: ShoppingBag },
   { href: '/dashboard/admin/questions', label: 'Support', icon: MessageCircle },
   { href: '/dashboard/admin/parametres', label: 'Paramètres', icon: Settings },
 ];
