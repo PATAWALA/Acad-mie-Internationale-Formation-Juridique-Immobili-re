@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import ProductCard from '@/components/boutique/ProductCard';
+import ProductModal from '@/components/boutique/ProductModal';
 
 export default function BoutiquePage() {
   const supabase = createClientComponent();
@@ -17,6 +18,7 @@ export default function BoutiquePage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filter, setFilter] = useState<'all' | 'physical' | 'digital'>('all');
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -40,7 +42,7 @@ export default function BoutiquePage() {
   return (
     <div className="min-h-screen bg-[#020617]">
       {/* Hero */}
-      <section className="relative pt-24 pb-16 px-4 max-w-7xl mx-auto">
+      <section className="relative pt-28 pb-16 px-4 max-w-7xl mx-auto">
         <motion.div {...fadeIn} className="text-center max-w-2xl mx-auto">
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500/10 border border-amber-500/20 rounded-full mb-6">
             <Sparkles className="w-4 h-4 text-amber-400" />
@@ -50,13 +52,13 @@ export default function BoutiquePage() {
             📚 Livres & Ressources Juridiques
           </h1>
           <p className="text-slate-400 text-lg">
-            Découvrez les ouvrages du Dr. Jean-Louis LOBÉ. Livres physiques et numériques pour maîtriser le droit et l'immobilier.
+            Découvrez les ouvrages du Dr. Jean-Louis LOBÉ. Livres physiques et numériques pour maîtriser le droit et l&apos;immobilier.
           </p>
         </motion.div>
       </section>
 
-      {/* Barre de recherche + filtres */}
-      <div className="sticky top-16 z-30 bg-[#020617]/95 backdrop-blur-xl border-y border-[#1e293b] py-3 px-4">
+      {/* Barre de recherche + filtres - FIXÉE SOUS LA NAVBAR */}
+      <div className="sticky top-[64px] lg:top-[80px] z-30 bg-[#020617]/95 backdrop-blur-xl border-y border-[#1e293b] py-3 px-4">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center gap-3">
           <div className="relative flex-1 w-full">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
@@ -110,7 +112,11 @@ export default function BoutiquePage() {
             className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
           >
             {filtered.map((product) => (
-              <ProductCard key={product.id} product={product} />
+              <ProductCard 
+                key={product.id} 
+                product={product} 
+                onViewDetails={() => setSelectedProduct(product)}
+              />
             ))}
           </motion.div>
         )}
@@ -127,7 +133,7 @@ export default function BoutiquePage() {
           <div className="p-4">
             <Truck className="w-8 h-8 text-amber-400 mx-auto mb-3" />
             <h4 className="text-white font-semibold mb-1">Livraison Rapide</h4>
-            <p className="text-slate-400 text-sm">Partout en Côte d'Ivoire</p>
+            <p className="text-slate-400 text-sm">Partout en Côte d&apos;Ivoire</p>
           </div>
           <div className="p-4">
             <Download className="w-8 h-8 text-amber-400 mx-auto mb-3" />
@@ -136,6 +142,13 @@ export default function BoutiquePage() {
           </div>
         </div>
       </section>
+
+      {/* Modal produit */}
+      <ProductModal
+        product={selectedProduct}
+        isOpen={!!selectedProduct}
+        onClose={() => setSelectedProduct(null)}
+      />
     </div>
   );
 }
