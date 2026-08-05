@@ -7,8 +7,7 @@ import { scaleIn } from '@/lib/animations';
 import { cn } from '@/lib/utils';
 import {
   X, Book, DollarSign, FileText, Image as ImageIcon,
-  Upload, Save, Loader2, AlertCircle, CheckCircle2,
-  Download, Package
+  Upload, Save, Loader2, AlertCircle
 } from 'lucide-react';
 
 interface ProductFormModalProps {

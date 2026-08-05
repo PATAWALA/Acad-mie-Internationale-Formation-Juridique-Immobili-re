@@ -9,7 +9,7 @@ import {
   CheckCircle2, XCircle, ImageIcon, Download,
   Book, ShoppingBag, Eye
 } from 'lucide-react';
-import ProductFormModal from '@/components/admin/ProductFormModal';
+import ProductFormModal from '@/components/dashboard/admin/ProductFormModal';
 
 export default function AdminBoutiquePage() {
   const supabase = createClientComponent();
