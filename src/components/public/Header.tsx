@@ -1,12 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Menu, X, LogIn, PenLine } from 'lucide-react';
+import { Menu, X, LogIn, PenLine, ShoppingBag } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 
 const navLinks = [
   { label: 'Programmes', href: '#certificates' },
+  { label: 'Boutique', href: '/boutique' },
   { label: 'Bourse', href: '#registration-form' },
   { label: 'Témoignages', href: '#social-proof' },
   { label: 'Corps enseignant', href: '#faculty' },
@@ -62,14 +63,15 @@ export default function Header() {
         {/* Desktop Navigation */}
         <nav className="hidden lg:flex items-center gap-1">
           {navLinks.map((link) => (
-            <a
+            <Link
               key={link.href}
               href={link.href}
               className="relative px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors whitespace-nowrap group"
             >
+              {link.label === 'Boutique' && <ShoppingBag className="w-3.5 h-3.5 inline mr-1.5 text-amber-400" />}
               {link.label}
               <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-0 h-0.5 bg-[#D4AF37] group-hover:w-3/4 transition-all duration-300" />
-            </a>
+            </Link>
           ))}
 
           <div className="flex items-center gap-3 ml-6 pl-6 border-l border-[#1E293B]">
@@ -110,14 +112,15 @@ export default function Header() {
       {mobileOpen && (
         <div className="lg:hidden bg-[#0B0F19] border-t border-[#1E293B] px-6 py-4 space-y-2">
           {navLinks.map((link) => (
-            <a
+            <Link
               key={link.href}
               href={link.href}
               onClick={() => setMobileOpen(false)}
               className="block py-3 text-gray-400 hover:text-white transition-colors"
             >
+              {link.label === 'Boutique' && <ShoppingBag className="w-4 h-4 inline mr-2 text-amber-400" />}
               {link.label}
-            </a>
+            </Link>
           ))}
           <div className="pt-3 border-t border-[#1E293B] space-y-3">
             <Link
