@@ -6,11 +6,11 @@ import Link from 'next/link';
 import Image from 'next/image';
 
 const navLinks = [
-  { label: 'Programmes', href: '#certificates' },
+  { label: 'Programmes', href: '/#certificates' },
   { label: 'Boutique', href: '/boutique' },
-  { label: 'Bourse', href: '#registration-form' },
-  { label: 'Témoignages', href: '#social-proof' },
-  { label: 'Corps enseignant', href: '#faculty' },
+  { label: 'Bourse', href: '/#registration-form' },
+  { label: 'Témoignages', href: '/#social-proof' },
+  { label: 'Corps enseignant', href: '/#faculty' },
 ];
 
 export default function Header() {
@@ -26,7 +26,12 @@ export default function Header() {
   }, []);
 
   const scrollToForm = () => {
-    document.getElementById('registration-form')?.scrollIntoView({ behavior: 'smooth' });
+    const el = document.getElementById('registration-form');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth' });
+    } else {
+      window.location.href = '/#registration-form';
+    }
     setMobileOpen(false);
   };
 
