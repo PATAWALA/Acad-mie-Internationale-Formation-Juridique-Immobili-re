@@ -10,3 +10,4 @@ export default function BoutiqueLayout({ children }: { children: React.ReactNode
     </div>
   );
 }
+
