@@ -2,12 +2,13 @@ import { createServerSupabase } from '@/lib/supabase/server';
 import { notFound } from 'next/navigation';
 import RegistrationForm from './RegistrationForm';
 
-export default async function EventPage({ params }: { params: { slug: string } }) {
+export default async function EventPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
   const supabase = await createServerSupabase();
   const { data: event } = await supabase
     .from('events')
     .select('*')
-    .eq('slug', params.slug)
+    .eq('slug', slug)
     .eq('is_active', true)
     .single();
 
