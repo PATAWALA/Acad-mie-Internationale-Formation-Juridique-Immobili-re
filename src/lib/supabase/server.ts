@@ -12,10 +12,18 @@ export async function createServerSupabase() {
           return cookieStore.get(name)?.value;
         },
         set(name: string, value: string, options: any) {
-          cookieStore.set({ name, value, ...options });
+          try {
+            cookieStore.set({ name, value, ...options });
+          } catch {
+            // Ignore en lecture seule (build statique)
+          }
         },
         remove(name: string, options: any) {
-          cookieStore.set({ name, value: '', ...options });
+          try {
+            cookieStore.delete({ name, ...options });
+          } catch {
+            // Ignore en lecture seule (build statique)
+          }
         },
       },
     }
