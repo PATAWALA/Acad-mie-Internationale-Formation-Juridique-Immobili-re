@@ -14,6 +14,7 @@ import {
   GraduationCap,
   ScrollText,
   UserCheck,
+  Calendar,
   MessageCircle,
   Settings,
   LogOut,
@@ -25,6 +26,7 @@ import {
 
 const navItems = [
   { href: '/dashboard/admin', label: 'Tableau de bord', icon: LayoutDashboard },
+  { href: '/dashboard/admin/evenements', label: 'Événements', icon: Calendar },
   { href: '/dashboard/admin/inscriptions', label: 'Inscriptions', icon: ClipboardList },
   { href: '/dashboard/admin/users', label: 'Utilisateurs', icon: Users },
   { href: '/dashboard/admin/cours', label: 'Cours', icon: BookOpen },
