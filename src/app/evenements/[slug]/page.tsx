@@ -18,6 +18,13 @@ export default async function EventPage({ params }: { params: Promise<{ slug: st
 
   return (
     <div className="min-h-screen bg-[#020617] text-white pt-28 pb-20 px-4 max-w-4xl mx-auto">
+      {/* Image de couverture */}
+      {event.image_url && (
+        <div className="w-full h-48 md:h-64 rounded-2xl overflow-hidden mb-8 border border-[#1e293b]">
+          <img src={event.image_url} alt={event.title} className="w-full h-full object-cover" />
+        </div>
+      )}
+
       {/* En-tête */}
       <div className="text-center mb-12">
         <div className="inline-flex items-center gap-2 px-4 py-2 bg-green-500/10 border border-green-500/20 rounded-full mb-4">
