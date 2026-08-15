@@ -4,11 +4,11 @@ import { useEffect, useState, useCallback } from 'react';
 import { createClientComponent } from '@/lib/supabase/client';
 import { useStudent } from '@/context/StudentContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  BookOpen, Lock, AlertCircle, 
-  RefreshCw, Loader2, CreditCard,
+import {
+  BookOpen, Lock, AlertCircle,
+  RefreshCw, Loader2, Upload,
   GraduationCap, ChevronRight, Trophy,
-  Award
+  Award, FileCheck2
 } from 'lucide-react';
 import { CourseProgram } from './CourseProgram';
 import { StudentCertificates } from './StudentCertificates';
@@ -24,14 +24,14 @@ export default function FormationView({ certId, onPaymentSuccess, onPayClick }: 
   const supabase = createClientComponent();
   const [courses, setCourses] = useState<any[]>([]);
   const [passedAssessments, setPassedAssessments] = useState<string[]>([]);
-  const [courseCertificate, setCourseCertificate] = useState<any>(null); // 🆕 Certificat de CE cours uniquement
+  const [courseCertificate, setCourseCertificate] = useState<any>(null);
   const [enrollmentStatus, setEnrollmentStatus] = useState<string | null>(null);
   const [enrollment, setEnrollment] = useState<any>(null);
   const [submissionsMap, setSubmissionsMap] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [certificateInfo, setCertificateInfo] = useState<any>(null);
-  
+
   const [certStats, setCertStats] = useState({
     totalCourses: 0,
     completedCourses: 0,
@@ -52,17 +52,17 @@ export default function FormationView({ certId, onPaymentSuccess, onPayClick }: 
         return sum + (mod.assessments?.length || 0);
       }, 0) || 0;
       totalAssessments += courseAssessments;
-      
-      const courseAssessmentIds = course.modules?.flatMap((mod: any) => 
+
+      const courseAssessmentIds = course.modules?.flatMap((mod: any) =>
         mod.assessments?.map((ass: any) => ass.id) || []
       ) || [];
-      const allPassed = courseAssessmentIds.length > 0 && 
+      const allPassed = courseAssessmentIds.length > 0 &&
         courseAssessmentIds.every((id: string) => passed.includes(id));
       if (allPassed) completedCourses++;
     }
 
-    const progressPercent = totalAssessments > 0 
-      ? Math.round((passedCount / totalAssessments) * 100) 
+    const progressPercent = totalAssessments > 0
+      ? Math.round((passedCount / totalAssessments) * 100)
       : 0;
 
     setCertStats({
@@ -77,13 +77,13 @@ export default function FormationView({ certId, onPaymentSuccess, onPayClick }: 
 
   const loadData = useCallback(async () => {
     if (!profile) return;
-    
+
     setLoading(true);
-    
-    // 1. Récupérer l'enrollment
+
+    // 1. Récupérer l'enrollment avec receipt_url
     const { data: enr } = await supabase
       .from('enrollments')
-      .select('id, payment_status, remaining_balance')
+      .select('id, payment_status, remaining_balance, receipt_url')
       .eq('student_id', profile.id)
       .eq('certificate_id', certId)
       .maybeSingle();
@@ -108,10 +108,10 @@ export default function FormationView({ certId, onPaymentSuccess, onPayClick }: 
     // 3. Si payé, charger les cours et soumissions
     if (enr.payment_status === 'PAID') {
       const { data: coursesData } = await supabase
-  .from('courses')
-  .select('id, title, description, modules(id, title, week_number, lessons(id, title, content_type, content_url, content_body, category), assessments(id, title, description, type, max_score))')
-  .eq('certificate_id', certId)
-  .order('id');
+        .from('courses')
+        .select('id, title, description, modules(id, title, week_number, lessons(id, title, content_type, content_url, content_body, category), assessments(id, title, description, type, max_score))')
+        .eq('certificate_id', certId)
+        .order('id');
       setCourses(coursesData || []);
 
       const { data: subs } = await supabase
@@ -120,9 +120,9 @@ export default function FormationView({ certId, onPaymentSuccess, onPayClick }: 
         .eq('student_id', profile.id);
 
       const map: Record<string, any> = {};
-      subs?.forEach((s) => { 
+      subs?.forEach((s) => {
         const aid = s.assessment_id ?? '';
-        if (aid) map[aid] = s; 
+        if (aid) map[aid] = s;
       });
       setSubmissionsMap(map);
 
@@ -131,7 +131,7 @@ export default function FormationView({ certId, onPaymentSuccess, onPayClick }: 
 
       computeCertStats(coursesData || [], passed);
 
-      // 4. 🆕 Charger le certificat de CETTE formation uniquement
+      // 4. Charger le certificat de CETTE formation uniquement
       if (coursesData && coursesData.length > 0) {
         const courseIds = coursesData.map((c: any) => c.id);
         const { data: certs } = await supabase
@@ -141,7 +141,7 @@ export default function FormationView({ certId, onPaymentSuccess, onPayClick }: 
           .in('course_id', courseIds)
           .order('issued_at', { ascending: false })
           .limit(1);
-        
+
         if (certs && certs.length > 0) {
           setCourseCertificate(certs[0]);
         } else {
@@ -166,14 +166,14 @@ export default function FormationView({ certId, onPaymentSuccess, onPayClick }: 
         .from('submissions')
         .select('assessment_id, submission_url, status, grade, feedback')
         .eq('student_id', profile.id);
-      
+
       const map: Record<string, any> = {};
-      subs?.forEach((s) => { 
+      subs?.forEach((s) => {
         const aid = s.assessment_id ?? '';
-        if (aid) map[aid] = s; 
+        if (aid) map[aid] = s;
       });
       setSubmissionsMap(map);
-      
+
       const passed = subs?.filter(s => s.status === 'PASSED' && s.assessment_id).map(s => s.assessment_id!) || [];
       setPassedAssessments(passed);
       computeCertStats(courses, passed);
@@ -188,7 +188,7 @@ export default function FormationView({ certId, onPaymentSuccess, onPayClick }: 
           .in('course_id', courseIds)
           .order('issued_at', { ascending: false })
           .limit(1);
-        
+
         if (certs && certs.length > 0) {
           setCourseCertificate(certs[0]);
         }
@@ -229,7 +229,7 @@ export default function FormationView({ certId, onPaymentSuccess, onPayClick }: 
 
   return (
     <div className="space-y-6 lg:space-y-8">
-      {/* 🆕 Certificat de CETTE formation uniquement */}
+      {/* Certificat de CETTE formation uniquement */}
       <AnimatePresence>
         {courseCertificate && (
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
@@ -259,9 +259,9 @@ export default function FormationView({ certId, onPaymentSuccess, onPayClick }: 
             <GraduationCap className="w-6 h-6 text-blue-400" /> Votre Formation
           </h2>
           <p className="text-sm text-slate-400 mt-1">
-            {enrollmentStatus === 'PAID' 
-              ? `${certStats.totalCourses} cours • ${certStats.passedCount}/${certStats.totalAssessments} évaluations validées` 
-              : 'Paiement requis'}
+            {enrollmentStatus === 'PAID'
+              ? `${certStats.totalCourses} cours • ${certStats.passedCount}/${certStats.totalAssessments} évaluations validées`
+              : 'En attente de validation'}
           </p>
         </div>
         {enrollmentStatus === 'PAID' && (
@@ -288,23 +288,43 @@ export default function FormationView({ certId, onPaymentSuccess, onPayClick }: 
             <div className="absolute top-0 right-0 w-48 h-48 bg-amber-500/5 rounded-full blur-3xl" />
             <div className="relative z-10">
               <div className="flex items-start gap-4 mb-6">
-                <div className="p-3 bg-amber-500/10 rounded-2xl flex-shrink-0"><Lock className="w-6 h-6 text-amber-400" /></div>
+                <div className="p-3 bg-amber-500/10 rounded-2xl flex-shrink-0">
+                  {enrollment?.receipt_url ? (
+                    <FileCheck2 className="w-6 h-6 text-blue-400" />
+                  ) : (
+                    <Lock className="w-6 h-6 text-amber-400" />
+                  )}
+                </div>
                 <div>
-                  <h3 className="text-lg lg:text-xl font-bold text-amber-400 mb-2">Votre inscription est en attente de validation</h3>
+                  <h3 className="text-lg lg:text-xl font-bold text-amber-400 mb-2">
+                    {enrollment?.receipt_url
+                      ? 'Preuve envoyée - en attente de validation'
+                      : 'Votre inscription est en attente de paiement'}
+                  </h3>
                   <p className="text-sm text-slate-300 leading-relaxed">
-                    Vous avez fait le premier pas ! Pour débloquer immédiatement l&apos;accès à tous les modules, 
-                    télécharger les supports et obtenir votre <strong className="text-white">Certificat de Fin de Formation</strong>, 
-                    finalisez votre règlement dès maintenant.
+                    {enrollment?.receipt_url
+                      ? 'Votre reçu a bien été transmis. Vous recevrez une notification dès validation par l\'administration.'
+                      : 'Vous avez fait le premier pas ! Pour débloquer l\'accès à tous les modules, envoyez votre preuve de paiement.'}
                   </p>
                 </div>
               </div>
               <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                  onClick={() => { if (enrollment && onPayClick) { onPayClick(enrollment.id, enrollment.remaining_balance || 0); } }}
-                  className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-semibold rounded-xl shadow-lg shadow-amber-500/20 transition-all">
-                  <CreditCard className="w-5 h-5" /> Valider mon paiement <ChevronRight className="w-5 h-5" />
-                </motion.button>
-                <span className="text-xs text-amber-400/80 flex items-center gap-1"><AlertCircle className="w-3 h-3" /> Accès instantané après validation</span>
+                {enrollment?.receipt_url ? (
+                  <div className="flex items-center gap-2 text-blue-400 text-sm font-medium">
+                    <FileCheck2 className="w-5 h-5" /> Preuve envoyée - en attente de validation
+                  </div>
+                ) : (
+                  <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                    onClick={() => { if (enrollment && onPayClick) { onPayClick(enrollment.id, enrollment.remaining_balance || 0); } }}
+                    className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-semibold rounded-xl shadow-lg shadow-amber-500/20 transition-all">
+                    <Upload className="w-5 h-5" /> Envoyer une preuve de paiement <ChevronRight className="w-5 h-5" />
+                  </motion.button>
+                )}
+                {!enrollment?.receipt_url && (
+                  <span className="text-xs text-amber-400/80 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" /> Accès après validation par l&apos;administration
+                  </span>
+                )}
               </div>
             </div>
           </motion.div>
@@ -322,7 +342,7 @@ export default function FormationView({ certId, onPaymentSuccess, onPayClick }: 
               passedAssessments={passedAssessments}
               submissionsMap={submissionsMap}
               certificateInfo={certificateInfo}
-              courseCertificate={courseCertificate} // 🆕
+              courseCertificate={courseCertificate}
             />
           </motion.div>
         )}
