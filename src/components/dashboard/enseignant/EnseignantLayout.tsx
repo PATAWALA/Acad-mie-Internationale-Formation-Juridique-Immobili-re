@@ -9,8 +9,8 @@ import CourseContentManager from './CourseContentManager';
 import FormationsListView from './FormationsListView';
 import NotificationBell from '@/components/notifications/NotificationBell';
 import NotificationDropdown from '@/components/notifications/NotificationDropdown';
+import ProfileSettingsModal from './ProfileSettingsModal';
 import { fadeIn } from '@/lib/animations';
-import { cn } from '@/lib/utils';
 import {
   GraduationCap,
   Menu,
@@ -25,6 +25,7 @@ export default function EnseignantLayout() {
   const [selectedCertId, setSelectedCertId] = useState<number | 'all'>('all');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
 
   if (loading || !profile) {
     return (
