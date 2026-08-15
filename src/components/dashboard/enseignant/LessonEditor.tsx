@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClientComponent } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
@@ -15,8 +15,9 @@ import {
   X,
   ExternalLink,
   GripVertical,
-  Upload,
-  Loader2,
+  HelpCircle,
+  BookOpen,
+  Wrench,
 } from 'lucide-react';
 
 interface Props {
@@ -29,44 +30,31 @@ export default function LessonEditor({ lesson, onUpdate }: Props) {
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(lesson.title);
   const [contentUrl, setContentUrl] = useState(lesson.content_url || '');
-  const [uploading, setUploading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const getTypeConfig = (type: string) => {
     const configs: Record<string, { icon: any; label: string; color: string; bg: string }> = {
       TEXT: { icon: FileText, label: 'Texte', color: 'text-blue-400', bg: 'bg-blue-500/10' },
       VIDEO: { icon: Video, label: 'Vidéo', color: 'text-red-400', bg: 'bg-red-500/10' },
-      PDF: { icon: FileArchive, label: 'PDF', color: 'text-orange-400', bg: 'bg-orange-500/10' },
+      PDF: { icon: FileArchive, label: 'PDF', color: 'text-amber-400', bg: 'bg-amber-500/10' },
       LINK: { icon: Link2, label: 'Lien', color: 'text-green-400', bg: 'bg-green-500/10' },
+      QUIZ: { icon: HelpCircle, label: 'QCM', color: 'text-violet-400', bg: 'bg-violet-500/10' },
     };
     return configs[type] || configs.TEXT;
   };
 
-  const typeConfig = getTypeConfig(lesson.content_type);
+  const typeConfig = getTypeConfig(lesson.content_type || 'TEXT');
   const TypeIcon = typeConfig.icon;
-
-  const handleFileUpload = async (file: File) => {
-    setUploading(true);
-    try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `lessons/${lesson.module_id}/${lesson.id}_${Date.now()}.${fileExt}`;
-      const { error } = await supabase.storage.from('lessons').upload(fileName, file);
-      if (error) throw error;
-
-      const { data: publicUrlData } = supabase.storage.from('lessons').getPublicUrl(fileName);
-      setContentUrl(publicUrlData.publicUrl);
-    } catch (err: any) {
-      alert('Erreur upload : ' + err.message);
-    } finally {
-      setUploading(false);
-    }
-  };
+  const isQuiz = lesson.content_type === 'QUIZ';
+  const category = lesson.category || 'THEORIQUE';
 
   const handleSave = async () => {
     const { error } = await supabase
       .from('lessons')
-      .update({ title, content_url: contentUrl || null })
+      .update({
+        title,
+        content_url: isQuiz ? null : contentUrl || null,
+      })
       .eq('id', lesson.id);
     if (error) alert(error.message);
     else {
@@ -110,74 +98,26 @@ export default function LessonEditor({ lesson, onUpdate }: Props) {
             />
           </div>
 
-          {/* Gestion du contenu selon le type */}
-          {lesson.content_type === 'PDF' ? (
-            <div className="ml-11 space-y-2">
-              {/* Option 1 : Upload */}
-              <div>
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  accept=".pdf"
-                  onChange={(e) => {
-                    if (e.target.files?.[0]) handleFileUpload(e.target.files[0]);
-                  }}
-                  className="hidden"
-                />
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading}
-                  className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm
-                    bg-blue-500/10 text-blue-400 border border-blue-500/20
-                    hover:bg-blue-500/20 transition-colors disabled:opacity-50"
-                >
-                  {uploading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Upload en cours...
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="w-4 h-4" />
-                      Uploader un PDF
-                    </>
-                  )}
-                </button>
-              </div>
-
-              {/* Option 2 : Lien */}
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-slate-700" />
-                </div>
-                <div className="relative flex justify-center text-xs">
-                  <span className="bg-slate-800/50 px-2 text-slate-500">ou</span>
-                </div>
-              </div>
-              <input
-                type="text"
-                value={contentUrl}
-                onChange={(e) => setContentUrl(e.target.value)}
-                placeholder="Coller un lien PDF externe"
-                className="w-full px-3 py-1.5 rounded-lg text-white text-sm
-                  bg-slate-900 border border-slate-700
-                  focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500
-                  placeholder-slate-500 transition-all duration-200"
-              />
-            </div>
-          ) : (lesson.content_type === 'VIDEO' || lesson.content_type === 'LINK') && (
+          {!isQuiz && (lesson.content_type === 'VIDEO' || lesson.content_type === 'PDF' || lesson.content_type === 'LINK') && (
             <div className="ml-11">
               <input
                 type="text"
                 value={contentUrl}
                 onChange={(e) => setContentUrl(e.target.value)}
                 placeholder="URL du contenu"
-                className="w-full px-3 py-1.5 rounded-lg text-white text-sm
-                  bg-slate-900 border border-slate-700
-                  focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500
-                  placeholder-slate-500 transition-all duration-200"
+                className={cn(
+                  "w-full px-3 py-1.5 rounded-lg text-white text-sm",
+                  "bg-slate-900 border border-slate-700",
+                  "focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500",
+                  "placeholder-slate-500 transition-all duration-200"
+                )}
               />
+            </div>
+          )}
+
+          {isQuiz && (
+            <div className="ml-11 text-xs text-slate-400">
+              Les questions du QCM se gèrent via le bouton sous la leçon.
             </div>
           )}
 
@@ -212,7 +152,7 @@ export default function LessonEditor({ lesson, onUpdate }: Props) {
         /* MODE AFFICHAGE */
         <div className="flex items-center gap-3 p-3">
           <GripVertical className="w-4 h-4 text-slate-600 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab" />
-          
+
           <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0", typeConfig.bg)}>
             <TypeIcon className={cn("w-4 h-4", typeConfig.color)} />
           </div>
@@ -227,9 +167,16 @@ export default function LessonEditor({ lesson, onUpdate }: Props) {
             )}>
               {typeConfig.label}
             </span>
+            {/* Badge catégorie */}
+            <span className={cn(
+              "text-xs px-1.5 py-0.5 rounded-full font-medium flex-shrink-0",
+              category === 'THEORIQUE' ? 'bg-blue-500/10 text-blue-400' : 'bg-orange-500/10 text-orange-400'
+            )}>
+              {category === 'THEORIQUE' ? 'Théorique' : 'Pratique'}
+            </span>
           </div>
 
-          {lesson.content_url && (
+          {lesson.content_url && !isQuiz && (
             <a
               href={lesson.content_url}
               target="_blank"
@@ -239,6 +186,12 @@ export default function LessonEditor({ lesson, onUpdate }: Props) {
               <ExternalLink className="w-3 h-3" />
               Voir
             </a>
+          )}
+
+          {isQuiz && (
+            <span className="text-xs text-violet-400 flex-shrink-0">
+              {lesson.quiz_questions_count || 'QCM'} {/* Optionnel si vous avez un compteur */}
+            </span>
           )}
 
           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">

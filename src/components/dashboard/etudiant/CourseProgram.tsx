@@ -1,7 +1,6 @@
 'use client';
 
-import { useState } from 'react';
-import Link from 'next/link';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClientComponent } from '@/lib/supabase/client';
 import { useStudent } from '@/context/StudentContext';
@@ -12,7 +11,8 @@ import {
   BookOpen, Loader2, Trophy, Star, PenTool,
   Calendar, Play, Target, Users, Download,
   Shield, Zap, HelpCircle, Check, X,
-  ArrowLeft, ArrowRight, ExternalLink
+  ArrowLeft, ArrowRight, ExternalLink,
+  BookMarked, Wrench
 } from 'lucide-react';
 import { SubmissionModal } from './SubmissionModal';
 import ContentViewer from './ContentViewer';
@@ -24,7 +24,7 @@ interface CourseProgramProps {
   passedAssessments: string[];
   submissionsMap: Record<string, any>;
   certificateInfo?: any;
-  courseCertificate?: any; // 🆕 certificat de cette formation
+  courseCertificate?: any;
 }
 
 export function CourseProgram({ 
@@ -56,9 +56,7 @@ export function CourseProgram({
   }).length;
   const progressPercent = totalModules > 0 ? Math.round((completedModules / totalModules) * 100) : 0;
   
-  // 🆕 Est-ce qu'on est sur la dernière semaine ?
   const isLastModule = activeModuleIndex === totalModules - 1;
-  // 🆕 Toutes les semaines sont validées ?
   const allModulesCompleted = completedModules === totalModules && totalModules > 0;
 
   const goToNextModule = () => {
@@ -71,26 +69,49 @@ export function CourseProgram({
     else if (activeCourseIndex > 0) { setActiveCourseIndex(prev => prev - 1); setActiveModuleIndex((courses[activeCourseIndex - 1]?.modules?.length || 1) - 1); }
   };
 
-  const loadQuizForModule = async (moduleId: string, assessmentIds: string[]) => {
-    if (assessmentIds.length === 0) return;
-    const { data: questions } = await (supabase as any).from('quiz_questions').select('*').in('assessment_id', assessmentIds).order('position', { ascending: true });
-    if (questions?.length > 0) {
-      setQuizQuestions(prev => ({ ...prev, [moduleId]: questions }));
+  // Charger les QCM liés aux leçons de type QUIZ
+  const loadQuizForModule = async (module: any) => {
+    const quizLessons = module?.lessons?.filter((l: any) => l.content_type === 'QUIZ') || [];
+    if (quizLessons.length === 0) return;
+
+    const lessonIds = quizLessons.map((l: any) => l.id);
+    const { data: questions } = await supabase
+      .from('quiz_questions')
+      .select('*')
+      .in('lesson_id', lessonIds)
+      .order('position', { ascending: true });
+
+    if (questions && questions.length > 0) {
+      setQuizQuestions(prev => ({ ...prev, [module.id]: questions }));
       if (profile) {
-        const { data: answers } = await (supabase as any).from('quiz_answers').select('*').eq('student_id', profile.id).in('question_id', questions.map((q: any) => q.id));
+        const { data: answers } = await supabase
+          .from('quiz_answers')
+          .select('*')
+          .eq('student_id', profile.id)
+          .in('question_id', questions.map((q: any) => q.id));
         if (answers) {
           const map: Record<string, any> = {};
           answers.forEach((a: any) => { const qid = a.question_id ?? 0; if (qid) map[qid] = a; });
-          setQuizAnswers(prev => ({ ...prev, [moduleId]: map }));
+          setQuizAnswers(prev => ({ ...prev, [module.id]: map }));
         }
       }
     }
   };
 
+  // Charger les QCM quand le module actif change
+  useEffect(() => {
+    if (activeModule && !quizQuestions[activeModule.id]) {
+      loadQuizForModule(activeModule);
+    }
+  }, [activeModule?.id]);
+
   const handleAnswer = async (question: any, answer: string, moduleId: string) => {
     if (!profile) return;
     const isCorrect = answer === question.correct_answer;
-    await (supabase as any).from('quiz_answers').upsert({ question_id: question.id, student_id: profile.id, selected_answer: answer, is_correct: isCorrect }, { onConflict: 'question_id,student_id' });
+    await supabase.from('quiz_answers').upsert(
+      { question_id: question.id, student_id: profile.id, selected_answer: answer, is_correct: isCorrect },
+      { onConflict: 'question_id,student_id' }
+    );
     setQuizAnswers(prev => ({ ...prev, [moduleId]: { ...(prev[moduleId] || {}), [question.id]: { selected_answer: answer, is_correct: isCorrect } } }));
   };
 
@@ -101,11 +122,6 @@ export function CourseProgram({
         <p className="text-slate-400 text-base">Aucune formation disponible pour le moment.</p>
       </motion.div>
     );
-  }
-
-  if (activeModule && !quizQuestions[activeModule.id]) {
-    const assessmentIds = activeModule.assessments?.map((a: any) => a.id) || [];
-    loadQuizForModule(activeModule.id, assessmentIds);
   }
 
   return (
@@ -124,7 +140,7 @@ export function CourseProgram({
         </div>
       )}
 
-      {/* 🧭 Navigation */}
+      {/* Navigation */}
       <div className="sticky top-0 z-20 bg-[#020617]/95 backdrop-blur-xl border-b border-[#1e293b] -mx-4 px-4 py-3 flex items-center justify-between mb-8 md:mb-10">
         <button onClick={goToPrevModule} disabled={activeModuleIndex === 0 && activeCourseIndex === 0}
           className="text-slate-400 hover:text-white disabled:opacity-20 transition-colors p-2">
@@ -154,7 +170,7 @@ export function CourseProgram({
         </button>
       </div>
 
-      {/* 📄 Contenu */}
+      {/* Contenu du module */}
       {activeModule && (
         <motion.div key={activeModule.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
           
@@ -178,7 +194,7 @@ export function CourseProgram({
             <h2 className="text-2xl md:text-3xl font-bold text-white leading-tight">{activeModule.title}</h2>
           </div>
 
-          {/* 🆕 Certificat à la fin de la dernière semaine */}
+          {/* Certificat à la fin */}
           {isLastModule && allModulesCompleted && courseCertificate && (
             <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
               className="mb-10 p-6 bg-gradient-to-br from-green-500/10 to-emerald-500/10 border border-green-500/30 rounded-2xl">
@@ -212,7 +228,7 @@ export function CourseProgram({
           ) : (
             <div className="space-y-12 md:space-y-14">
               
-              {/* 📚 LEÇONS */}
+              {/* 📚 LEÇONS (théoriques et pratiques) */}
               {activeModule.lessons?.length > 0 && (
                 <div className="space-y-10">
                   {activeModule.lessons?.map((lesson: any, li: number) => (
@@ -222,36 +238,83 @@ export function CourseProgram({
                           lesson.content_type === 'VIDEO' ? 'bg-red-500/10 border-red-500/20' :
                           lesson.content_type === 'PDF' ? 'bg-orange-500/10 border-orange-500/20' :
                           lesson.content_type === 'LINK' ? 'bg-purple-500/10 border-purple-500/20' :
+                          lesson.content_type === 'QUIZ' ? 'bg-violet-500/10 border-violet-500/20' :
                           'bg-blue-500/10 border-blue-500/20'
                         }`}>
                           {lesson.content_type === 'VIDEO' ? <Play className="w-5 h-5 text-red-400" /> :
                            lesson.content_type === 'PDF' ? <FileText className="w-5 h-5 text-orange-400" /> :
                            lesson.content_type === 'LINK' ? <ExternalLink className="w-5 h-5 text-purple-400" /> :
+                           lesson.content_type === 'QUIZ' ? <HelpCircle className="w-5 h-5 text-violet-400" /> :
                            <FileText className="w-5 h-5 text-blue-400" />}
                         </div>
-                        <div>
+                        <div className="flex-1">
                           <h3 className="text-base md:text-lg font-bold text-white">{lesson.title}</h3>
                           <div className="flex items-center gap-2 mt-1">
+                            {lesson.category === 'THEORIQUE' ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-500/10 text-blue-400 text-[10px] font-bold rounded-full border border-blue-500/20">
+                                <BookMarked className="w-3 h-3" /> Théorique
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-500/10 text-orange-400 text-[10px] font-bold rounded-full border border-orange-500/20">
+                                <Wrench className="w-3 h-3" /> Pratique
+                              </span>
+                            )}
                             {lesson.content_type === 'VIDEO' && (
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-500/10 text-red-400 text-[10px] font-bold rounded-full border border-red-500/20">🎥 Vidéo</span>
                             )}
                             {lesson.content_type === 'PDF' && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-500/10 text-orange-400 text-[10px] font-bold rounded-full border border-orange-500/20">📄 Document PDF</span>
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-500/10 text-orange-400 text-[10px] font-bold rounded-full border border-orange-500/20">📄 PDF</span>
                             )}
                             {lesson.content_type === 'LINK' && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-500/10 text-purple-400 text-[10px] font-bold rounded-full border border-purple-500/20">🔗 Ressource externe</span>
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-500/10 text-purple-400 text-[10px] font-bold rounded-full border border-purple-500/20">🔗 Lien</span>
+                            )}
+                            {lesson.content_type === 'QUIZ' && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-violet-500/10 text-violet-400 text-[10px] font-bold rounded-full border border-violet-500/20">🧠 QCM</span>
                             )}
                           </div>
                         </div>
                       </div>
                       
-                      <div className="ml-13">
-                        {isPaid ? (
-                          <ContentViewer contentType={lesson.content_type} contentUrl={lesson.content_url} contentBody={lesson.content_body} title={lesson.title} />
-                        ) : (
-                          <div className="text-amber-400 text-sm"><Lock className="w-4 h-4 inline mr-1" />Réservé aux membres payants</div>
-                        )}
-                      </div>
+                      {/* Contenu selon le type */}
+                      {lesson.content_type === 'QUIZ' ? (
+                        <div className="ml-13 space-y-4">
+                          {quizQuestions[activeModule.id]?.filter((q: any) => q.lesson_id === lesson.id).map((q: any, qi: number) => {
+                            const answer = (quizAnswers[activeModule.id] || {})[q.id];
+                            return (
+                              <div key={q.id} className={`p-4 md:p-5 rounded-xl border ${answer ? (answer.is_correct ? 'border-green-500/30 bg-green-500/5' : 'border-red-500/30 bg-red-500/5') : 'border-[#1e293b]'}`}>
+                                <p className="text-white font-semibold mb-3">Q{qi + 1}. {q.question}</p>
+                                <div className="grid sm:grid-cols-2 gap-2">
+                                  {['A', 'B', 'C', 'D'].map((letter: string) => (
+                                    <button key={letter} onClick={() => !answer && handleAnswer(q, letter, activeModule.id)} disabled={!!answer}
+                                      className={`text-left px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                                        answer && letter === q.correct_answer ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
+                                        answer && letter === answer.selected_answer && !answer.is_correct ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
+                                        'bg-[#1e293b] text-slate-400 hover:text-white hover:bg-[#334155] border border-transparent'
+                                      }`}>
+                                      <span className="font-bold mr-2">{letter})</span>{q[`option_${letter.toLowerCase()}`]}
+                                      {answer && letter === q.correct_answer && <Check className="w-4 h-4 inline ml-1 text-green-400" />}
+                                      {answer && letter === answer.selected_answer && !answer.is_correct && <X className="w-4 h-4 inline ml-1 text-red-400" />}
+                                    </button>
+                                  ))}
+                                </div>
+                                {answer && (
+                                  <p className={`mt-3 text-sm font-medium ${answer.is_correct ? 'text-green-400' : 'text-red-400'}`}>
+                                    {answer.is_correct ? '✅ Bonne réponse !' : `❌ La bonne réponse était ${q.correct_answer}.`}
+                                  </p>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="ml-13">
+                          {isPaid ? (
+                            <ContentViewer contentType={lesson.content_type} contentUrl={lesson.content_url} contentBody={lesson.content_body} title={lesson.title} />
+                          ) : (
+                            <div className="text-amber-400 text-sm"><Lock className="w-4 h-4 inline mr-1" />Réservé aux membres payants</div>
+                          )}
+                        </div>
+                      )}
 
                       {li < activeModule.lessons.length - 1 && (
                         <div className="mt-10 border-t border-[#1e293b]" />
@@ -261,57 +324,7 @@ export function CourseProgram({
                 </div>
               )}
 
-              {/* 🧠 QCM */}
-              {quizQuestions[activeModule.id]?.length > 0 && (
-                <>
-                  <div className="border-t border-[#1e293b] pt-10" />
-                  <div>
-                    <div className="flex items-center gap-2 mb-6">
-                      <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center flex-shrink-0">
-                        <HelpCircle className="w-5 h-5 text-purple-400" />
-                      </div>
-                      <div>
-                        <h3 className="text-base md:text-lg font-bold text-white">🧠 QCM d&apos;auto-évaluation</h3>
-                        <p className="text-xs text-purple-400 mt-0.5">Testez votre compréhension</p>
-                      </div>
-                      <span className="text-sm text-purple-400 ml-auto bg-purple-500/10 px-3 py-1 rounded-full font-bold">
-                        {Object.keys(quizAnswers[activeModule.id] || {}).length}/{quizQuestions[activeModule.id]?.length || 0}
-                      </span>
-                    </div>
-                    <div className="space-y-5">
-                      {quizQuestions[activeModule.id]?.map((q: any, qi: number) => {
-                        const answer = (quizAnswers[activeModule.id] || {})[q.id];
-                        return (
-                          <div key={q.id} className={`p-4 md:p-5 rounded-xl border ${answer ? (answer.is_correct ? 'border-green-500/30 bg-green-500/5' : 'border-red-500/30 bg-red-500/5') : 'border-[#1e293b]'}`}>
-                            <p className="text-white font-semibold mb-3">Q{qi + 1}. {q.question}</p>
-                            <div className="grid sm:grid-cols-2 gap-2">
-                              {['A', 'B', 'C', 'D'].map((letter: string) => (
-                                <button key={letter} onClick={() => !answer && handleAnswer(q, letter, activeModule.id)} disabled={!!answer}
-                                  className={`text-left px-4 py-3 rounded-xl text-sm font-medium transition-all ${
-                                    answer && letter === q.correct_answer ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
-                                    answer && letter === answer.selected_answer && !answer.is_correct ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
-                                    'bg-[#1e293b] text-slate-400 hover:text-white hover:bg-[#334155] border border-transparent'
-                                  }`}>
-                                  <span className="font-bold mr-2">{letter})</span>{q[`option_${letter.toLowerCase()}`]}
-                                  {answer && letter === q.correct_answer && <Check className="w-4 h-4 inline ml-1 text-green-400" />}
-                                  {answer && letter === answer.selected_answer && !answer.is_correct && <X className="w-4 h-4 inline ml-1 text-red-400" />}
-                                </button>
-                              ))}
-                            </div>
-                            {answer && (
-                              <p className={`mt-3 text-sm font-medium ${answer.is_correct ? 'text-green-400' : 'text-red-400'}`}>
-                                {answer.is_correct ? '✅ Bonne réponse !' : `❌ La bonne réponse était ${q.correct_answer}.`}
-                              </p>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {/* 🎯 TP */}
+              {/* 🎯 ÉVALUATIONS (TP/EXAM) - inchangé */}
               {activeModule.assessments?.length > 0 && (
                 <>
                   <div className="border-t border-[#1e293b] pt-10" />
@@ -365,7 +378,7 @@ export function CourseProgram({
                 </>
               )}
 
-              {/* ⬅️➡️ Navigation bas */}
+              {/* Navigation bas */}
               <div className="flex items-center justify-between pt-8 border-t border-[#1e293b]">
                 <button onClick={goToPrevModule} disabled={activeModuleIndex === 0 && activeCourseIndex === 0}
                   className="flex items-center gap-2 px-5 py-3 bg-[#1e293b] hover:bg-[#334155] text-white rounded-xl font-medium transition-colors disabled:opacity-20 text-sm shadow-lg">
