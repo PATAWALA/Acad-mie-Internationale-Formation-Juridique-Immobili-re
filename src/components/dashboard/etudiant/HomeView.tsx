@@ -1,12 +1,13 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { 
-  BookOpen, Clock, Award, TrendingUp, 
+import {
+  BookOpen, Clock, Award, TrendingUp,
   ArrowRight, Sparkles, Target,
-  Play, CreditCard, GraduationCap, 
+  Play, Upload, GraduationCap,
   CheckCircle2, AlertCircle, Zap,
-  ImageIcon, Briefcase, User
+  ImageIcon, Briefcase, User,
+  FileCheck2
 } from 'lucide-react';
 import { formatEUR } from '@/lib/currency';
 
@@ -17,18 +18,18 @@ interface HomeViewProps {
   onPayClick?: (enrollmentId: number, amount: number) => void;
 }
 
-export default function HomeView({ 
-  enrollments, 
-  profile, 
+export default function HomeView({
+  enrollments,
+  profile,
   onSelectFormation,
-  onPayClick 
+  onPayClick
 }: HomeViewProps) {
   const paidEnrollments = enrollments.filter(e => e.payment_status === 'PAID');
   const pendingEnrollments = enrollments.filter(e => e.payment_status !== 'PAID');
   
   const totalFormations = enrollments.length;
-  const completionRate = totalFormations > 0 
-    ? Math.round((paidEnrollments.length / totalFormations) * 100) 
+  const completionRate = totalFormations > 0
+    ? Math.round((paidEnrollments.length / totalFormations) * 100)
     : 0;
   
   const totalPendingAmount = pendingEnrollments.reduce((sum, e) => sum + (e.remaining_balance || 0), 0);
@@ -40,7 +41,6 @@ export default function HomeView({
 
   const profileType = profile?.profile_type || 'Etudiant';
 
-  // Calcul de la réduction actuelle pour les pros
   const getProDiscount = () => {
     const count = totalFormations;
     if (count >= 5) return 20;
@@ -118,14 +118,13 @@ export default function HomeView({
               </h1>
               <p className="text-sm lg:text-base text-slate-400 max-w-lg">
                 {pendingEnrollments.length > 0 
-                  ? "Finalisez vos paiements pour débloquer l'accès à tous vos modules."
+                  ? "Envoyez vos preuves de paiement pour débloquer l'accès à vos modules."
                   : paidEnrollments.length > 0
                   ? "Continuez sur votre lancée ! Les meilleurs juristes vous attendent."
                   : "Bienvenue ! Ajoutez une formation pour commencer."}
               </p>
             </div>
 
-            {/* Badge profil + réduction */}
             <div className="flex items-center gap-2">
               {profileType === 'Etudiant' && (
                 <span className="px-3 py-1.5 bg-blue-500/10 border border-blue-500/20 rounded-full text-xs text-blue-400 font-medium flex items-center gap-1.5">
@@ -266,7 +265,7 @@ export default function HomeView({
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
           <div className="flex items-center gap-2 mb-4">
             <AlertCircle className="w-5 h-5 text-amber-400" />
-            <h2 className="text-lg font-bold text-white">En attente de paiement</h2>
+            <h2 className="text-lg font-bold text-white">En attente de validation</h2>
             <span className="text-xs text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full font-bold">{pendingEnrollments.length}</span>
           </div>
 
@@ -299,16 +298,22 @@ export default function HomeView({
                 whileHover={{ y: -2 }}
                 className="bg-[#0f172a] border border-amber-500/20 rounded-2xl overflow-hidden"
               >
-                <div className="h-40 bg-[#1e293b] overflow-hidden">
+                <div className="h-40 bg-[#1e293b] overflow-hidden relative">
                   {enr.certificates?.image_url ? (
                     <img src={enr.certificates.image_url} alt={enr.certificates?.title} className="w-full h-full object-cover opacity-60" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center"><ImageIcon className="w-10 h-10 text-slate-600" /></div>
                   )}
                   <div className="absolute top-2 right-2">
-                    <span className="flex items-center gap-1 px-2 py-1 bg-amber-500/90 text-white rounded-full text-[10px] font-bold backdrop-blur-sm">
-                      <CreditCard className="w-3 h-3" /> Paiement requis
-                    </span>
+                    {enr.receipt_url ? (
+                      <span className="flex items-center gap-1 px-2 py-1 bg-blue-500/90 text-white rounded-full text-[10px] font-bold backdrop-blur-sm">
+                        <FileCheck2 className="w-3 h-3" /> Preuve envoyée
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1 px-2 py-1 bg-amber-500/90 text-white rounded-full text-[10px] font-bold backdrop-blur-sm">
+                        <Clock className="w-3 h-3" /> Preuve requise
+                      </span>
+                    )}
                   </div>
                 </div>
                 <div className="p-5">
@@ -330,11 +335,22 @@ export default function HomeView({
                       <p className="text-[10px] text-green-400 mt-1">✅ Réduction incluse</p>
                     )}
                   </div>
-                  <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                    onClick={(e) => { e.stopPropagation(); onPayClick?.(enr.id, enr.remaining_balance || 0); }}
-                    className="w-full flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-xs font-bold rounded-xl shadow-lg shadow-amber-500/20 transition-all">
-                    <CreditCard className="w-4 h-4" /> Payer maintenant <ArrowRight className="w-4 h-4" />
-                  </motion.button>
+                  {enr.receipt_url ? (
+                    <button
+                      disabled
+                      className="w-full flex items-center justify-center gap-2 py-2.5 bg-slate-700 text-slate-400 text-xs font-bold rounded-xl cursor-not-allowed"
+                    >
+                      <FileCheck2 className="w-4 h-4" /> Preuve envoyée - en attente de validation
+                    </button>
+                  ) : (
+                    <motion.button
+                      whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                      onClick={(e) => { e.stopPropagation(); onPayClick?.(enr.id, enr.remaining_balance || 0); }}
+                      className="w-full flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-xs font-bold rounded-xl shadow-lg shadow-amber-500/20 transition-all"
+                    >
+                      <Upload className="w-4 h-4" /> Envoyer une preuve <ArrowRight className="w-4 h-4" />
+                    </motion.button>
+                  )}
                 </div>
               </motion.div>
             ))}
