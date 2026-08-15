@@ -10,10 +10,10 @@ import HomeView from './HomeView';
 import FormationView from './FormationView';
 import CatalogueView from './CatalogueView';
 import MesFormationsView from './MesFormationsView';
-import CertificatesView from './CertificatesView'; // 🆕
+import CertificatesView from './CertificatesView';
 import ProfilView from './ProfilView';
 import SupportView from './SupportForm';
-import PaymentModal from './PaymentModal';
+import PaymentProofModal from './PaymentProofModal'; // ✅ remplace PaymentModal
 import NotificationBell from '@/components/notifications/NotificationBell';
 import NotificationDropdown from '@/components/notifications/NotificationDropdown';
 
@@ -26,7 +26,6 @@ export default function DashboardLayout() {
   const [selectedCertId, setSelectedCertId] = useState<number | null>(null);
   const [enrollments, setEnrollments] = useState<any[]>([]);
   const [paymentModal, setPaymentModal] = useState<{ enrollmentId: number; amount: number } | null>(null);
-  const [payLoading, setPayLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [currentTitle, setCurrentTitle] = useState('Tableau de bord');
   const [notifOpen, setNotifOpen] = useState(false);
@@ -41,7 +40,7 @@ export default function DashboardLayout() {
     if (!profile) return;
     const { data } = await supabase
       .from('enrollments')
-      .select('id, certificate_id, payment_status, amount_paid, remaining_balance, certificates(title, image_url)')
+      .select('id, certificate_id, payment_status, amount_paid, remaining_balance, receipt_url, certificates(title, image_url)')
       .eq('student_id', profile.id)
       .order('created_at', { ascending: true });
     if (data) setEnrollments(data);
@@ -106,27 +105,6 @@ export default function DashboardLayout() {
     setSidebarOpen(false);
   };
 
-  const handlePay = async (method: 'wave' | 'paypal' | 'bank') => {
-    if (!paymentModal) return;
-    setPayLoading(true);
-    const { error } = await supabase
-      .from('enrollments')
-      .update({
-        payment_status: 'PAID',
-        amount_paid: paymentModal.amount,
-        remaining_balance: 0,
-      })
-      .eq('id', paymentModal.enrollmentId);
-
-    if (!error) {
-      setPaymentModal(null);
-      await refreshEnrollments();
-    } else {
-      alert('Erreur : ' + error.message);
-    }
-    setPayLoading(false);
-  };
-
   const handleLogout = async () => {
     await supabase.auth.signOut();
     window.location.href = '/';
@@ -148,7 +126,7 @@ export default function DashboardLayout() {
     onGoHome: () => navigate('home', 'Tableau de bord'),
     onGoMesFormations: () => navigate('mesformations', 'Mes formations'),
     onGoPending: () => navigate('pending', 'Formations en attente'),
-    onGoCertificates: () => navigate('certificates', 'Mes Certificats'), // 🆕
+    onGoCertificates: () => navigate('certificates', 'Mes Certificats'),
     onGoProfil: () => navigate('profil', 'Mon Profil'),
     onGoSupport: () => navigate('support', 'Aide & Support'),
     onPayClick: (enrollmentId: number, amount: number) => setPaymentModal({ enrollmentId, amount }),
@@ -157,12 +135,12 @@ export default function DashboardLayout() {
 
   return (
     <div className="h-screen bg-[#020617] flex overflow-hidden">
-      {/* ===== SIDEBAR DESKTOP ===== */}
+      {/* SIDEBAR DESKTOP */}
       <div className="hidden lg:block flex-shrink-0">
         <Sidebar {...sidebarProps} />
       </div>
 
-      {/* ===== SIDEBAR MOBILE ===== */}
+      {/* SIDEBAR MOBILE */}
       <AnimatePresence>
         {sidebarOpen && (
           <>
@@ -185,9 +163,8 @@ export default function DashboardLayout() {
         )}
       </AnimatePresence>
 
-      {/* ===== ZONE PRINCIPALE ===== */}
+      {/* ZONE PRINCIPALE */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* HEADER */}
         <header className="flex-shrink-0 bg-[#020617]/95 backdrop-blur-xl border-b border-[#1e293b]">
           <div className="flex items-center justify-between px-4 lg:px-8 py-4">
             <div className="flex items-center gap-3">
@@ -200,7 +177,6 @@ export default function DashboardLayout() {
               </div>
             </div>
 
-            {/* Badges + Notifications */}
             <div className="flex items-center gap-3">
               {globalStats.hasCertificatAvailable && (
                 <motion.div
@@ -227,7 +203,6 @@ export default function DashboardLayout() {
                 </span>
               </div>
 
-              {/* 🔔 Cloche de notifications */}
               <div className="relative">
                 <NotificationBell 
                   userId={profile.id} 
@@ -247,7 +222,6 @@ export default function DashboardLayout() {
           </div>
         </header>
 
-        {/* CONTENU */}
         <main className="flex-1 overflow-y-auto">
           <div className="p-4 lg:p-8">
             <AnimatePresence mode="wait">
@@ -284,7 +258,6 @@ export default function DashboardLayout() {
                     onAddFormation={() => navigate('catalogue', 'Catalogue des formations')}
                   />
                 )}
-                {/* 🆕 Certificats */}
                 {currentView === 'certificates' && <CertificatesView />}
                 {currentView === 'formation' && selectedCertId && (
                   <FormationView 
@@ -309,17 +282,14 @@ export default function DashboardLayout() {
         </main>
       </div>
 
-      {/* MODAL PAIEMENT */}
+      {/* ✅ MODAL PREUVE DE PAIEMENT */}
       <AnimatePresence>
         {paymentModal && (
-          <PaymentModal
+          <PaymentProofModal
             isOpen={!!paymentModal}
             onClose={() => setPaymentModal(null)}
-            onPay={handlePay}
+            enrollmentId={paymentModal.enrollmentId}
             amount={paymentModal.amount}
-            loading={payLoading}
-            profileType={profile?.profile_type || 'Etudiant'}
-            totalFormations={enrollments.length}
           />
         )}
       </AnimatePresence>

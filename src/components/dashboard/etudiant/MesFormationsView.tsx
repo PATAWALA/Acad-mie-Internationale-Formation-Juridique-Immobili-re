@@ -1,9 +1,10 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { 
-  BookOpen, CheckCircle2, Clock, ArrowRight, 
-  Play, CreditCard, ImageIcon, TrendingUp, Briefcase, GraduationCap, User
+import {
+  BookOpen, CheckCircle2, Clock, ArrowRight,
+  Play, Upload, ImageIcon, TrendingUp, Briefcase, GraduationCap, User,
+  FileCheck2
 } from 'lucide-react';
 import { formatEUR } from '@/lib/currency';
 
@@ -146,7 +147,7 @@ export default function MesFormationsView({ enrollments, profile, onSelectFormat
           <div className="flex items-center gap-2 mb-4">
             <Clock className="w-4 h-4 text-amber-400" />
             <h3 className="text-sm font-semibold text-amber-400 uppercase tracking-wider">
-              En attente de paiement • {pendingEnrollments.length}
+              En attente de validation • {pendingEnrollments.length}
             </h3>
           </div>
 
@@ -160,16 +161,22 @@ export default function MesFormationsView({ enrollments, profile, onSelectFormat
                 whileHover={{ y: -2 }}
                 className="bg-[#0f172a] border border-amber-500/20 rounded-2xl overflow-hidden"
               >
-                <div className="h-40 bg-[#1e293b] overflow-hidden">
+                <div className="h-40 bg-[#1e293b] overflow-hidden relative">
                   {enr.certificates?.image_url ? (
                     <img src={enr.certificates.image_url} alt={enr.certificates?.title || 'Formation'} className="w-full h-full object-cover opacity-60" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center"><ImageIcon className="w-10 h-10 text-slate-600" /></div>
                   )}
                   <div className="absolute top-2 right-2">
-                    <span className="flex items-center gap-1 px-2 py-1 bg-amber-500/90 text-white rounded-full text-[10px] font-bold backdrop-blur-sm">
-                      <CreditCard className="w-3 h-3" /> Paiement requis
-                    </span>
+                    {enr.receipt_url ? (
+                      <span className="flex items-center gap-1 px-2 py-1 bg-blue-500/90 text-white rounded-full text-[10px] font-bold backdrop-blur-sm">
+                        <FileCheck2 className="w-3 h-3" /> Preuve envoyée
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1 px-2 py-1 bg-amber-500/90 text-white rounded-full text-[10px] font-bold backdrop-blur-sm">
+                        <Clock className="w-3 h-3" /> Preuve requise
+                      </span>
+                    )}
                   </div>
                 </div>
                 <div className="p-5">
@@ -191,13 +198,22 @@ export default function MesFormationsView({ enrollments, profile, onSelectFormat
                       <p className="text-[10px] text-green-400 mt-1">✅ Réduction {getProDiscount()}% incluse</p>
                     )}
                   </div>
-                  <motion.button
-                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                    onClick={(e) => { e.stopPropagation(); onPayClick(enr.id, enr.remaining_balance || 0); }}
-                    className="w-full flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-xs font-bold rounded-xl shadow-lg shadow-amber-500/20 transition-all"
-                  >
-                    <CreditCard className="w-4 h-4" /> Payer maintenant <ArrowRight className="w-4 h-4" />
-                  </motion.button>
+                  {enr.receipt_url ? (
+                    <button
+                      disabled
+                      className="w-full flex items-center justify-center gap-2 py-2.5 bg-slate-700 text-slate-400 text-xs font-bold rounded-xl cursor-not-allowed"
+                    >
+                      <FileCheck2 className="w-4 h-4" /> Preuve envoyée - en attente de validation
+                    </button>
+                  ) : (
+                    <motion.button
+                      whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                      onClick={(e) => { e.stopPropagation(); onPayClick(enr.id, enr.remaining_balance || 0); }}
+                      className="w-full flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-xs font-bold rounded-xl shadow-lg shadow-amber-500/20 transition-all"
+                    >
+                      <Upload className="w-4 h-4" /> Envoyer une preuve <ArrowRight className="w-4 h-4" />
+                    </motion.button>
+                  )}
                 </div>
               </motion.div>
             ))}

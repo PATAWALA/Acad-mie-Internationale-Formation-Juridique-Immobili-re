@@ -3,11 +3,12 @@
 import { useEffect, useState } from 'react';
 import { createClientComponent } from '@/lib/supabase/client';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Search, BookOpen, Clock, Star, 
+import {
+  Search, BookOpen, Clock, Star,
   TrendingUp, Sparkles, ChevronRight,
   CheckCircle2, AlertCircle, ArrowRight, Loader2,
-  Shield, ImageIcon, Target, GraduationCap, Briefcase, User
+  Shield, ImageIcon, Target, GraduationCap, Briefcase, User,
+  Upload, FileCheck2
 } from 'lucide-react';
 import { formatEUR } from '@/lib/currency';
 
@@ -47,33 +48,31 @@ export default function CatalogueView({ profile, enrollments, onNavigateFormatio
 
   // 🆕 Calcul du prix selon le profil et le total des formations
   const getDisplayPrice = (cert: any) => {
-    const count = myFormations; // Total formations existantes + celle qu'on ajoute
+    const count = myFormations;
 
     if (profileType === 'Etudiant') {
-      return { 
-        price: cert.price_bourse, 
+      return {
+        price: cert.price_bourse,
         normalPrice: cert.price_normal,
         label: 'Prix bourse',
-        showDiscount: true 
+        showDiscount: true
       };
     }
 
     if (profileType === 'Stagiaire') {
       const reduced = Math.round(cert.price_normal * 0.75);
-      return { 
-        price: reduced, 
+      return {
+        price: reduced,
         normalPrice: cert.price_normal,
         label: 'Tarif stagiaire',
-        showDiscount: true 
+        showDiscount: true
       };
     }
 
-    // Professionnel : réduction selon le total (anciennes + nouvelles)
     let percent = 10;
     if (count >= 3 && count <= 4) percent = 15;
     if (count >= 5) percent = 20;
-    
-    // Pour le calcul on anticipe le nouveau total
+
     const futureTotal = count + 1;
     let futurePercent = 10;
     if (futureTotal >= 3 && futureTotal <= 4) futurePercent = 15;
@@ -81,20 +80,20 @@ export default function CatalogueView({ profile, enrollments, onNavigateFormatio
 
     const reduced = Math.round(cert.price_normal * (1 - percent / 100));
 
-    return { 
-      price: reduced, 
+    return {
+      price: reduced,
       normalPrice: cert.price_normal,
       percent,
       futurePercent,
       futureTotal,
       label: `-${percent}%`,
-      showDiscount: true 
+      showDiscount: true
     };
   };
 
   const handleSubscribe = async (certId: number) => {
     if (!profile) return;
-    
+
     const already = enrollments.find(e => e.certificate_id === certId);
     if (already) {
       onNavigateFormation(certId);
@@ -104,7 +103,7 @@ export default function CatalogueView({ profile, enrollments, onNavigateFormatio
     setSubscribingId(certId);
     const cert = certificates.find(c => c.id === certId);
     const displayPrice = getDisplayPrice(cert);
-    
+
     const { error } = await supabase.from('enrollments').insert({
       student_id: profile.id,
       student_name: profile.full_name || profile.email,
@@ -233,7 +232,7 @@ export default function CatalogueView({ profile, enrollments, onNavigateFormatio
                 }
               </h3>
               <p className="text-xs text-slate-400">
-                {myFormations < 3 
+                {myFormations < 3
                   ? `Ajoutez ${3 - myFormations} formation(s) pour passer à 15% de réduction !`
                   : myFormations < 5
                   ? `Ajoutez ${5 - myFormations} formation(s) pour atteindre 20% de réduction !`
@@ -252,6 +251,7 @@ export default function CatalogueView({ profile, enrollments, onNavigateFormatio
             const enrollment = enrollments.find(e => e.certificate_id === cert.id);
             const isPaid = enrollment?.payment_status === 'PAID';
             const isPending = enrollment && !isPaid;
+            const hasReceipt = enrollment?.receipt_url;
             const isSubscribing = subscribingId === cert.id;
             const dp = getDisplayPrice(cert);
 
@@ -264,15 +264,15 @@ export default function CatalogueView({ profile, enrollments, onNavigateFormatio
                 transition={{ delay: index * 0.05 }}
                 whileHover={{ y: -4 }}
                 className={`group relative bg-[#0f172a] border rounded-2xl overflow-hidden transition-all duration-300 ${
-                  isPaid 
-                    ? 'border-green-500/20 hover:border-green-500/40' 
+                  isPaid
+                    ? 'border-green-500/20 hover:border-green-500/40'
                     : isPending
                     ? 'border-amber-500/20 hover:border-amber-500/40'
                     : 'border-[#1e293b] hover:border-blue-500/20'
                 }`}
               >
                 {/* Image */}
-                <div className="h-44 lg:h-48 bg-[#1e293b] overflow-hidden">
+                <div className="h-44 lg:h-48 bg-[#1e293b] overflow-hidden relative">
                   {cert.image_url ? (
                     <img src={cert.image_url} alt={cert.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                   ) : (
@@ -284,7 +284,12 @@ export default function CatalogueView({ profile, enrollments, onNavigateFormatio
                         <CheckCircle2 className="w-3 h-3" /> Accès obtenu
                       </span>
                     )}
-                    {isPending && (
+                    {isPending && hasReceipt && (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-500/90 text-white rounded-full text-[10px] font-bold backdrop-blur-sm">
+                        <FileCheck2 className="w-3 h-3" /> Preuve envoyée
+                      </span>
+                    )}
+                    {isPending && !hasReceipt && (
                       <span className="inline-flex items-center gap-1 px-2 py-1 bg-amber-500/90 text-white rounded-full text-[10px] font-bold backdrop-blur-sm">
                         <AlertCircle className="w-3 h-3" /> En attente
                       </span>
@@ -357,11 +362,18 @@ export default function CatalogueView({ profile, enrollments, onNavigateFormatio
                       className="w-full flex items-center justify-center gap-1.5 py-2.5 bg-green-500 hover:bg-green-600 text-white text-sm font-semibold rounded-xl transition-colors shadow-lg shadow-green-500/20">
                       Accéder <ChevronRight className="w-4 h-4" />
                     </motion.button>
+                  ) : isPending && hasReceipt ? (
+                    <button
+                      disabled
+                      className="w-full flex items-center justify-center gap-1.5 py-2.5 bg-slate-700 text-slate-400 text-sm font-semibold rounded-xl cursor-not-allowed"
+                    >
+                      <FileCheck2 className="w-4 h-4" /> Preuve envoyée - en attente de validation
+                    </button>
                   ) : isPending ? (
                     <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                       onClick={() => onNavigateFormation(cert.id)}
                       className="w-full flex items-center justify-center gap-1.5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-sm font-semibold rounded-xl transition-all shadow-lg shadow-amber-500/20">
-                      Payer <ArrowRight className="w-4 h-4" />
+                      <Upload className="w-4 h-4" /> Envoyer une preuve <ArrowRight className="w-4 h-4" />
                     </motion.button>
                   ) : (
                     <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
