@@ -8,6 +8,7 @@ interface EnseignantContextType {
   loading: boolean;
   assignedCertificates: any[];
   refreshAssignments: () => Promise<void>;
+  refreshProfile: () => Promise<void>; // ← AJOUTÉ
 }
 
 const EnseignantContext = createContext<EnseignantContextType | undefined>(undefined);
@@ -21,7 +22,10 @@ export function EnseignantProvider({ children }: { children: React.ReactNode }) 
 
   const fetchProfile = async () => {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { router.push('/login'); return; }
+    if (!user) {
+      router.push('/login');
+      return;
+    }
     const { data: prof } = await supabase
       .from('profiles')
       .select('*')
@@ -56,8 +60,22 @@ export function EnseignantProvider({ children }: { children: React.ReactNode }) 
     await loadAssignments();
   };
 
+  // Nouvelle fonction pour recharger le profil après modification
+  const refreshProfile = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data: prof } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+    if (prof) setProfile(prof);
+  };
+
   return (
-    <EnseignantContext.Provider value={{ profile, loading, assignedCertificates, refreshAssignments }}>
+    <EnseignantContext.Provider
+      value={{ profile, loading, assignedCertificates, refreshAssignments, refreshProfile }}
+    >
       {children}
     </EnseignantContext.Provider>
   );

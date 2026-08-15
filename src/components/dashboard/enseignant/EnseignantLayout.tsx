@@ -11,21 +11,27 @@ import NotificationBell from '@/components/notifications/NotificationBell';
 import NotificationDropdown from '@/components/notifications/NotificationDropdown';
 import ProfileSettingsModal from './ProfileSettingsModal';
 import { fadeIn } from '@/lib/animations';
+import { cn } from '@/lib/utils';
 import {
   GraduationCap,
   Menu,
   Award,
+  LogOut,
+  User,
+  Settings,
+  ChevronDown,
 } from 'lucide-react';
 
 type ViewType = 'dashboard' | 'formations' | 'content';
 
 export default function EnseignantLayout() {
-  const { profile, loading, assignedCertificates } = useEnseignant();
+  const { profile, loading, assignedCertificates, refreshProfile } = useEnseignant();
   const [currentView, setCurrentView] = useState<ViewType>('dashboard');
   const [selectedCertId, setSelectedCertId] = useState<number | 'all'>('all');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
 
   if (loading || !profile) {
     return (
@@ -153,7 +159,7 @@ export default function EnseignantLayout() {
               </div>
             </div>
 
-            {/* 🔔 Notifications + Avatar */}
+            {/* 🔔 Notifications + Avatar + Menu utilisateur */}
             <div className="flex items-center gap-3">
               <div className="relative">
                 <NotificationBell 
@@ -166,8 +172,62 @@ export default function EnseignantLayout() {
                   onClose={() => setNotifOpen(false)}
                 />
               </div>
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white text-xs font-bold">
-                {getInitials(profile.full_name || '??')}
+
+              {/* Avatar + Menu */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowUserMenu(!showUserMenu)}
+                  className="flex items-center gap-2 p-1 rounded-xl hover:bg-[#1e293b] transition-colors"
+                >
+                  <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white text-xs font-bold">
+                    {getInitials(profile.full_name || '??')}
+                  </div>
+                  <ChevronDown className="w-4 h-4 text-slate-400 hidden sm:block" />
+                </button>
+
+                <AnimatePresence>
+                  {showUserMenu && (
+                    <>
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={() => setShowUserMenu(false)}
+                        className="fixed inset-0 z-40"
+                      />
+                      <motion.div
+                        initial={{ opacity: 0, y: -8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -8 }}
+                        className="absolute right-0 mt-2 w-56 bg-[#0f172a] border border-[#1e293b] rounded-xl shadow-2xl z-50 overflow-hidden"
+                      >
+                        <div className="px-4 py-3 border-b border-[#1e293b]">
+                          <p className="text-sm font-medium text-white">{profile.full_name}</p>
+                          <p className="text-xs text-slate-500">{profile.email}</p>
+                        </div>
+                        <div className="p-1">
+                          <button
+                            onClick={() => {
+                              setShowProfileModal(true);
+                              setShowUserMenu(false);
+                            }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-slate-300 hover:bg-[#1e293b] hover:text-white transition-colors"
+                          >
+                            <User className="w-4 h-4 text-slate-500" />
+                            Paramètres du profil
+                          </button>
+                          <button
+                            onClick={handleLogout}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-red-400 hover:bg-red-500/5 transition-colors"
+                          >
+                            <LogOut className="w-4 h-4" />
+                            Déconnexion
+                          </button>
+                        </div>
+                      </motion.div>
+                    </>
+                  )}
+                </AnimatePresence>
               </div>
             </div>
           </div>
@@ -221,6 +281,14 @@ export default function EnseignantLayout() {
           </div>
         </main>
       </div>
+
+      {/* ===== MODAL PROFIL ===== */}
+      <ProfileSettingsModal
+        isOpen={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+        profile={profile}
+        onProfileUpdated={refreshProfile}
+      />
     </div>
   );
 }
