@@ -42,14 +42,16 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
   const [theoreticalTitle, setTheoreticalTitle] = useState('');
   const [theoreticalType, setTheoreticalType] = useState<'TEXT' | 'VIDEO' | 'PDF' | 'LINK'>('TEXT');
   const [theoreticalUrl, setTheoreticalUrl] = useState('');
-  const [uploading, setUploading] = useState(false);
+  const [theoreticalBody, setTheoreticalBody] = useState('');
+  const [uploadingTheoretical, setUploadingTheoretical] = useState(false);
 
   // ----- Formulaire cours pratique -----
   const [showAddPractical, setShowAddPractical] = useState(false);
   const [practicalTitle, setPracticalTitle] = useState('');
   const [practicalType, setPracticalType] = useState<'TEXT' | 'VIDEO' | 'PDF' | 'LINK' | 'QUIZ'>('TEXT');
   const [practicalUrl, setPracticalUrl] = useState('');
-  const [practicalUploading, setPracticalUploading] = useState(false);
+  const [practicalBody, setPracticalBody] = useState('');
+  const [uploadingPractical, setUploadingPractical] = useState(false);
 
   // ----- Formulaire examen -----
   const [showAddAssessment, setShowAddAssessment] = useState(false);
@@ -57,7 +59,7 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
   const [assessmentDescription, setAssessmentDescription] = useState('');
   const [assessmentType, setAssessmentType] = useState<'TP' | 'EXAM'>('TP');
 
-  // ----- Gestion QCM (pour les leçons de type QUIZ) -----
+  // ----- Gestion QCM -----
   const [selectedQuizLesson, setSelectedQuizLesson] = useState<any | null>(null);
   const [quizQuestions, setQuizQuestions] = useState<any[]>([]);
   const [showAddQuestion, setShowAddQuestion] = useState(false);
@@ -113,6 +115,7 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
       title: theoreticalTitle,
       content_type: theoreticalType,
       content_url: theoreticalUrl.trim() || null,
+      content_body: theoreticalBody.trim() || null,
       category: 'THEORIQUE',
       position: theoreticalLessons.length + 1,
     });
@@ -129,25 +132,26 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
     setTheoreticalTitle('');
     setTheoreticalType('TEXT');
     setTheoreticalUrl('');
+    setTheoreticalBody('');
     setShowAddTheoretical(false);
   };
 
   const handleTheoreticalFileUpload = async (file: File) => {
-    setUploading(true);
+    setUploadingTheoretical(true);
     const fileName = `${Date.now()}_${file.name}`;
     const { error } = await supabase.storage
       .from('course-pdfs')
       .upload(fileName, file);
     if (error) {
       alert(`Upload échoué : ${error.message}`);
-      setUploading(false);
+      setUploadingTheoretical(false);
       return;
     }
     const { data: publicUrl } = supabase.storage
       .from('course-pdfs')
       .getPublicUrl(fileName);
     setTheoreticalUrl(publicUrl.publicUrl);
-    setUploading(false);
+    setUploadingTheoretical(false);
   };
 
   // ----- Ajout cours pratique -----
@@ -158,6 +162,7 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
       title: practicalTitle,
       content_type: practicalType,
       content_url: practicalUrl.trim() || null,
+      content_body: practicalBody.trim() || null,
       category: 'PRATIQUE',
       position: practicalLessons.length + 1,
     });
@@ -174,25 +179,26 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
     setPracticalTitle('');
     setPracticalType('TEXT');
     setPracticalUrl('');
+    setPracticalBody('');
     setShowAddPractical(false);
   };
 
   const handlePracticalFileUpload = async (file: File) => {
-    setPracticalUploading(true);
+    setUploadingPractical(true);
     const fileName = `${Date.now()}_${file.name}`;
     const { error } = await supabase.storage
       .from('course-pdfs')
       .upload(fileName, file);
     if (error) {
       alert(`Upload échoué : ${error.message}`);
-      setPracticalUploading(false);
+      setUploadingPractical(false);
       return;
     }
     const { data: publicUrl } = supabase.storage
       .from('course-pdfs')
       .getPublicUrl(fileName);
     setPracticalUrl(publicUrl.publicUrl);
-    setPracticalUploading(false);
+    setUploadingPractical(false);
   };
 
   // ----- Ajout examen -----
@@ -230,6 +236,7 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
     }
     const { error } = await supabase.from('quiz_questions').insert({
       lesson_id: selectedQuizLesson.id,
+      assessment_id: null,
       question: questionText,
       option_a: optionA,
       option_b: optionB,
@@ -346,7 +353,7 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
                   type="text"
                   value={theoreticalTitle}
                   onChange={(e) => setTheoreticalTitle(e.target.value)}
-                  placeholder="Titre du cours (ex: Introduction au droit civil)"
+                  placeholder="Titre de la leçon (ex: Introduction au droit civil)"
                   autoFocus
                   className="w-full px-3 py-2 rounded-lg text-sm text-white bg-slate-800 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-500/50 placeholder-slate-500"
                 />
@@ -373,8 +380,17 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
                       Uploader un PDF
                       <input type="file" accept=".pdf" onChange={(e) => e.target.files?.[0] && handleTheoreticalFileUpload(e.target.files[0])} className="hidden" />
                     </label>
-                    {uploading && <p className="text-xs text-slate-500">Upload en cours...</p>}
+                    {uploadingTheoretical && <p className="text-xs text-slate-500">Upload en cours...</p>}
                   </div>
+                )}
+                {theoreticalType === 'TEXT' && (
+                  <textarea
+                    value={theoreticalBody}
+                    onChange={(e) => setTheoreticalBody(e.target.value)}
+                    rows={5}
+                    placeholder="Contenu de la leçon (texte, explications...)"
+                    className="w-full px-3 py-2 rounded-lg text-sm text-white bg-slate-800 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-500/50 placeholder-slate-500"
+                  />
                 )}
                 <div className="flex justify-end gap-2">
                   <button onClick={() => setShowAddTheoretical(false)} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white">Annuler</button>
@@ -386,7 +402,6 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
               </motion.div>
             )}
 
-            {/* Liste des cours théoriques */}
             {theoreticalLessons.length === 0 ? (
               <div className="text-center py-8 text-slate-500 text-sm">Aucun cours théorique pour ce module.</div>
             ) : (
@@ -460,8 +475,17 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
                       Uploader un PDF
                       <input type="file" accept=".pdf" onChange={(e) => e.target.files?.[0] && handlePracticalFileUpload(e.target.files[0])} className="hidden" />
                     </label>
-                    {practicalUploading && <p className="text-xs text-slate-500">Upload en cours...</p>}
+                    {uploadingPractical && <p className="text-xs text-slate-500">Upload en cours...</p>}
                   </div>
+                )}
+                {practicalType === 'TEXT' && (
+                  <textarea
+                    value={practicalBody}
+                    onChange={(e) => setPracticalBody(e.target.value)}
+                    rows={5}
+                    placeholder="Contenu de l'exercice pratique..."
+                    className="w-full px-3 py-2 rounded-lg text-sm text-white bg-slate-800 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-500/50 placeholder-slate-500"
+                  />
                 )}
                 <div className="flex justify-end gap-2">
                   <button onClick={() => setShowAddPractical(false)} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white">Annuler</button>
@@ -473,7 +497,6 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
               </motion.div>
             )}
 
-            {/* Liste des cours pratiques (y compris QCM) */}
             {practicalLessons.length === 0 ? (
               <div className="text-center py-8 text-slate-500 text-sm">Aucun cours pratique pour ce module.</div>
             ) : (
@@ -487,7 +510,7 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
                           onClick={() => setSelectedQuizLesson(lesson)}
                           className="text-xs text-violet-400 hover:text-violet-300 underline"
                         >
-                          Gérer les questions ({quizQuestions.length})
+                          Gérer les questions du QCM
                         </button>
                       </div>
                     )}
@@ -556,7 +579,6 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
               </motion.div>
             )}
 
-            {/* Liste des examens */}
             {assessments.length === 0 ? (
               <div className="text-center py-8 text-slate-500 text-sm">Aucun examen pour ce module.</div>
             ) : (
@@ -592,7 +614,6 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
                 <button onClick={() => setSelectedQuizLesson(null)} className="text-slate-400 hover:text-white"><X className="w-5 h-5" /></button>
               </div>
               <div className="p-4 space-y-4">
-                {/* Formulaire d'ajout */}
                 {!showAddQuestion ? (
                   <button
                     onClick={() => setShowAddQuestion(true)}
@@ -638,7 +659,6 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
                   </div>
                 )}
 
-                {/* Liste des questions */}
                 {quizQuestions.length === 0 ? (
                   <p className="text-center text-slate-500 text-sm py-4">Aucune question pour ce QCM.</p>
                 ) : (
