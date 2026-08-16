@@ -29,14 +29,29 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
   const [activeTab, setActiveTab] = useState<'theoretical' | 'practical' | 'exams'>('theoretical');
   const [lessons, setLessons] = useState<any[]>([]);
   const [assessments, setAssessments] = useState<any[]>([]);
+  const [quizQuestions, setQuizQuestions] = useState<any[]>([]);
+
+  // Formulaire leçon
   const [showAddLesson, setShowAddLesson] = useState(false);
   const [lessonType, setLessonType] = useState<'TEXT' | 'VIDEO' | 'PDF' | 'LINK' | 'QUIZ'>('TEXT');
   const [lessonTitle, setLessonTitle] = useState('');
   const [lessonUrl, setLessonUrl] = useState('');
   const [lessonBody, setLessonBody] = useState('');
+
+  // Formulaire examen
   const [showAddExam, setShowAddExam] = useState(false);
   const [examTitle, setExamTitle] = useState('');
   const [examDescription, setExamDescription] = useState('');
+
+  // Formulaire QCM
+  const [showAddQuestion, setShowAddQuestion] = useState(false);
+  const [questionText, setQuestionText] = useState('');
+  const [optionA, setOptionA] = useState('');
+  const [optionB, setOptionB] = useState('');
+  const [optionC, setOptionC] = useState('');
+  const [optionD, setOptionD] = useState('');
+  const [correctAnswer, setCorrectAnswer] = useState<'A' | 'B' | 'C' | 'D'>('A');
+  const [selectedQuizLesson, setSelectedQuizLesson] = useState<any | null>(null);
 
   const fetchData = async () => {
     const { data: l } = await supabase
@@ -53,9 +68,24 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
     if (a) setAssessments(a);
   };
 
+  const fetchQuizQuestions = async (lessonId: string) => {
+    const { data } = await supabase
+      .from('quiz_questions')
+      .select('*')
+      .eq('lesson_id', lessonId)
+      .order('position', { ascending: true });
+    if (data) setQuizQuestions(data);
+  };
+
   useEffect(() => {
     fetchData();
   }, [module.id]);
+
+  useEffect(() => {
+    if (selectedQuizLesson) {
+      fetchQuizQuestions(selectedQuizLesson.id);
+    }
+  }, [selectedQuizLesson]);
 
   const theoreticalLessons = lessons.filter(l => l.category === 'THEORIQUE');
   const practicalLessons = lessons.filter(l => l.category === 'PRATIQUE');
@@ -65,7 +95,7 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
     const category = activeTab === 'theoretical' ? 'THEORIQUE' : 'PRATIQUE';
     const position = category === 'THEORIQUE' ? theoreticalLessons.length + 1 : practicalLessons.length + 1;
 
-    const { error } = await supabase.from('lessons').insert({
+    const { data, error } = await supabase.from('lessons').insert({
       module_id: module.id,
       title: lessonTitle,
       content_type: lessonType,
@@ -73,9 +103,9 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
       content_body: lessonBody.trim() || null,
       category,
       position,
-    });
+    }).select('*').single();
 
-    if (!error) {
+    if (!error && data) {
       setLessonTitle('');
       setLessonUrl('');
       setLessonBody('');
@@ -83,7 +113,50 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
       setShowAddLesson(false);
       fetchData();
       onUpdate();
+
+      // Si c'est un QCM, ouvrir directement le formulaire de question
+      if (lessonType === 'QUIZ') {
+        setSelectedQuizLesson(data);
+        setShowAddQuestion(true);
+      }
     }
+  };
+
+  const handleAddQuestion = async () => {
+    if (!questionText.trim() || !selectedQuizLesson) return;
+    if (!optionA.trim() || !optionB.trim() || !optionC.trim() || !optionD.trim()) {
+      alert('Veuillez remplir les 4 options.');
+      return;
+    }
+
+    const { error } = await supabase.from('quiz_questions').insert({
+      lesson_id: selectedQuizLesson.id,
+      assessment_id: null,
+      question: questionText,
+      option_a: optionA,
+      option_b: optionB,
+      option_c: optionC,
+      option_d: optionD,
+      correct_answer: correctAnswer,
+      position: quizQuestions.length + 1,
+    });
+
+    if (!error) {
+      setQuestionText('');
+      setOptionA('');
+      setOptionB('');
+      setOptionC('');
+      setOptionD('');
+      setCorrectAnswer('A');
+      fetchQuizQuestions(selectedQuizLesson.id);
+      onUpdate();
+    }
+  };
+
+  const handleDeleteQuestion = async (id: number) => {
+    if (!confirm('Supprimer cette question ?')) return;
+    await supabase.from('quiz_questions').delete().eq('id', id);
+    if (selectedQuizLesson) fetchQuizQuestions(selectedQuizLesson.id);
   };
 
   const handleDeleteLesson = async (id: string) => {
@@ -162,7 +235,6 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
             exit={{ opacity: 0, y: -10 }}
             className="space-y-3"
           >
-            {/* Bouton ajouter */}
             <button
               onClick={() => {
                 setShowAddLesson(true);
@@ -174,10 +246,9 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
               Ajouter un contenu {activeTab === 'theoretical' ? 'théorique' : 'pratique'}
             </button>
 
-            {/* Formulaire ajout leçon */}
             {showAddLesson && (
               <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 space-y-3">
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   {lessonTypes.map((type) => (
                     <button
                       key={type.type}
@@ -197,7 +268,7 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
 
                 <input
                   type="text"
-                  placeholder="Titre"
+                  placeholder={lessonType === 'QUIZ' ? 'Titre du QCM (ex: Quiz de compréhension)' : 'Titre du contenu'}
                   value={lessonTitle}
                   onChange={(e) => setLessonTitle(e.target.value)}
                   className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
@@ -223,13 +294,19 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
                   />
                 )}
 
+                {lessonType === 'QUIZ' && (
+                  <p className="text-xs text-violet-400">
+                    💡 Le QCM sera créé, puis vous pourrez ajouter des questions.
+                  </p>
+                )}
+
                 <div className="flex gap-2">
                   <button
                     onClick={handleAddLesson}
                     disabled={!lessonTitle.trim()}
                     className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium disabled:opacity-50"
                   >
-                    Ajouter
+                    {lessonType === 'QUIZ' ? 'Créer le QCM' : 'Ajouter'}
                   </button>
                   <button
                     onClick={() => setShowAddLesson(false)}
@@ -249,10 +326,7 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
             ) : (
               <div className="space-y-2">
                 {(activeTab === 'theoretical' ? theoreticalLessons : practicalLessons).map((lesson) => (
-                  <div
-                    key={lesson.id}
-                    className="flex items-center justify-between bg-slate-800/30 border border-slate-700/50 rounded-lg p-3"
-                  >
+                  <div key={lesson.id} className="flex items-center justify-between bg-slate-800/30 border border-slate-700/50 rounded-lg p-3">
                     <div className="flex items-center gap-3">
                       <span className={cn(
                         "text-xs px-2 py-0.5 rounded-full font-medium",
@@ -265,6 +339,17 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
                         {lesson.content_type}
                       </span>
                       <span className="text-white text-sm">{lesson.title}</span>
+                      {lesson.content_type === 'QUIZ' && (
+                        <button
+                          onClick={() => {
+                            setSelectedQuizLesson(lesson);
+                            setShowAddQuestion(true);
+                          }}
+                          className="text-xs text-violet-400 hover:text-violet-300 underline"
+                        >
+                          Gérer les questions
+                        </button>
+                      )}
                     </div>
                     <button
                       onClick={() => handleDeleteLesson(lesson.id)}
@@ -336,10 +421,7 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
             ) : (
               <div className="space-y-2">
                 {assessments.map((exam) => (
-                  <div
-                    key={exam.id}
-                    className="flex items-center justify-between bg-slate-800/30 border border-slate-700/50 rounded-lg p-3"
-                  >
+                  <div key={exam.id} className="flex items-center justify-between bg-slate-800/30 border border-slate-700/50 rounded-lg p-3">
                     <div>
                       <span className="text-white text-sm font-medium">{exam.title}</span>
                       {exam.description && (
@@ -357,6 +439,165 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
               </div>
             )}
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ============ MODALE / FORMULAIRE QUESTION QCM ============ */}
+      <AnimatePresence>
+        {selectedQuizLesson && showAddQuestion && (
+          <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowAddQuestion(false)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden"
+            >
+              <div className="flex items-center justify-between p-4 border-b border-slate-800">
+                <h3 className="text-white font-semibold flex items-center gap-2">
+                  <HelpCircle className="w-5 h-5 text-violet-400" />
+                  Questions du QCM : {selectedQuizLesson.title}
+                </h3>
+                <button
+                  onClick={() => setShowAddQuestion(false)}
+                  className="text-slate-400 hover:text-white"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-4 space-y-4 max-h-[70vh] overflow-y-auto">
+                {/* Formulaire d'ajout de question */}
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-xs text-slate-400 mb-1 block">Question</label>
+                    <input
+                      type="text"
+                      value={questionText}
+                      onChange={(e) => setQuestionText(e.target.value)}
+                      placeholder="Ex: Quelle est la première étape ?"
+                      className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-slate-400 mb-1 block">Option A</label>
+                      <input
+                        type="text"
+                        value={optionA}
+                        onChange={(e) => setOptionA(e.target.value)}
+                        placeholder="Option A"
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-slate-400 mb-1 block">Option B</label>
+                      <input
+                        type="text"
+                        value={optionB}
+                        onChange={(e) => setOptionB(e.target.value)}
+                        placeholder="Option B"
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-slate-400 mb-1 block">Option C</label>
+                      <input
+                        type="text"
+                        value={optionC}
+                        onChange={(e) => setOptionC(e.target.value)}
+                        placeholder="Option C"
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-slate-400 mb-1 block">Option D</label>
+                      <input
+                        type="text"
+                        value={optionD}
+                        onChange={(e) => setOptionD(e.target.value)}
+                        placeholder="Option D"
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs text-slate-400 mb-1 block">Bonne réponse</label>
+                    <div className="flex gap-2">
+                      {['A', 'B', 'C', 'D'].map((letter) => (
+                        <button
+                          key={letter}
+                          onClick={() => setCorrectAnswer(letter as any)}
+                          className={cn(
+                            "w-12 h-12 rounded-lg font-bold text-lg transition-colors",
+                            correctAnswer === letter
+                              ? "bg-green-500 text-white"
+                              : "bg-slate-800 text-slate-400 hover:text-white"
+                          )}
+                        >
+                          {letter}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={handleAddQuestion}
+                    disabled={!questionText.trim() || !optionA.trim() || !optionB.trim() || !optionC.trim() || !optionD.trim()}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium disabled:opacity-50"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Ajouter la question
+                  </button>
+                </div>
+
+                {/* Liste des questions existantes */}
+                {quizQuestions.length > 0 && (
+                  <div className="space-y-2 pt-4 border-t border-slate-800">
+                    <p className="text-xs text-slate-400 font-medium">Questions ajoutées ({quizQuestions.length})</p>
+                    {quizQuestions.map((q, index) => (
+                      <div key={q.id} className="bg-slate-800/30 border border-slate-700/50 rounded-lg p-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-white text-sm font-medium">
+                            Q{index + 1}. {q.question}
+                          </p>
+                          <button
+                            onClick={() => handleDeleteQuestion(q.id)}
+                            className="text-red-400 hover:text-red-300 flex-shrink-0"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-1 mt-2">
+                          {['A', 'B', 'C', 'D'].map((letter) => (
+                            <span
+                              key={letter}
+                              className={cn(
+                                "text-xs px-2 py-1 rounded",
+                                q.correct_answer === letter
+                                  ? "bg-green-500/10 text-green-400 font-semibold"
+                                  : "text-slate-400"
+                              )}
+                            >
+                              {letter}) {q[`option_${letter.toLowerCase()}`]}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </div>
