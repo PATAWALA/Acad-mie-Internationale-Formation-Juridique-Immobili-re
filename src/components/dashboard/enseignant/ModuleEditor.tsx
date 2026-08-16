@@ -15,7 +15,6 @@ import {
   Video,
   FileArchive,
   Link2,
-  Check,
   X,
 } from 'lucide-react';
 
@@ -43,15 +42,14 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
   const [examTitle, setExamTitle] = useState('');
   const [examDescription, setExamDescription] = useState('');
 
-  // Formulaire QCM
-  const [showAddQuestion, setShowAddQuestion] = useState(false);
+  // QCM
+  const [activeQuizLesson, setActiveQuizLesson] = useState<any | null>(null);
   const [questionText, setQuestionText] = useState('');
   const [optionA, setOptionA] = useState('');
   const [optionB, setOptionB] = useState('');
   const [optionC, setOptionC] = useState('');
   const [optionD, setOptionD] = useState('');
   const [correctAnswer, setCorrectAnswer] = useState<'A' | 'B' | 'C' | 'D'>('A');
-  const [selectedQuizLesson, setSelectedQuizLesson] = useState<any | null>(null);
 
   const fetchData = async () => {
     const { data: l } = await supabase
@@ -82,63 +80,57 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
   }, [module.id]);
 
   useEffect(() => {
-    if (selectedQuizLesson) {
-      fetchQuizQuestions(selectedQuizLesson.id);
+    if (activeQuizLesson) {
+      fetchQuizQuestions(activeQuizLesson.id);
     }
-  }, [selectedQuizLesson]);
+  }, [activeQuizLesson]);
 
   const theoreticalLessons = lessons.filter(l => l.category === 'THEORIQUE');
   const practicalLessons = lessons.filter(l => l.category === 'PRATIQUE');
 
   const handleAddLesson = async () => {
-  if (!lessonTitle.trim()) return;
-  const category = activeTab === 'theoretical' ? 'THEORIQUE' : 'PRATIQUE';
-  const position = category === 'THEORIQUE' ? theoreticalLessons.length + 1 : practicalLessons.length + 1;
+    if (!lessonTitle.trim()) return;
+    const category = activeTab === 'theoretical' ? 'THEORIQUE' : 'PRATIQUE';
+    const position = category === 'THEORIQUE' ? theoreticalLessons.length + 1 : practicalLessons.length + 1;
 
-  const { data, error } = await supabase.from('lessons').insert({
-    module_id: module.id,
-    title: lessonTitle,
-    content_type: lessonType,
-    content_url: lessonUrl.trim() || null,
-    content_body: lessonBody.trim() || null,
-    category,
-    position,
-  }).select('*').single();
+    const { data, error } = await supabase.from('lessons').insert({
+      module_id: module.id,
+      title: lessonTitle,
+      content_type: lessonType,
+      content_url: lessonUrl.trim() || null,
+      content_body: lessonBody.trim() || null,
+      category,
+      position,
+    }).select('*').single();
 
-  if (error) {
-    alert('Erreur: ' + error.message);
-    return;
-  }
+    if (error) {
+      alert('Erreur: ' + error.message);
+      return;
+    }
 
-  // Réinitialiser le formulaire
-  setLessonTitle('');
-  setLessonUrl('');
-  setLessonBody('');
-  setLessonType('TEXT');
-  setShowAddLesson(false);
+    setLessonTitle('');
+    setLessonUrl('');
+    setLessonBody('');
+    setLessonType('TEXT');
+    setShowAddLesson(false);
 
-  if (lessonType === 'QUIZ' && data) {
-    // Ouvrir la modale QCM
-    setSelectedQuizLesson(data);
-    setShowAddQuestion(true);
-  } else {
-    setShowAddQuestion(false);
-  }
+    if (lessonType === 'QUIZ' && data) {
+      setActiveQuizLesson(data); // ✅ Ouvre la modale QCM
+    }
 
-  fetchData();
-  onUpdate();
-};
-
+    fetchData();
+    onUpdate();
+  };
 
   const handleAddQuestion = async () => {
-    if (!questionText.trim() || !selectedQuizLesson) return;
+    if (!questionText.trim() || !activeQuizLesson) return;
     if (!optionA.trim() || !optionB.trim() || !optionC.trim() || !optionD.trim()) {
       alert('Veuillez remplir les 4 options.');
       return;
     }
 
     const { error } = await supabase.from('quiz_questions').insert({
-      lesson_id: selectedQuizLesson.id,
+      lesson_id: activeQuizLesson.id,
       assessment_id: null,
       question: questionText,
       option_a: optionA,
@@ -156,7 +148,7 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
       setOptionC('');
       setOptionD('');
       setCorrectAnswer('A');
-      fetchQuizQuestions(selectedQuizLesson.id);
+      fetchQuizQuestions(activeQuizLesson.id);
       onUpdate();
     }
   };
@@ -164,7 +156,7 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
   const handleDeleteQuestion = async (id: number) => {
     if (!confirm('Supprimer cette question ?')) return;
     await supabase.from('quiz_questions').delete().eq('id', id);
-    if (selectedQuizLesson) fetchQuizQuestions(selectedQuizLesson.id);
+    if (activeQuizLesson) fetchQuizQuestions(activeQuizLesson.id);
   };
 
   const handleDeleteLesson = async (id: string) => {
@@ -209,7 +201,7 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
 
   return (
     <div className="space-y-4">
-      {/* Onglets simples */}
+      {/* Onglets */}
       <div className="flex gap-2">
         {[
           { id: 'theoretical', label: 'Théorique', icon: BookOpen, count: theoreticalLessons.length },
@@ -234,7 +226,7 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
       </div>
 
       <AnimatePresence mode="wait">
-        {/* ============ CONTENU THÉORIQUE / PRATIQUE ============ */}
+        {/* THÉORIQUE / PRATIQUE */}
         {(activeTab === 'theoretical' || activeTab === 'practical') && (
           <motion.div
             key={activeTab}
@@ -303,9 +295,7 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
                 )}
 
                 {lessonType === 'QUIZ' && (
-                  <p className="text-xs text-violet-400">
-                    💡 Le QCM sera créé, puis vous pourrez ajouter des questions.
-                  </p>
+                  <p className="text-xs text-violet-400">💡 Le QCM sera créé, puis vous pourrez ajouter des questions.</p>
                 )}
 
                 <div className="flex gap-2">
@@ -349,10 +339,7 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
                       <span className="text-white text-sm">{lesson.title}</span>
                       {lesson.content_type === 'QUIZ' && (
                         <button
-                          onClick={() => {
-                            setSelectedQuizLesson(lesson);
-                            setShowAddQuestion(true);
-                          }}
+                          onClick={() => setActiveQuizLesson(lesson)}
                           className="text-xs text-violet-400 hover:text-violet-300 underline"
                         >
                           Gérer les questions
@@ -372,7 +359,7 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
           </motion.div>
         )}
 
-        {/* ============ EXAMENS ============ */}
+        {/* EXAMENS */}
         {activeTab === 'exams' && (
           <motion.div
             key="exams"
@@ -450,15 +437,15 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
         )}
       </AnimatePresence>
 
-      {/* ============ MODALE / FORMULAIRE QUESTION QCM ============ */}
+      {/* ============ MODALE QCM ============ */}
       <AnimatePresence>
-        {selectedQuizLesson && showAddQuestion && (
+        {activeQuizLesson && (
           <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => setShowAddQuestion(false)}
+              onClick={() => setActiveQuizLesson(null)}
               className="absolute inset-0 bg-black/80 backdrop-blur-sm"
             />
             <motion.div
@@ -470,10 +457,10 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
               <div className="flex items-center justify-between p-4 border-b border-slate-800">
                 <h3 className="text-white font-semibold flex items-center gap-2">
                   <HelpCircle className="w-5 h-5 text-violet-400" />
-                  Questions du QCM : {selectedQuizLesson.title}
+                  Questions du QCM : {activeQuizLesson.title}
                 </h3>
                 <button
-                  onClick={() => setShowAddQuestion(false)}
+                  onClick={() => setActiveQuizLesson(null)}
                   className="text-slate-400 hover:text-white"
                 >
                   <X className="w-5 h-5" />
@@ -481,7 +468,7 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
               </div>
 
               <div className="p-4 space-y-4 max-h-[70vh] overflow-y-auto">
-                {/* Formulaire d'ajout de question */}
+                {/* Formulaire question */}
                 <div className="space-y-3">
                   <div>
                     <label className="text-xs text-slate-400 mb-1 block">Question</label>
@@ -567,10 +554,12 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
                   </button>
                 </div>
 
-                {/* Liste des questions existantes */}
+                {/* Liste des questions */}
                 {quizQuestions.length > 0 && (
                   <div className="space-y-2 pt-4 border-t border-slate-800">
-                    <p className="text-xs text-slate-400 font-medium">Questions ajoutées ({quizQuestions.length})</p>
+                    <p className="text-xs text-slate-400 font-medium">
+                      Questions ajoutées ({quizQuestions.length})
+                    </p>
                     {quizQuestions.map((q, index) => (
                       <div key={q.id} className="bg-slate-800/30 border border-slate-700/50 rounded-lg p-3">
                         <div className="flex items-start justify-between gap-2">
