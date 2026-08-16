@@ -3,7 +3,7 @@ import { generateWebSiteSchema, generatePersonSchema, JsonLd } from '@/lib/struc
 import { generateBaseMetadata, siteConfig } from '@/lib/metadata';
 import './globals.css';
 import type { Metadata } from 'next';
-import PwaRegister from '@/components/';
+import PwaRegister from '@/components/PwaRegister';
 
 const inter = Inter({
   subsets: ['latin'],
