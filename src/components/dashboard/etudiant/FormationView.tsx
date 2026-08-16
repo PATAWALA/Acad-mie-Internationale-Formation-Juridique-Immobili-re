@@ -76,11 +76,11 @@ export default function FormationView({ certId, onPaymentSuccess, onPayClick }: 
   }, []);
 
   const loadData = useCallback(async () => {
-    if (!profile) return;
+  if (!profile) return;
+  setLoading(true);
 
-    setLoading(true);
-
-    // 1. Récupérer l'enrollment avec receipt_url
+  try {
+    // 1. Récupérer l'enrollment (rapide)
     const { data: enr } = await supabase
       .from('enrollments')
       .select('id, payment_status, remaining_balance, receipt_url')
@@ -90,50 +90,50 @@ export default function FormationView({ certId, onPaymentSuccess, onPayClick }: 
 
     if (!enr) {
       setEnrollmentStatus(null);
-      setCourseCertificate(null);
       setLoading(false);
       return;
     }
+
     setEnrollmentStatus(enr.payment_status);
     setEnrollment(enr);
 
-    // 2. Récupérer les infos du certificat
-    const { data: certInfo } = await supabase
-      .from('certificates')
-      .select('slogan, skills, target_audience, benefits, brochure_url')
-      .eq('id', certId)
-      .single();
-    if (certInfo) setCertificateInfo(certInfo);
-
-    // 3. Si payé, charger les cours et soumissions
+    // 2. Si payé, charger les cours AVEC les modules/leçons/évaluations
     if (enr.payment_status === 'PAID') {
-      const { data: coursesData } = await supabase
-        .from('courses')
-        .select('id, title, description, modules(id, title, week_number, lessons(id, title, content_type, content_url, content_body, category), assessments(id, title, description, type, max_score))')
-        .eq('certificate_id', certId)
-        .order('id');
-      setCourses(coursesData || []);
+      const [coursesRes, certRes, subsRes] = await Promise.all([
+        supabase
+          .from('courses')
+          .select('id, title, description, modules(id, title, week_number, lessons(id, title, content_type, content_url, content_body, category), assessments(id, title, description, type, max_score))')
+          .eq('certificate_id', certId)
+          .order('id'),
+        supabase
+          .from('certificates')
+          .select('slogan, skills, target_audience, benefits, brochure_url')
+          .eq('id', certId)
+          .single(),
+        supabase
+          .from('submissions')
+          .select('assessment_id, submission_url, status, grade, feedback')
+          .eq('student_id', profile.id),
+      ]);
 
-      const { data: subs } = await supabase
-        .from('submissions')
-        .select('assessment_id, submission_url, status, grade, feedback')
-        .eq('student_id', profile.id);
+      const coursesData = coursesRes.data || [];
+      setCourses(coursesData);
+      if (certRes.data) setCertificateInfo(certRes.data);
 
+      const subs = subsRes.data || [];
       const map: Record<string, any> = {};
-      subs?.forEach((s) => {
-        const aid = s.assessment_id ?? '';
-        if (aid) map[aid] = s;
+      subs.forEach((s) => {
+        if (s.assessment_id) map[s.assessment_id] = s;
       });
       setSubmissionsMap(map);
 
-      const passed = subs?.filter(s => s.status === 'PASSED' && s.assessment_id).map(s => s.assessment_id!) || [];
+      const passed = subs.filter(s => s.status === 'PASSED' && s.assessment_id).map(s => s.assessment_id!);
       setPassedAssessments(passed);
+      computeCertStats(coursesData, passed);
 
-      computeCertStats(coursesData || [], passed);
-
-      // 4. Charger le certificat de CETTE formation uniquement
-      if (coursesData && coursesData.length > 0) {
-        const courseIds = coursesData.map((c: any) => c.id);
+      // 3. Charger le certificat émis si nécessaire
+      if (coursesData.length > 0) {
+        const courseIds = coursesData.map(c => c.id);
         const { data: certs } = await supabase
           .from('issued_certificates')
           .select('id, certificate_url, course_id, issued_at')
@@ -142,22 +142,15 @@ export default function FormationView({ certId, onPaymentSuccess, onPayClick }: 
           .order('issued_at', { ascending: false })
           .limit(1);
 
-        if (certs && certs.length > 0) {
-          setCourseCertificate(certs[0]);
-        } else {
-          setCourseCertificate(null);
-        }
+        setCourseCertificate(certs?.[0] || null);
       }
-    } else {
-      setCourseCertificate(null);
     }
-
+  } catch (err) {
+    console.error(err);
+  } finally {
     setLoading(false);
-  }, [certId, profile, supabase, computeCertStats]);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  }
+}, [certId, profile, supabase, computeCertStats]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
