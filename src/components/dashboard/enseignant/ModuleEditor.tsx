@@ -91,36 +91,44 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
   const practicalLessons = lessons.filter(l => l.category === 'PRATIQUE');
 
   const handleAddLesson = async () => {
-    if (!lessonTitle.trim()) return;
-    const category = activeTab === 'theoretical' ? 'THEORIQUE' : 'PRATIQUE';
-    const position = category === 'THEORIQUE' ? theoreticalLessons.length + 1 : practicalLessons.length + 1;
+  if (!lessonTitle.trim()) return;
+  const category = activeTab === 'theoretical' ? 'THEORIQUE' : 'PRATIQUE';
+  const position = category === 'THEORIQUE' ? theoreticalLessons.length + 1 : practicalLessons.length + 1;
 
-    const { data, error } = await supabase.from('lessons').insert({
-      module_id: module.id,
-      title: lessonTitle,
-      content_type: lessonType,
-      content_url: lessonUrl.trim() || null,
-      content_body: lessonBody.trim() || null,
-      category,
-      position,
-    }).select('*').single();
+  const { data, error } = await supabase.from('lessons').insert({
+    module_id: module.id,
+    title: lessonTitle,
+    content_type: lessonType,
+    content_url: lessonUrl.trim() || null,
+    content_body: lessonBody.trim() || null,
+    category,
+    position,
+  }).select('*').single();
 
-    if (!error && data) {
-      setLessonTitle('');
-      setLessonUrl('');
-      setLessonBody('');
-      setLessonType('TEXT');
-      setShowAddLesson(false);
-      fetchData();
-      onUpdate();
+  if (error) {
+    alert('Erreur: ' + error.message);
+    return;
+  }
 
-      // Si c'est un QCM, ouvrir directement le formulaire de question
-      if (lessonType === 'QUIZ') {
-        setSelectedQuizLesson(data);
-        setShowAddQuestion(true);
-      }
-    }
-  };
+  // Réinitialiser le formulaire
+  setLessonTitle('');
+  setLessonUrl('');
+  setLessonBody('');
+  setLessonType('TEXT');
+  setShowAddLesson(false);
+
+  if (lessonType === 'QUIZ' && data) {
+    // Ouvrir la modale QCM
+    setSelectedQuizLesson(data);
+    setShowAddQuestion(true);
+  } else {
+    setShowAddQuestion(false);
+  }
+
+  fetchData();
+  onUpdate();
+};
+
 
   const handleAddQuestion = async () => {
     if (!questionText.trim() || !selectedQuizLesson) return;
