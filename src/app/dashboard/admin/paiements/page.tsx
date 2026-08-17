@@ -48,44 +48,44 @@ export default function PaiementsPage() {
   }, []);
 
   const fetchPendingPayments = useCallback(async () => {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from('enrollments')
-      .select(`
-        id,
-        student_id,
-        student_name,
-        certificate_id,
-        certificates(title),
-        remaining_balance,
-        amount_paid,
-        receipt_url,
-        created_at
-      `)
-      .eq('payment_status', 'PENDING')
-      .not('receipt_url', 'is', null)
-      .order('created_at', { ascending: false });
+  setLoading(true);
+  const { data, error } = await supabase
+    .from('enrollments')
+    .select(`
+      id,
+      student_id,
+      student_name,
+      certificate_id,
+      certificates(title),
+      remaining_balance,
+      amount_paid,
+      receipt_url,
+      created_at
+    `)
+    .eq('payment_status', 'PENDING')
+    .not('receipt_url', 'is', null)
+    .order('created_at', { ascending: false });
 
-    if (data) setPendingPayments(data);
-    setLoading(false);
-  }, [supabase]);
-
-  useEffect(() => {
-    if (authorized) fetchPendingPayments();
-  }, [authorized, fetchPendingPayments]);
+  if (data) setPendingPayments(data);
+  setLoading(false);
+}, [supabase]);
 
   const handleValidate = async (enrollmentId: number) => {
   if (!confirm("Valider ce paiement ? L'étudiant aura immédiatement accès à la formation.")) return;
   setProcessingId(enrollmentId);
 
+  // Récupérer les infos du paiement depuis la liste locale
   const payment = pendingPayments.find(p => p.id === enrollmentId);
   if (!payment) {
+    alert("Paiement introuvable dans la liste.");
     setProcessingId(null);
     return;
   }
 
   const amount = payment.remaining_balance || 0;
   const studentId = payment.student_id;
+
+  console.log("✅ Validation du paiement", { enrollmentId, studentId, amount });
 
   // 1. Mettre à jour l'enrollment
   const { error: enrollError } = await supabase
@@ -103,6 +103,8 @@ export default function PaiementsPage() {
     return;
   }
 
+  console.log("✅ Enrollment mis à jour");
+
   // 2. Mettre à jour le profil de l'étudiant
   if (studentId) {
     const { error: profileError } = await supabase
@@ -111,11 +113,15 @@ export default function PaiementsPage() {
       .eq('id', studentId);
 
     if (profileError) {
-      console.error('Erreur profil:', profileError.message);
+      console.error("❌ Erreur profil :", profileError.message);
+    } else {
+      console.log("✅ Profil étudiant mis à jour (status = PAID)");
     }
+  } else {
+    console.warn("⚠️ Aucun student_id trouvé pour cet enrollment");
   }
 
-  // 3. Notification
+  // 3. Envoyer une notification
   if (studentId) {
     await supabase.from('notifications').insert({
       user_id: studentId,
@@ -125,6 +131,7 @@ export default function PaiementsPage() {
     });
   }
 
+  // 4. Rafraîchir la liste
   fetchPendingPayments();
   setProcessingId(null);
 };
