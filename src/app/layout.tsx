@@ -4,6 +4,7 @@ import { generateBaseMetadata, siteConfig } from '@/lib/metadata';
 import './globals.css';
 import type { Metadata } from 'next';
 import PwaRegister from '@/components/PwaRegister';
+import InstallPwaButton from '@/components/InstallPwaButton';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -76,6 +77,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className={`${inter.variable} ${playfair.variable} font-sans bg-dark-900 text-white antialiased`}>
         {children}
         <PwaRegister />
+        <InstallPwaButton />
       </body>
     </html>
   );
