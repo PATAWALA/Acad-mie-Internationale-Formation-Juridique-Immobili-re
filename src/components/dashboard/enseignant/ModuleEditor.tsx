@@ -18,6 +18,8 @@ import {
   X,
   Upload,
   Loader2,
+  Image,
+  Check,
 } from 'lucide-react';
 
 interface Props {
@@ -44,6 +46,9 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
   const [showAddExam, setShowAddExam] = useState(false);
   const [examTitle, setExamTitle] = useState('');
   const [examDescription, setExamDescription] = useState('');
+  const [examImages, setExamImages] = useState<string[]>([]);
+  const [examFiles, setExamFiles] = useState<string[]>([]);
+  const [uploadingExamFile, setUploadingExamFile] = useState(false);
 
   // QCM
   const [activeQuizLesson, setActiveQuizLesson] = useState<any | null>(null);
@@ -91,6 +96,51 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
   const theoreticalLessons = lessons.filter(l => l.category === 'THEORIQUE');
   const practicalLessons = lessons.filter(l => l.category === 'PRATIQUE');
 
+  const handleAddQuestion = async () => {
+  if (!questionText.trim() || !activeQuizLesson) return;
+  if (!optionA.trim() || !optionB.trim() || !optionC.trim() || !optionD.trim()) {
+    alert('Veuillez remplir les 4 options.');
+    return;
+  }
+
+  const { error } = await supabase.from('quiz_questions').insert({
+    lesson_id: activeQuizLesson.id,
+    assessment_id: null,
+    question: questionText,
+    option_a: optionA,
+    option_b: optionB,
+    option_c: optionC,
+    option_d: optionD,
+    correct_answer: correctAnswer,
+    position: quizQuestions.length + 1,
+  });
+
+  if (!error) {
+    setQuestionText('');
+    setOptionA('');
+    setOptionB('');
+    setOptionC('');
+    setOptionD('');
+    setCorrectAnswer('A');
+    fetchQuizQuestions(activeQuizLesson.id);
+    onUpdate();
+  }
+};
+
+const handleDeleteQuestion = async (id: number) => {
+  if (!confirm('Supprimer cette question ?')) return;
+  await supabase.from('quiz_questions').delete().eq('id', id);
+  if (activeQuizLesson) fetchQuizQuestions(activeQuizLesson.id);
+};
+
+const handleDeleteLesson = async (id: string) => {
+  if (!confirm('Supprimer cette leçon ?')) return;
+  await supabase.from('lessons').delete().eq('id', id);
+  fetchData();
+  onUpdate();
+};
+
+  // Upload PDF pour leçon
   const handlePdfUpload = async (file: File) => {
     if (!file) return;
     setUploadingPdf(true);
@@ -114,10 +164,38 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
     setUploadingPdf(false);
   };
 
+  // Upload fichier pour examen (image ou PDF)
+  const handleExamFileUpload = async (file: File) => {
+    if (!file) return;
+    setUploadingExamFile(true);
+
+    const fileName = `${Date.now()}_${file.name.replace(/\s+/g, '_')}`;
+    const { error: uploadError } = await supabase.storage
+      .from('course-pdfs')
+      .upload(fileName, file);
+
+    if (uploadError) {
+      alert('Upload échoué : ' + uploadError.message);
+      setUploadingExamFile(false);
+      return;
+    }
+
+    const { data: publicUrlData } = supabase.storage
+      .from('course-pdfs')
+      .getPublicUrl(fileName);
+
+    // Ajouter l'URL aux fichiers de l'examen
+    if (file.type.startsWith('image/')) {
+      setExamImages(prev => [...prev, publicUrlData.publicUrl]);
+    } else {
+      setExamFiles(prev => [...prev, publicUrlData.publicUrl]);
+    }
+    setUploadingExamFile(false);
+  };
+
   const handleAddLesson = async () => {
     if (!lessonTitle.trim()) return;
 
-    // Pour PDF, vérifier qu'un fichier a été uploadé
     if (lessonType === 'PDF' && !lessonUrl) {
       alert('Veuillez télécharger un fichier PDF.');
       return;
@@ -155,62 +233,37 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
     onUpdate();
   };
 
-  const handleAddQuestion = async () => {
-    if (!questionText.trim() || !activeQuizLesson) return;
-    if (!optionA.trim() || !optionB.trim() || !optionC.trim() || !optionD.trim()) {
-      alert('Veuillez remplir les 4 options.');
-      return;
-    }
-
-    const { error } = await supabase.from('quiz_questions').insert({
-      lesson_id: activeQuizLesson.id,
-      assessment_id: null,
-      question: questionText,
-      option_a: optionA,
-      option_b: optionB,
-      option_c: optionC,
-      option_d: optionD,
-      correct_answer: correctAnswer,
-      position: quizQuestions.length + 1,
-    });
-
-    if (!error) {
-      setQuestionText('');
-      setOptionA('');
-      setOptionB('');
-      setOptionC('');
-      setOptionD('');
-      setCorrectAnswer('A');
-      fetchQuizQuestions(activeQuizLesson.id);
-      onUpdate();
-    }
-  };
-
-  const handleDeleteQuestion = async (id: number) => {
-    if (!confirm('Supprimer cette question ?')) return;
-    await supabase.from('quiz_questions').delete().eq('id', id);
-    if (activeQuizLesson) fetchQuizQuestions(activeQuizLesson.id);
-  };
-
-  const handleDeleteLesson = async (id: string) => {
-    if (!confirm('Supprimer cette leçon ?')) return;
-    await supabase.from('lessons').delete().eq('id', id);
-    fetchData();
-    onUpdate();
-  };
-
   const handleAddExam = async () => {
     if (!examTitle.trim()) return;
+
+    // Construire la description complète avec les fichiers
+    let fullDescription = examDescription.trim() || '';
+    if (examImages.length > 0) {
+      fullDescription += '\n\n📷 DOCUMENTS IMAGES :\n';
+      examImages.forEach((url, i) => {
+        fullDescription += `Image ${i + 1}: ${url}\n`;
+      });
+    }
+    if (examFiles.length > 0) {
+      fullDescription += '\n📄 DOCUMENTS PDF :\n';
+      examFiles.forEach((url, i) => {
+        fullDescription += `PDF ${i + 1}: ${url}\n`;
+      });
+    }
+
     const { error } = await supabase.from('assessments').insert({
       module_id: module.id,
       course_id: module.course_id,
       title: examTitle,
-      description: examDescription.trim() || null,
+      description: fullDescription.trim() || null,
       type: 'EXAM',
     });
+
     if (!error) {
       setExamTitle('');
       setExamDescription('');
+      setExamImages([]);
+      setExamFiles([]);
       setShowAddExam(false);
       fetchData();
       onUpdate();
@@ -306,13 +359,12 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
 
                 <input
                   type="text"
-                  placeholder={lessonType === 'QUIZ' ? 'Titre du QCM (ex: Quiz de compréhension)' : 'Titre du contenu'}
+                  placeholder={lessonType === 'QUIZ' ? 'Titre du QCM' : 'Titre du contenu'}
                   value={lessonTitle}
                   onChange={(e) => setLessonTitle(e.target.value)}
                   className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                 />
 
-                {/* TEXTE */}
                 {lessonType === 'TEXT' && (
                   <textarea
                     placeholder="Contenu..."
@@ -323,18 +375,16 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
                   />
                 )}
 
-                {/* VIDÉO */}
                 {lessonType === 'VIDEO' && (
                   <input
                     type="text"
-                    placeholder="URL de la vidéo (YouTube, Vimeo, Loom...)"
+                    placeholder="URL de la vidéo (YouTube, Vimeo...)"
                     value={lessonUrl}
                     onChange={(e) => setLessonUrl(e.target.value)}
                     className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                   />
                 )}
 
-                {/* PDF : UPLOAD */}
                 {lessonType === 'PDF' && (
                   <div className="space-y-2">
                     <label className="flex items-center justify-center gap-2 py-4 border-2 border-dashed border-slate-600 rounded-xl cursor-pointer hover:border-slate-400 transition-colors">
@@ -354,12 +404,11 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
                     </label>
                     {uploadingPdf && <Loader2 className="w-4 h-4 text-blue-400 animate-spin mx-auto" />}
                     {lessonUrl && !uploadingPdf && (
-                      <p className="text-xs text-green-400">✅ PDF téléchargé avec succès</p>
+                      <p className="text-xs text-green-400">✅ PDF téléchargé</p>
                     )}
                   </div>
                 )}
 
-                {/* LIEN */}
                 {lessonType === 'LINK' && (
                   <input
                     type="text"
@@ -370,7 +419,6 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
                   />
                 )}
 
-                {/* QCM */}
                 {lessonType === 'QUIZ' && (
                   <p className="text-xs text-violet-400">💡 Le QCM sera créé, puis vous pourrez ajouter des questions.</p>
                 )}
@@ -463,17 +511,76 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
                   autoFocus
                   className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                 />
+
                 <textarea
-                  placeholder="Consignes (optionnel)"
+                  placeholder="Consignes de l'examen..."
                   value={examDescription}
                   onChange={(e) => setExamDescription(e.target.value)}
-                  rows={3}
+                  rows={4}
                   className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none"
                 />
+
+                {/* Upload de fichiers pour l'examen */}
+                <div className="space-y-2">
+                  <p className="text-xs text-slate-400 font-medium">Documents à joindre :</p>
+                  <label className="flex items-center justify-center gap-2 py-3 border-2 border-dashed border-slate-600 rounded-xl cursor-pointer hover:border-slate-400 transition-colors">
+                    <Upload className="w-4 h-4 text-slate-400" />
+                    <span className="text-sm text-slate-400">
+                      {uploadingExamFile ? 'Upload en cours...' : 'Ajouter une image ou un PDF'}
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*,.pdf"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleExamFileUpload(file);
+                      }}
+                    />
+                  </label>
+                  {uploadingExamFile && <Loader2 className="w-4 h-4 text-blue-400 animate-spin mx-auto" />}
+
+                  {/* Aperçu des images uploadées */}
+                  {examImages.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {examImages.map((url, i) => (
+                        <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-slate-700">
+                          <img src={url} alt={`Document ${i + 1}`} className="w-full h-full object-cover" />
+                          <button
+                            onClick={() => setExamImages(prev => prev.filter((_, idx) => idx !== i))}
+                            className="absolute top-0 right-0 bg-red-500 text-white rounded-bl-lg p-0.5"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Aperçu des PDF uploadés */}
+                  {examFiles.length > 0 && (
+                    <div className="space-y-1">
+                      {examFiles.map((url, i) => (
+                        <div key={i} className="flex items-center justify-between bg-slate-900 rounded-lg p-2">
+                          <span className="text-xs text-slate-400 flex items-center gap-2">
+                            <FileText className="w-3 h-3" /> PDF {i + 1}
+                          </span>
+                          <button
+                            onClick={() => setExamFiles(prev => prev.filter((_, idx) => idx !== i))}
+                            className="text-red-400 hover:text-red-300"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 <div className="flex gap-2">
                   <button
                     onClick={handleAddExam}
-                    disabled={!examTitle.trim()}
+                    disabled={!examTitle.trim() || uploadingExamFile}
                     className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium disabled:opacity-50"
                   >
                     Ajouter
@@ -488,6 +595,7 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
               </div>
             )}
 
+            {/* Liste des examens */}
             {assessments.length === 0 ? (
               <p className="text-center text-slate-500 text-sm py-6">Aucun examen</p>
             ) : (
@@ -497,12 +605,12 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
                     <div>
                       <span className="text-white text-sm font-medium">{exam.title}</span>
                       {exam.description && (
-                        <p className="text-slate-500 text-xs mt-0.5">{exam.description}</p>
+                        <p className="text-slate-500 text-xs mt-0.5 line-clamp-2">{exam.description}</p>
                       )}
                     </div>
                     <button
                       onClick={() => handleDeleteExam(exam.id)}
-                      className="text-red-400 hover:text-red-300 transition-colors"
+                      className="text-red-400 hover:text-red-300 transition-colors flex-shrink-0"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -536,10 +644,7 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
                   <HelpCircle className="w-5 h-5 text-violet-400" />
                   Questions du QCM : {activeQuizLesson.title}
                 </h3>
-                <button
-                  onClick={() => setActiveQuizLesson(null)}
-                  className="text-slate-400 hover:text-white"
-                >
+                <button onClick={() => setActiveQuizLesson(null)} className="text-slate-400 hover:text-white">
                   <X className="w-5 h-5" />
                 </button>
               </div>
@@ -560,43 +665,23 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="text-xs text-slate-400 mb-1 block">Option A</label>
-                      <input
-                        type="text"
-                        value={optionA}
-                        onChange={(e) => setOptionA(e.target.value)}
-                        placeholder="Option A"
-                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50"
-                      />
+                      <input type="text" value={optionA} onChange={(e) => setOptionA(e.target.value)} placeholder="Option A"
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50" />
                     </div>
                     <div>
                       <label className="text-xs text-slate-400 mb-1 block">Option B</label>
-                      <input
-                        type="text"
-                        value={optionB}
-                        onChange={(e) => setOptionB(e.target.value)}
-                        placeholder="Option B"
-                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50"
-                      />
+                      <input type="text" value={optionB} onChange={(e) => setOptionB(e.target.value)} placeholder="Option B"
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50" />
                     </div>
                     <div>
                       <label className="text-xs text-slate-400 mb-1 block">Option C</label>
-                      <input
-                        type="text"
-                        value={optionC}
-                        onChange={(e) => setOptionC(e.target.value)}
-                        placeholder="Option C"
-                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50"
-                      />
+                      <input type="text" value={optionC} onChange={(e) => setOptionC(e.target.value)} placeholder="Option C"
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50" />
                     </div>
                     <div>
                       <label className="text-xs text-slate-400 mb-1 block">Option D</label>
-                      <input
-                        type="text"
-                        value={optionD}
-                        onChange={(e) => setOptionD(e.target.value)}
-                        placeholder="Option D"
-                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50"
-                      />
+                      <input type="text" value={optionD} onChange={(e) => setOptionD(e.target.value)} placeholder="Option D"
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50" />
                     </div>
                   </div>
 
@@ -604,16 +689,11 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
                     <label className="text-xs text-slate-400 mb-1 block">Bonne réponse</label>
                     <div className="flex gap-2">
                       {['A', 'B', 'C', 'D'].map((letter) => (
-                        <button
-                          key={letter}
-                          onClick={() => setCorrectAnswer(letter as any)}
+                        <button key={letter} onClick={() => setCorrectAnswer(letter as any)}
                           className={cn(
                             "w-12 h-12 rounded-lg font-bold text-lg transition-colors",
-                            correctAnswer === letter
-                              ? "bg-green-500 text-white"
-                              : "bg-slate-800 text-slate-400 hover:text-white"
-                          )}
-                        >
+                            correctAnswer === letter ? "bg-green-500 text-white" : "bg-slate-800 text-slate-400 hover:text-white"
+                          )}>
                           {letter}
                         </button>
                       ))}
@@ -632,33 +712,21 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
 
                 {quizQuestions.length > 0 && (
                   <div className="space-y-2 pt-4 border-t border-slate-800">
-                    <p className="text-xs text-slate-400 font-medium">
-                      Questions ajoutées ({quizQuestions.length})
-                    </p>
+                    <p className="text-xs text-slate-400 font-medium">Questions ajoutées ({quizQuestions.length})</p>
                     {quizQuestions.map((q, index) => (
                       <div key={q.id} className="bg-slate-800/30 border border-slate-700/50 rounded-lg p-3">
                         <div className="flex items-start justify-between gap-2">
-                          <p className="text-white text-sm font-medium">
-                            Q{index + 1}. {q.question}
-                          </p>
-                          <button
-                            onClick={() => handleDeleteQuestion(q.id)}
-                            className="text-red-400 hover:text-red-300 flex-shrink-0"
-                          >
+                          <p className="text-white text-sm font-medium">Q{index + 1}. {q.question}</p>
+                          <button onClick={() => handleDeleteQuestion(q.id)} className="text-red-400 hover:text-red-300 flex-shrink-0">
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
                         <div className="grid grid-cols-2 gap-1 mt-2">
                           {['A', 'B', 'C', 'D'].map((letter) => (
-                            <span
-                              key={letter}
-                              className={cn(
-                                "text-xs px-2 py-1 rounded",
-                                q.correct_answer === letter
-                                  ? "bg-green-500/10 text-green-400 font-semibold"
-                                  : "text-slate-400"
-                              )}
-                            >
+                            <span key={letter} className={cn(
+                              "text-xs px-2 py-1 rounded",
+                              q.correct_answer === letter ? "bg-green-500/10 text-green-400 font-semibold" : "text-slate-400"
+                            )}>
                               {letter}) {q[`option_${letter.toLowerCase()}`]}
                             </span>
                           ))}
