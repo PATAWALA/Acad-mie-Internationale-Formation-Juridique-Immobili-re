@@ -48,27 +48,31 @@ export default function PaiementsPage() {
   }, []);
 
   const fetchPendingPayments = useCallback(async () => {
-  setLoading(true);
-  const { data, error } = await supabase
-    .from('enrollments')
-    .select(`
-      id,
-      student_id,
-      student_name,
-      certificate_id,
-      certificates(title),
-      remaining_balance,
-      amount_paid,
-      receipt_url,
-      created_at
-    `)
-    .eq('payment_status', 'PENDING')
-    .not('receipt_url', 'is', null)
-    .order('created_at', { ascending: false });
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('enrollments')
+      .select(`
+        id,
+        student_id,
+        student_name,
+        certificate_id,
+        certificates(title),
+        remaining_balance,
+        amount_paid,
+        receipt_url,
+        created_at
+      `)
+      .eq('payment_status', 'PENDING')
+      .not('receipt_url', 'is', null)
+      .order('created_at', { ascending: false });
 
-  if (data) setPendingPayments(data);
-  setLoading(false);
-}, [supabase]);
+    if (data) setPendingPayments(data);
+    setLoading(false);
+  }, [supabase]);
+
+  useEffect(() => {
+    if (authorized) fetchPendingPayments();
+  }, [authorized, fetchPendingPayments]);
 
   const handleValidate = async (enrollmentId: number) => {
   if (!confirm("Valider ce paiement ? L'étudiant aura immédiatement accès à la formation.")) return;
