@@ -17,7 +17,6 @@ import {
   User,
   Calendar,
   Clock,
-  DollarSign,
 } from 'lucide-react';
 
 export default function PaiementsPage() {
@@ -48,97 +47,108 @@ export default function PaiementsPage() {
   }, []);
 
   const fetchPendingPayments = useCallback(async () => {
-  setLoading(true);
-  const { data, error } = await supabase
-    .from('enrollments')
-    .select(`
-      id,
-      student_id,
-      student_name,
-      certificate_id,
-      certificates(title),
-      remaining_balance,
-      amount_paid,
-      receipt_url,
-      created_at
-    `)
-    .eq('payment_status', 'PENDING')
-    .order('created_at', { ascending: false });
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('enrollments')
+      .select(`
+        id,
+        student_id,
+        student_name,
+        certificate_id,
+        certificates(title),
+        remaining_balance,
+        amount_paid,
+        receipt_url,
+        created_at
+      `)
+      .eq('payment_status', 'PENDING')
+      .order('created_at', { ascending: false });
 
-  if (data) setPendingPayments(data);
-  setLoading(false);
-}, [supabase]);
+    if (data) setPendingPayments(data);
+    setLoading(false);
+  }, [supabase]);
+
+  useEffect(() => {
+    if (authorized) fetchPendingPayments();
+  }, [authorized, fetchPendingPayments]);
 
   const handleValidate = async (enrollmentId: number) => {
-  if (!confirm("Valider ce paiement ? L'étudiant aura immédiatement accès à la formation.")) return;
-  setProcessingId(enrollmentId);
+    if (!confirm("Valider ce paiement ? L'étudiant aura immédiatement accès à la formation.")) return;
+    setProcessingId(enrollmentId);
 
-  // Récupérer les infos du paiement depuis la liste locale
-  const payment = pendingPayments.find(p => p.id === enrollmentId);
-  if (!payment) {
-    alert("Paiement introuvable dans la liste.");
-    setProcessingId(null);
-    return;
-  }
-
-  const amount = payment.remaining_balance || 0;
-  const studentId = payment.student_id;
-
-  console.log("✅ Validation du paiement", { enrollmentId, studentId, amount });
-
-  // 1. Mettre à jour l'enrollment
-  const { error: enrollError } = await supabase
-    .from('enrollments')
-    .update({
-      payment_status: 'PAID',
-      amount_paid: amount,
-      remaining_balance: 0,
-    })
-    .eq('id', enrollmentId);
-
-  if (enrollError) {
-    alert("Erreur enrollment : " + enrollError.message);
-    setProcessingId(null);
-    return;
-  }
-
-  console.log("✅ Enrollment mis à jour");
-
-  // 2. Mettre à jour le profil de l'étudiant
-  if (studentId) {
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .update({ status: 'PAID' })
-      .eq('id', studentId);
-
-    if (profileError) {
-      console.error("❌ Erreur profil :", profileError.message);
-    } else {
-      console.log("✅ Profil étudiant mis à jour (status = PAID)");
+    const payment = pendingPayments.find(p => p.id === enrollmentId);
+    if (!payment) {
+      alert('Paiement introuvable dans la liste.');
+      setProcessingId(null);
+      return;
     }
-  } else {
-    console.warn("⚠️ Aucun student_id trouvé pour cet enrollment");
-  }
 
-  // 3. Envoyer une notification
-  if (studentId) {
-    await supabase.from('notifications').insert({
-      user_id: studentId,
-      title: 'Paiement validé',
-      message: 'Votre paiement a été validé. Vous avez maintenant accès à votre formation.',
-      type: 'PAYMENT_VALIDATED',
-    });
-  }
+    const amount = payment.remaining_balance || 0;
+    const studentId = payment.student_id;
 
-  // 4. Rafraîchir la liste
-  fetchPendingPayments();
-  setProcessingId(null);
-};
+    console.log('✅ Validation du paiement', { enrollmentId, studentId, amount });
+
+    // 1. Mettre à jour l'enrollment
+    const { error: enrollError } = await supabase
+      .from('enrollments')
+      .update({
+        payment_status: 'PAID',
+        amount_paid: amount,
+        remaining_balance: 0,
+      })
+      .eq('id', enrollmentId);
+
+    if (enrollError) {
+      alert('Erreur enrollment : ' + enrollError.message);
+      setProcessingId(null);
+      return;
+    }
+
+    console.log('✅ Enrollment mis à jour');
+
+    // 2. Mettre à jour le profil de l'étudiant
+    if (studentId) {
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ status: 'PAID' })
+        .eq('id', studentId);
+
+      if (profileError) {
+        console.error('❌ Erreur profil :', profileError.message);
+      } else {
+        console.log('✅ Profil étudiant mis à jour (status = PAID)');
+      }
+    } else {
+      console.warn('⚠️ Aucun student_id trouvé pour cet enrollment');
+    }
+
+    // 3. Envoyer une notification
+    if (studentId) {
+      await supabase.from('notifications').insert({
+        user_id: studentId,
+        title: 'Paiement validé',
+        message: 'Votre paiement a été validé. Vous avez maintenant accès à votre formation.',
+        type: 'PAYMENT_VALIDATED',
+      });
+      console.log('✅ Notification envoyée');
+    }
+
+    // 4. Rafraîchir la liste
+    await fetchPendingPayments();
+    setProcessingId(null);
+  };
 
   const handleReject = async (enrollmentId: number) => {
     if (!confirm('Rejeter cette preuve de paiement ?')) return;
     setProcessingId(enrollmentId);
-    // On peut remettre le reçu à null pour forcer l'étudiant à renvoyer
+
+    const payment = pendingPayments.find(p => p.id === enrollmentId);
+    if (!payment) {
+      setProcessingId(null);
+      return;
+    }
+
+    // Mettre receipt_url à null pour forcer l'étudiant à renvoyer
     const { error } = await supabase
       .from('enrollments')
       .update({ receipt_url: null })
@@ -147,12 +157,14 @@ export default function PaiementsPage() {
     if (error) {
       alert('Erreur : ' + error.message);
     } else {
-      await supabase.from('notifications').insert({
-        user_id: pendingPayments.find(p => p.id === enrollmentId)?.student_id,
-        title: 'Preuve rejetée',
-        message: 'Votre preuve de paiement a été rejetée. Veuillez en envoyer une nouvelle.',
-        type: 'PAYMENT_REJECTED',
-      });
+      if (payment.student_id) {
+        await supabase.from('notifications').insert({
+          user_id: payment.student_id,
+          title: 'Preuve rejetée',
+          message: 'Votre preuve de paiement a été rejetée. Veuillez en envoyer une nouvelle.',
+          type: 'PAYMENT_REJECTED',
+        });
+      }
       fetchPendingPayments();
     }
     setProcessingId(null);
@@ -172,7 +184,7 @@ export default function PaiementsPage() {
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-white">Paiements en attente</h1>
           <p className="text-slate-400 text-sm mt-1">
-            {pendingPayments.length} demande{pendingPayments.length > 1 ? 's' : ''} de validation
+            {pendingPayments.length} demande{pendingPayments.length > 1 ? 's' : ''} en attente
           </p>
         </div>
         <button
@@ -253,9 +265,15 @@ export default function PaiementsPage() {
                         <User className="w-4 h-4" /> {payment.student_name}
                       </p>
                     </div>
-                    <span className="px-3 py-1 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-full text-xs font-medium flex items-center gap-1">
-                      <Clock className="w-3 h-3" /> En attente
-                    </span>
+                    {payment.receipt_url ? (
+                      <span className="px-3 py-1 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-full text-xs font-medium flex items-center gap-1">
+                        <Clock className="w-3 h-3" /> À valider
+                      </span>
+                    ) : (
+                      <span className="px-3 py-1 bg-slate-800 text-slate-400 rounded-full text-xs font-medium">
+                        Preuve non envoyée
+                      </span>
+                    )}
                   </div>
 
                   <div className="grid sm:grid-cols-3 gap-4 mb-4">
@@ -281,32 +299,34 @@ export default function PaiementsPage() {
                   </div>
 
                   {/* Actions */}
-                  <div className="flex flex-wrap gap-3">
-                    <button
-                      onClick={() => handleValidate(payment.id)}
-                      disabled={processingId === payment.id}
-                      className="flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 disabled:bg-green-500/50 text-white text-sm font-medium rounded-xl transition-colors"
-                    >
-                      {processingId === payment.id ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <CheckCircle2 className="w-4 h-4" />
-                      )}
-                      Valider
-                    </button>
-                    <button
-                      onClick={() => handleReject(payment.id)}
-                      disabled={processingId === payment.id}
-                      className="flex items-center gap-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-sm font-medium rounded-xl border border-red-500/20 transition-colors"
-                    >
-                      {processingId === payment.id ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <XCircle className="w-4 h-4" />
-                      )}
-                      Rejeter
-                    </button>
-                  </div>
+                  {payment.receipt_url && (
+                    <div className="flex flex-wrap gap-3">
+                      <button
+                        onClick={() => handleValidate(payment.id)}
+                        disabled={processingId === payment.id}
+                        className="flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 disabled:bg-green-500/50 text-white text-sm font-medium rounded-xl transition-colors"
+                      >
+                        {processingId === payment.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <CheckCircle2 className="w-4 h-4" />
+                        )}
+                        Valider
+                      </button>
+                      <button
+                        onClick={() => handleReject(payment.id)}
+                        disabled={processingId === payment.id}
+                        className="flex items-center gap-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-sm font-medium rounded-xl border border-red-500/20 transition-colors"
+                      >
+                        {processingId === payment.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <XCircle className="w-4 h-4" />
+                        )}
+                        Rejeter
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </motion.div>
