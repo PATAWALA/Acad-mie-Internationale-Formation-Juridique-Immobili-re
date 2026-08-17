@@ -78,7 +78,6 @@ export default function PaiementsPage() {
   if (!confirm('Valider ce paiement ? L\'étudiant aura immédiatement accès à la formation.')) return;
   setProcessingId(enrollmentId);
 
-  // Récupérer le paiement depuis la liste locale
   const payment = pendingPayments.find(p => p.id === enrollmentId);
   if (!payment) {
     setProcessingId(null);
@@ -87,7 +86,8 @@ export default function PaiementsPage() {
 
   const amount = payment.remaining_balance || 0;
 
-  const { error } = await supabase
+  // 1. Mettre à jour l'enrollment
+  const { error: enrollError } = await supabase
     .from('enrollments')
     .update({
       payment_status: 'PAID',
@@ -96,18 +96,35 @@ export default function PaiementsPage() {
     })
     .eq('id', enrollmentId);
 
-  if (error) {
-    alert('Erreur : ' + error.message);
-  } else {
-    // Notification
+  if (enrollError) {
+    alert('Erreur enrollment : ' + enrollError.message);
+    setProcessingId(null);
+    return;
+  }
+
+  // 2. Mettre à jour le profil de l'étudiant
+  if (payment.student_id) {
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update({ status: 'PAID' })
+      .eq('id', payment.student_id);
+
+    if (profileError) {
+      console.error('Erreur profil:', profileError.message);
+    }
+  }
+
+  // 3. Notification
+  if (payment.student_id) {
     await supabase.from('notifications').insert({
       user_id: payment.student_id,
       title: 'Paiement validé',
       message: 'Votre paiement a été validé. Vous avez maintenant accès à votre formation.',
       type: 'PAYMENT_VALIDATED',
     });
-    fetchPendingPayments();
   }
+
+  fetchPendingPayments();
   setProcessingId(null);
 };
 
