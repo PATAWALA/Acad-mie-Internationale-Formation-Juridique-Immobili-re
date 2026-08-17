@@ -16,6 +16,8 @@ import {
   FileArchive,
   Link2,
   X,
+  Upload,
+  Loader2,
 } from 'lucide-react';
 
 interface Props {
@@ -36,6 +38,7 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
   const [lessonTitle, setLessonTitle] = useState('');
   const [lessonUrl, setLessonUrl] = useState('');
   const [lessonBody, setLessonBody] = useState('');
+  const [uploadingPdf, setUploadingPdf] = useState(false);
 
   // Formulaire examen
   const [showAddExam, setShowAddExam] = useState(false);
@@ -88,8 +91,38 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
   const theoreticalLessons = lessons.filter(l => l.category === 'THEORIQUE');
   const practicalLessons = lessons.filter(l => l.category === 'PRATIQUE');
 
+  const handlePdfUpload = async (file: File) => {
+    if (!file) return;
+    setUploadingPdf(true);
+
+    const fileName = `${Date.now()}_${file.name.replace(/\s+/g, '_')}`;
+    const { error: uploadError } = await supabase.storage
+      .from('course-pdfs')
+      .upload(fileName, file);
+
+    if (uploadError) {
+      alert('Upload échoué : ' + uploadError.message);
+      setUploadingPdf(false);
+      return;
+    }
+
+    const { data: publicUrlData } = supabase.storage
+      .from('course-pdfs')
+      .getPublicUrl(fileName);
+
+    setLessonUrl(publicUrlData.publicUrl);
+    setUploadingPdf(false);
+  };
+
   const handleAddLesson = async () => {
     if (!lessonTitle.trim()) return;
+
+    // Pour PDF, vérifier qu'un fichier a été uploadé
+    if (lessonType === 'PDF' && !lessonUrl) {
+      alert('Veuillez télécharger un fichier PDF.');
+      return;
+    }
+
     const category = activeTab === 'theoretical' ? 'THEORIQUE' : 'PRATIQUE';
     const position = category === 'THEORIQUE' ? theoreticalLessons.length + 1 : practicalLessons.length + 1;
 
@@ -115,7 +148,7 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
     setShowAddLesson(false);
 
     if (lessonType === 'QUIZ' && data) {
-      setActiveQuizLesson(data); // ✅ Ouvre la modale QCM
+      setActiveQuizLesson(data);
     }
 
     fetchData();
@@ -239,6 +272,8 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
               onClick={() => {
                 setShowAddLesson(true);
                 setLessonType('TEXT');
+                setLessonUrl('');
+                setLessonBody('');
               }}
               className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-slate-700 rounded-xl text-slate-400 hover:text-white hover:border-slate-500 transition-colors"
             >
@@ -252,7 +287,10 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
                   {lessonTypes.map((type) => (
                     <button
                       key={type.type}
-                      onClick={() => setLessonType(type.type as any)}
+                      onClick={() => {
+                        setLessonType(type.type as any);
+                        setLessonUrl('');
+                      }}
                       className={cn(
                         "flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border transition-colors",
                         lessonType === type.type
@@ -274,6 +312,7 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
                   className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                 />
 
+                {/* TEXTE */}
                 {lessonType === 'TEXT' && (
                   <textarea
                     placeholder="Contenu..."
@@ -284,16 +323,54 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
                   />
                 )}
 
-                {(lessonType === 'VIDEO' || lessonType === 'PDF' || lessonType === 'LINK') && (
+                {/* VIDÉO */}
+                {lessonType === 'VIDEO' && (
                   <input
                     type="text"
-                    placeholder="URL"
+                    placeholder="URL de la vidéo (YouTube, Vimeo, Loom...)"
                     value={lessonUrl}
                     onChange={(e) => setLessonUrl(e.target.value)}
                     className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                   />
                 )}
 
+                {/* PDF : UPLOAD */}
+                {lessonType === 'PDF' && (
+                  <div className="space-y-2">
+                    <label className="flex items-center justify-center gap-2 py-4 border-2 border-dashed border-slate-600 rounded-xl cursor-pointer hover:border-slate-400 transition-colors">
+                      <Upload className="w-4 h-4 text-slate-400" />
+                      <span className="text-sm text-slate-400">
+                        {uploadingPdf ? 'Upload en cours...' : 'Cliquez pour choisir un PDF'}
+                      </span>
+                      <input
+                        type="file"
+                        accept=".pdf"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handlePdfUpload(file);
+                        }}
+                      />
+                    </label>
+                    {uploadingPdf && <Loader2 className="w-4 h-4 text-blue-400 animate-spin mx-auto" />}
+                    {lessonUrl && !uploadingPdf && (
+                      <p className="text-xs text-green-400">✅ PDF téléchargé avec succès</p>
+                    )}
+                  </div>
+                )}
+
+                {/* LIEN */}
+                {lessonType === 'LINK' && (
+                  <input
+                    type="text"
+                    placeholder="URL du lien"
+                    value={lessonUrl}
+                    onChange={(e) => setLessonUrl(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                  />
+                )}
+
+                {/* QCM */}
                 {lessonType === 'QUIZ' && (
                   <p className="text-xs text-violet-400">💡 Le QCM sera créé, puis vous pourrez ajouter des questions.</p>
                 )}
@@ -301,7 +378,7 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
                 <div className="flex gap-2">
                   <button
                     onClick={handleAddLesson}
-                    disabled={!lessonTitle.trim()}
+                    disabled={!lessonTitle.trim() || (lessonType === 'PDF' && !lessonUrl) || uploadingPdf}
                     className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium disabled:opacity-50"
                   >
                     {lessonType === 'QUIZ' ? 'Créer le QCM' : 'Ajouter'}
@@ -437,7 +514,7 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
         )}
       </AnimatePresence>
 
-      {/* ============ MODALE QCM ============ */}
+      {/* MODALE QCM */}
       <AnimatePresence>
         {activeQuizLesson && (
           <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
@@ -468,7 +545,6 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
               </div>
 
               <div className="p-4 space-y-4 max-h-[70vh] overflow-y-auto">
-                {/* Formulaire question */}
                 <div className="space-y-3">
                   <div>
                     <label className="text-xs text-slate-400 mb-1 block">Question</label>
@@ -554,7 +630,6 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
                   </button>
                 </div>
 
-                {/* Liste des questions */}
                 {quizQuestions.length > 0 && (
                   <div className="space-y-2 pt-4 border-t border-slate-800">
                     <p className="text-xs text-slate-400 font-medium">
