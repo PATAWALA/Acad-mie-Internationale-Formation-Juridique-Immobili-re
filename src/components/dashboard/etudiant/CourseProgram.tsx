@@ -65,7 +65,6 @@ export function CourseProgram({
 
   const isTpValidated = tpCorrectCount >= TP_TARGET;
   const isQuizValidated = quizScore >= QUIZ_TARGET;
-  // L'examen est débloqué si : TP validés + QCM validés + module précédent validé
   const isExamUnlocked = isTpValidated && isQuizValidated && isModuleUnlocked;
 
   const goToStep = (step: ModuleStep) => {
@@ -149,12 +148,12 @@ export function CourseProgram({
   };
 
   useEffect(() => {
-    if (activeModule) {
+    if (activeModule && isModuleUnlocked) {
       loadTpOptions(activeModule);
       loadQuizForModule(activeModule);
       loadTpAttempts();
     }
-  }, [activeModule?.id, practicalLessons.length, quizLessons.length]);
+  }, [activeModule?.id, practicalLessons.length, quizLessons.length, isModuleUnlocked]);
 
   const handleTpChoice = async (lesson: any, option: any) => {
     if (!profile) return;
@@ -188,6 +187,64 @@ export function CourseProgram({
       <div className="text-center py-20">
         <BookOpen className="w-14 h-14 text-slate-600 mx-auto mb-4" />
         <p className="text-slate-400">Aucune formation disponible.</p>
+      </div>
+    );
+  }
+
+  // SI MODULE VERROUILLÉ → Afficher uniquement le message jaune
+  if (!isModuleUnlocked) {
+    return (
+      <div className="w-full max-w-3xl mx-auto pb-20">
+        {/* Navigation modules */}
+        <div className="sticky top-0 z-20 bg-[#020617]/95 backdrop-blur-xl border-b border-[#1e293b] -mx-4 px-4 py-3 flex items-center justify-between mb-8">
+          <button onClick={goToPrevModule} disabled={activeModuleIndex === 0}
+            className="text-slate-400 hover:text-white disabled:opacity-20 p-2">
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div className="flex items-center gap-1.5">
+            {modules.map((mod: any, i: number) => {
+              const modAssessmentId = mod.assessments?.[0]?.id;
+              const isPassed = modAssessmentId && passedAssessments.includes(modAssessmentId);
+              return (
+                <button
+                  key={i}
+                  onClick={() => { setActiveModuleIndex(i); setActiveStep('theoretical'); }}
+                  className={`w-8 h-8 rounded-lg text-sm font-bold transition-all flex items-center justify-center ${
+                    i === activeModuleIndex
+                      ? 'bg-amber-500 text-white'
+                      : isPassed
+                      ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                      : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                  }`}
+                >
+                  {isPassed ? <CheckCircle2 className="w-4 h-4" /> : i + 1}
+                </button>
+              );
+            })}
+          </div>
+          <button onClick={goToNextModule} disabled={activeModuleIndex === modules.length - 1}
+            className="text-slate-400 hover:text-white disabled:opacity-20 p-2">
+            <ArrowRight className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Message verrouillé */}
+        <div className="text-center py-16">
+          <div className="w-20 h-20 bg-amber-500/10 border border-amber-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
+            <Lock className="w-10 h-10 text-amber-400" />
+          </div>
+          <h2 className="text-2xl font-bold text-white mb-3">Module verrouillé</h2>
+          <p className="text-amber-400 text-base max-w-md mx-auto">
+            ⚠️ Vous devez valider le module {activeModuleIndex} avant de pouvoir accéder à ce module.
+          </p>
+          <button
+            onClick={goToPrevModule}
+            className="mt-8 inline-flex items-center gap-2 px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-xl text-sm font-medium transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Retour au module {activeModuleIndex}
+          </button>
+        </div>
       </div>
     );
   }
@@ -260,17 +317,6 @@ export function CourseProgram({
           </div>
         </div>
       </div>
-
-      {/* Avertissement module précédent non validé */}
-      {!isModuleUnlocked && (
-        <div className="mb-6 p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center gap-3">
-          <AlertCircle className="w-5 h-5 text-amber-400 flex-shrink-0" />
-          <p className="text-sm text-amber-400">
-            ⚠️ Vous devez valider le module {activeModuleIndex} avant de pouvoir soumettre l'examen de ce module.
-            Le contenu est accessible en lecture, mais l'examen restera verrouillé.
-          </p>
-        </div>
-      )}
 
       {/* Navigation modules */}
       <div className="sticky top-0 z-20 bg-[#020617]/95 backdrop-blur-xl border-b border-[#1e293b] -mx-4 px-4 py-3 flex items-center justify-between mb-6">
@@ -524,11 +570,14 @@ export function CourseProgram({
               <div className="text-center py-12 bg-slate-900/50 border border-slate-800 rounded-xl">
                 <Lock className="w-12 h-12 text-slate-600 mx-auto mb-3" />
                 <h3 className="text-white font-semibold mb-2">Examen verrouillé</h3>
-                <p className="text-slate-400 text-sm">
-                  {!isModuleUnlocked && `Validez d'abord le module ${activeModuleIndex}.\n`}
-                  {!isTpValidated && `TP : ${tpCorrectCount}/${TP_TARGET}\n`}
-                  {!isQuizValidated && `QCM : ${quizScore}/${QUIZ_TARGET}`}
-                </p>
+                <div className="space-y-2">
+                  {!isTpValidated && (
+                    <p className="text-slate-400 text-sm">TP : {tpCorrectCount}/{TP_TARGET}</p>
+                  )}
+                  {!isQuizValidated && (
+                    <p className="text-slate-400 text-sm">QCM : {quizScore}/{QUIZ_TARGET}</p>
+                  )}
+                </div>
               </div>
             ) : (
               assessments.map((ass: any) => {
