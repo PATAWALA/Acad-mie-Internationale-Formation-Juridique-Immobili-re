@@ -118,6 +118,33 @@ export function CourseProgram({
     setQuizAnswers(prev => ({ ...prev, [moduleId]: { ...(prev[moduleId] || {}), [question.id]: { selected_answer: answer, is_correct: isCorrect } } }));
   };
 
+  const extractImagesFromDescription = (description: string) => {
+    const imageUrls: string[] = [];
+    const lines = description.split('\n');
+    lines.forEach(line => {
+      const match = line.match(/Image \d+: (https?:\/\/[^\s]+\.(png|jpg|jpeg|gif|webp))/i);
+      if (match) imageUrls.push(match[1]);
+    });
+    return imageUrls;
+  };
+
+  const extractPdfsFromDescription = (description: string) => {
+    const pdfUrls: string[] = [];
+    const lines = description.split('\n');
+    lines.forEach(line => {
+      const match = line.match(/PDF \d+: (https?:\/\/[^\s]+\.pdf)/i);
+      if (match) pdfUrls.push(match[1]);
+    });
+    return pdfUrls;
+  };
+
+  const getCleanDescription = (description: string) => {
+    return description
+      .replace(/📷 DOCUMENTS IMAGES :[\s\S]*?(?=📄|$)/, '')
+      .replace(/📄 DOCUMENTS PDF :[\s\S]*/, '')
+      .trim();
+  };
+
   if (!courses?.length) {
     return (
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-20">
@@ -245,7 +272,7 @@ export function CourseProgram({
               </div>
 
               <AnimatePresence mode="wait">
-                {/* ============ THÉORIQUE ============ */}
+                {/* THÉORIQUE */}
                 {activeStep === 'theoretical' && (
                   <motion.div key="theoretical" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-4">
                     {theoreticalLessons.length === 0 ? (
@@ -275,7 +302,7 @@ export function CourseProgram({
                   </motion.div>
                 )}
 
-                {/* ============ PRATIQUE ============ */}
+                {/* PRATIQUE */}
                 {activeStep === 'practical' && (
                   <motion.div key="practical" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-4">
                     {practicalLessons.length === 0 ? (
@@ -298,7 +325,7 @@ export function CourseProgram({
                   </motion.div>
                 )}
 
-                {/* ============ QCM ============ */}
+                {/* QCM */}
                 {activeStep === 'quiz' && (
                   <motion.div key="quiz" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-4">
                     {quizLessons.length === 0 ? (
@@ -342,7 +369,7 @@ export function CourseProgram({
                   </motion.div>
                 )}
 
-                {/* ============ EXAMEN ============ */}
+                {/* EXAMEN */}
                 {activeStep === 'exam' && (
                   <motion.div key="exam" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-4">
                     {assessments.length === 0 ? (
@@ -369,9 +396,68 @@ export function CourseProgram({
                             </div>
 
                             {ass.description && (
-                              <div className="mb-4 p-4 bg-amber-500/5 border border-amber-500/10 rounded-xl">
-                                <p className="text-sm text-amber-400 font-semibold mb-2">📋 Consignes</p>
-                                <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">{ass.description}</p>
+                              <div className="mb-4">
+                                {/* Consignes propres */}
+                                {getCleanDescription(ass.description) && (
+                                  <div className="p-4 bg-amber-500/5 border border-amber-500/10 rounded-xl mb-3">
+                                    <p className="text-sm text-amber-400 font-semibold mb-2">📋 Consignes</p>
+                                    <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">
+                                      {getCleanDescription(ass.description)}
+                                    </p>
+                                  </div>
+                                )}
+
+                                {/* Images */}
+                                {extractImagesFromDescription(ass.description).length > 0 && (
+                                  <div className="space-y-3 mb-3">
+                                    <p className="text-sm text-blue-400 font-semibold flex items-center gap-2">
+                                      <FileImage className="w-4 h-4" /> Documents images :
+                                    </p>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                      {extractImagesFromDescription(ass.description).map((imgUrl, i) => (
+                                        <div key={i} className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden group">
+                                          <div className="relative overflow-hidden">
+                                            <img
+                                              src={imgUrl}
+                                              alt={`Document ${i + 1}`}
+                                              className="w-full h-48 object-cover cursor-pointer group-hover:scale-105 transition-transform duration-300"
+                                              onClick={() => window.open(imgUrl, '_blank')}
+                                            />
+                                            <button
+                                              onClick={() => window.open(imgUrl, '_blank')}
+                                              className="absolute top-2 right-2 bg-black/70 text-white p-2 rounded-lg text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                                            >
+                                              <ExternalLink className="w-3 h-3" />
+                                            </button>
+                                          </div>
+                                          <p className="text-xs text-slate-500 p-2">Image {i + 1} (cliquez pour agrandir)</p>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* PDFs */}
+                                {extractPdfsFromDescription(ass.description).length > 0 && (
+                                  <div className="space-y-2 mb-3">
+                                    <p className="text-sm text-blue-400 font-semibold flex items-center gap-2">
+                                      <FileText className="w-4 h-4" /> Documents PDF :
+                                    </p>
+                                    {extractPdfsFromDescription(ass.description).map((pdfUrl, i) => (
+                                      <a
+                                        key={i}
+                                        href={pdfUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex items-center gap-2 px-4 py-2.5 bg-blue-500/10 border border-blue-500/20 rounded-xl text-blue-400 hover:bg-blue-500/20 transition-colors text-sm"
+                                      >
+                                        <FileText className="w-4 h-4" />
+                                        PDF {i + 1}
+                                        <ExternalLink className="w-3 h-3 ml-auto" />
+                                      </a>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
                             )}
 
