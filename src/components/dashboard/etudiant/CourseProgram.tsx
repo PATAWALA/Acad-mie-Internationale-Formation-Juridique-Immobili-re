@@ -14,6 +14,7 @@ import {
 import { SubmissionModal } from './SubmissionModal';
 import ContentViewer from './ContentViewer';
 import SubmissionViewer from './SubmissionViewer';
+import HtmlContentViewer from './HtmlContentViewer';
 
 interface CourseProgramProps {
   courses: any[];
@@ -452,15 +453,21 @@ export function CourseProgram({
 
                             {ass.description && (
                               <div className="mb-4">
+                                {/* Consignes propres */}
                                 {getCleanDescription(ass.description) && (
                                   <div className="p-4 bg-amber-500/5 border border-amber-500/10 rounded-xl mb-3">
                                     <p className="text-sm text-amber-400 font-semibold mb-2">📋 Consignes</p>
-                                    <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">
-                                      {getCleanDescription(ass.description)}
-                                    </p>
+                                    {getCleanDescription(ass.description).startsWith('<') ? (
+                                      <HtmlContentViewer content={getCleanDescription(ass.description)} />
+                                    ) : (
+                                      <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">
+                                        {getCleanDescription(ass.description)}
+                                      </p>
+                                    )}
                                   </div>
                                 )}
 
+                                {/* Images */}
                                 {extractImagesFromDescription(ass.description).length > 0 && (
                                   <div className="space-y-3 mb-3">
                                     <p className="text-sm text-blue-400 font-semibold flex items-center gap-2">
@@ -476,12 +483,6 @@ export function CourseProgram({
                                               className="w-full h-48 object-cover cursor-pointer group-hover:scale-105 transition-transform duration-300"
                                               onClick={() => window.open(imgUrl, '_blank')}
                                             />
-                                            <button
-                                              onClick={() => window.open(imgUrl, '_blank')}
-                                              className="absolute top-2 right-2 bg-black/70 text-white p-2 rounded-lg text-xs opacity-0 group-hover:opacity-100 transition-opacity"
-                                            >
-                                              <ExternalLink className="w-3 h-3" />
-                                            </button>
                                           </div>
                                           <p className="text-xs text-slate-500 p-2">Image {i + 1} (cliquez pour agrandir)</p>
                                         </div>
@@ -490,6 +491,7 @@ export function CourseProgram({
                                   </div>
                                 )}
 
+                                {/* PDFs */}
                                 {extractPdfsFromDescription(ass.description).length > 0 && (
                                   <div className="space-y-2 mb-3">
                                     <p className="text-sm text-blue-400 font-semibold flex items-center gap-2">
