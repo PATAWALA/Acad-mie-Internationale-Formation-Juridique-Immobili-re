@@ -18,6 +18,8 @@ import {
   X,
   Upload,
   Loader2,
+  Image,
+  Check,
 } from 'lucide-react';
 
 interface Props {
@@ -243,7 +245,6 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
   const handleDeleteQuiz = async (lessonId: string) => {
     if (!confirm('Supprimer ce QCM et toutes ses questions ?')) return;
 
-    // 1. Supprimer les questions du QCM
     const { error: questionsError } = await supabase
       .from('quiz_questions')
       .delete()
@@ -254,7 +255,6 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
       return;
     }
 
-    // 2. Supprimer la leçon QUIZ
     const { error: lessonError } = await supabase
       .from('lessons')
       .delete()
@@ -309,6 +309,10 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
     await supabase.from('assessments').delete().eq('id', id);
     fetchData();
     onUpdate();
+  };
+
+  const stripHtml = (html: string) => {
+    return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
   };
 
   const lessonTypes = [
@@ -565,6 +569,7 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
                   className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none"
                 />
 
+                {/* Upload de fichiers pour l'examen */}
                 <div className="space-y-2">
                   <p className="text-xs text-slate-400 font-medium">Documents à joindre :</p>
                   <label className="flex items-center justify-center gap-2 py-3 border-2 border-dashed border-slate-600 rounded-xl cursor-pointer hover:border-slate-400 transition-colors">
@@ -584,6 +589,7 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
                   </label>
                   {uploadingExamFile && <Loader2 className="w-4 h-4 text-blue-400 animate-spin mx-auto" />}
 
+                  {/* Aperçu des images uploadées */}
                   {examImages.length > 0 && (
                     <div className="flex flex-wrap gap-2">
                       {examImages.map((url, i) => (
@@ -600,6 +606,7 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
                     </div>
                   )}
 
+                  {/* Aperçu des PDF uploadés */}
                   {examFiles.length > 0 && (
                     <div className="space-y-1">
                       {examFiles.map((url, i) => (
@@ -637,21 +644,36 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
               </div>
             )}
 
+            {/* Liste des examens */}
             {assessments.length === 0 ? (
               <p className="text-center text-slate-500 text-sm py-6">Aucun examen</p>
             ) : (
               <div className="space-y-2">
                 {assessments.map((exam) => (
                   <div key={exam.id} className="flex items-center justify-between bg-slate-800/30 border border-slate-700/50 rounded-lg p-3">
-                    <div>
-                      <span className="text-white text-sm font-medium">{exam.title}</span>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-white text-sm font-medium block truncate">{exam.title}</span>
                       {exam.description && (
-                        <p className="text-slate-500 text-xs mt-0.5 line-clamp-2">{exam.description}</p>
+                        <p className="text-slate-500 text-xs mt-0.5 line-clamp-2 overflow-hidden">
+                          {stripHtml(exam.description).substring(0, 120)}...
+                        </p>
                       )}
+                      <div className="flex items-center gap-2 mt-1">
+                        {exam.description?.includes('📷') && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-500/10 text-blue-400 text-[10px] rounded-full">
+                            📷 Images
+                          </span>
+                        )}
+                        {exam.description?.includes('📄') && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-500/10 text-green-400 text-[10px] rounded-full">
+                            📄 PDFs
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <button
                       onClick={() => handleDeleteExam(exam.id)}
-                      className="text-red-400 hover:text-red-300 transition-colors flex-shrink-0"
+                      className="text-red-400 hover:text-red-300 transition-colors flex-shrink-0 ml-3"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
