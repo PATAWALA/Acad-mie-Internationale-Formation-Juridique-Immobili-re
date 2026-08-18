@@ -53,6 +53,11 @@ export function CourseProgram({
   const modules = activeCourse?.modules || [];
   const activeModule = modules[activeModuleIndex];
 
+  // Vérifier si le module est débloqué
+  const isFirstModule = activeModuleIndex === 0;
+  const prevModuleAssessmentId = !isFirstModule ? modules[activeModuleIndex - 1]?.assessments?.[0]?.id : null;
+  const isModuleUnlocked = isFirstModule || (prevModuleAssessmentId && passedAssessments.includes(prevModuleAssessmentId));
+
   const theoreticalLessons = activeModule?.lessons?.filter((l: any) => l.category === 'THEORIQUE') || [];
   const practicalLessons = activeModule?.lessons?.filter((l: any) => l.category === 'PRATIQUE' && l.content_type !== 'QUIZ') || [];
   const quizLessons = activeModule?.lessons?.filter((l: any) => l.content_type === 'QUIZ') || [];
@@ -68,6 +73,12 @@ export function CourseProgram({
   };
 
   const goToNextModule = () => {
+    // Vérifier si le module actuel est validé
+    const currentAssessmentId = activeModule?.assessments?.[0]?.id;
+    if (currentAssessmentId && !passedAssessments.includes(currentAssessmentId)) {
+      alert('Vous devez valider ce module avant de passer au suivant.');
+      return;
+    }
     if (activeModuleIndex < modules.length - 1) setActiveModuleIndex(prev => prev + 1);
     setActiveStep('theoretical');
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -79,17 +90,14 @@ export function CourseProgram({
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Charger les options TP
   const loadTpOptions = async (module: any) => {
     const tpIds = practicalLessons.map((l: any) => l.id);
     if (tpIds.length === 0) return;
-
     const { data } = await supabase
       .from('tp_options')
       .select('*')
       .in('lesson_id', tpIds)
       .order('position', { ascending: true });
-
     if (data) {
       const map: Record<string, any[]> = {};
       data.forEach((opt: any) => {
@@ -100,7 +108,6 @@ export function CourseProgram({
     }
   };
 
-  // Charger les QCM
   const loadQuizForModule = async (module: any) => {
     if (quizLessons.length === 0) return;
     const lessonIds = quizLessons.map((l: any) => l.id);
@@ -109,7 +116,6 @@ export function CourseProgram({
       .select('*')
       .in('lesson_id', lessonIds)
       .order('position', { ascending: true });
-
     if (questions && questions.length > 0) {
       setQuizQuestions(prev => ({ ...prev, [module.id]: questions }));
       if (profile) {
@@ -129,20 +135,16 @@ export function CourseProgram({
     }
   };
 
-  // Charger les tentatives TP
   const loadTpAttempts = async () => {
     if (!profile) return;
     const tpIds = practicalLessons.map((l: any) => l.id);
     if (tpIds.length === 0) return;
-
     const { data } = await supabase
       .from('tp_attempts')
       .select('*')
       .eq('student_id', profile.id)
       .in('lesson_id', tpIds);
-
     if (data) {
-      // Compter les bonnes réponses uniques par TP
       const correctTpIds = new Set();
       data.forEach((attempt: any) => {
         if (attempt.is_correct) correctTpIds.add(attempt.lesson_id);
@@ -161,35 +163,26 @@ export function CourseProgram({
 
   const handleTpChoice = async (lesson: any, option: any) => {
     if (!profile) return;
-
     setTpSelections(prev => ({ ...prev, [lesson.id]: option.option_text }));
-
     await supabase.from('tp_attempts').insert({
       student_id: profile.id,
       lesson_id: lesson.id,
       selected_option: option.option_text,
       is_correct: option.is_correct,
     });
-
     if (option.is_correct) {
-      setTpCorrectCount(prev => {
-        // Ne compter qu'une fois par TP
-        return prev + 1;
-      });
+      setTpCorrectCount(prev => prev + 1);
     }
   };
 
   const handleAnswer = async (question: any, answer: string) => {
     if (!profile) return;
     const isCorrect = answer === question.correct_answer;
-
     await supabase.from('quiz_answers').upsert(
       { question_id: question.id, student_id: profile.id, selected_answer: answer, is_correct: isCorrect },
       { onConflict: 'question_id,student_id' }
     );
-
     setQuizAnswers(prev => ({ ...prev, [activeModule.id]: { ...(prev[activeModule.id] || {}), [question.id]: { selected_answer: answer, is_correct: isCorrect } } }));
-
     const answers = { ...(quizAnswers[activeModule.id] || {}), [question.id]: { selected_answer: answer, is_correct: isCorrect } };
     const correctCount = Object.values(answers).filter(a => (a as any).is_correct).length;
     setQuizScore(correctCount);
@@ -200,6 +193,28 @@ export function CourseProgram({
       <div className="text-center py-20">
         <BookOpen className="w-14 h-14 text-slate-600 mx-auto mb-4" />
         <p className="text-slate-400">Aucune formation disponible.</p>
+      </div>
+    );
+  }
+
+  // Si le module est verrouillé, afficher le message
+  if (!isModuleUnlocked) {
+    return (
+      <div className="w-full max-w-3xl mx-auto pb-20">
+        <div className="text-center py-20">
+          <Lock className="w-16 h-16 text-slate-600 mx-auto mb-4" />
+          <h3 className="text-xl font-bold text-white mb-2">Module verrouillé</h3>
+          <p className="text-slate-400">
+            Validez le module {activeModuleIndex} pour débloquer celui-ci.
+          </p>
+          <button
+            onClick={goToPrevModule}
+            className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-xl text-sm font-medium transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Retour au module précédent
+          </button>
+        </div>
       </div>
     );
   }
@@ -219,7 +234,6 @@ export function CourseProgram({
         </div>
 
         <div className="space-y-3">
-          {/* TP Bar */}
           <div>
             <div className="flex justify-between text-sm mb-1">
               <span className="text-slate-400 flex items-center gap-2">
@@ -238,7 +252,6 @@ export function CourseProgram({
             </div>
           </div>
 
-          {/* QCM Bar */}
           <div>
             <div className="flex justify-between text-sm mb-1">
               <span className="text-slate-400 flex items-center gap-2">
@@ -257,7 +270,6 @@ export function CourseProgram({
             </div>
           </div>
 
-          {/* Examen Status */}
           <div className="flex items-center justify-between pt-2 border-t border-slate-800">
             <span className="text-slate-400 flex items-center gap-2">
               <GraduationCap className="w-4 h-4" />
@@ -276,21 +288,41 @@ export function CourseProgram({
         </div>
       </div>
 
-      {/* Navigation modules */}
+      {/* Navigation modules avec verrouillage */}
       <div className="sticky top-0 z-20 bg-[#020617]/95 backdrop-blur-xl border-b border-[#1e293b] -mx-4 px-4 py-3 flex items-center justify-between mb-6">
         <button onClick={goToPrevModule} disabled={activeModuleIndex === 0}
           className="text-slate-400 hover:text-white disabled:opacity-20 p-2">
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div className="flex items-center gap-1.5">
-          {modules.map((_: any, i: number) => (
-            <button key={i} onClick={() => { setActiveModuleIndex(i); setActiveStep('theoretical'); }}
-              className={`w-8 h-8 rounded-lg text-sm font-bold transition-all ${
-                i === activeModuleIndex ? 'bg-blue-500 text-white' : 'bg-slate-800 text-slate-500 hover:bg-slate-700'
-              }`}>
-              {i + 1}
-            </button>
-          ))}
+          {modules.map((mod: any, i: number) => {
+            const modAssessmentId = mod.assessments?.[0]?.id;
+            const isPassed = modAssessmentId && passedAssessments.includes(modAssessmentId);
+            const isUnlocked = i === 0 || (modules[i - 1]?.assessments?.[0]?.id && passedAssessments.includes(modules[i - 1].assessments[0].id));
+            return (
+              <button
+                key={i}
+                onClick={() => {
+                  if (isUnlocked || isPassed) {
+                    setActiveModuleIndex(i);
+                    setActiveStep('theoretical');
+                  }
+                }}
+                disabled={!isUnlocked && !isPassed}
+                className={`w-8 h-8 rounded-lg text-sm font-bold transition-all flex items-center justify-center ${
+                  i === activeModuleIndex
+                    ? 'bg-blue-500 text-white'
+                    : isPassed
+                    ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                    : isUnlocked
+                    ? 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                    : 'bg-slate-800/50 text-slate-600 cursor-not-allowed'
+                }`}
+              >
+                {isPassed ? <CheckCircle2 className="w-4 h-4" /> : i + 1}
+              </button>
+            );
+          })}
         </div>
         <button onClick={goToNextModule} disabled={activeModuleIndex === modules.length - 1}
           className="text-slate-400 hover:text-white disabled:opacity-20 p-2">
@@ -360,7 +392,6 @@ export function CourseProgram({
                 </div>
               ))
             )}
-
             <div className="flex justify-end pt-4">
               <button onClick={() => goToStep('practical')}
                 className="flex items-center gap-2 px-5 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-xl text-sm font-medium transition-colors">
@@ -378,7 +409,6 @@ export function CourseProgram({
             ) : (
               practicalLessons.map((lesson: any, index: number) => (
                 <div key={lesson.id} className="bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden">
-                  {/* Header du TP */}
                   <button
                     onClick={() => setShowTpContent(prev => ({ ...prev, [lesson.id]: !prev[lesson.id] }))}
                     className="w-full flex items-center justify-between p-4 hover:bg-slate-800/50 transition-colors"
@@ -401,12 +431,10 @@ export function CourseProgram({
                     </div>
                   </button>
 
-                  {/* Contenu du TP */}
                   {showTpContent[lesson.id] && (
                     <div className="p-4 border-t border-slate-800 space-y-3">
                       <ContentViewer contentType={lesson.content_type} contentUrl={lesson.content_url} contentBody={lesson.content_body} title={lesson.title} />
 
-                      {/* Bouton voir propositions */}
                       <button
                         onClick={() => setShowTpOptions(prev => ({ ...prev, [lesson.id]: !prev[lesson.id] }))}
                         className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-purple-500/30 rounded-xl text-purple-400 hover:border-purple-500/50 transition-colors text-sm font-medium"
@@ -415,7 +443,6 @@ export function CourseProgram({
                         {showTpOptions[lesson.id] ? 'Masquer les propositions' : 'Voir les propositions de correction'}
                       </button>
 
-                      {/* Propositions */}
                       {showTpOptions[lesson.id] && tpOptions[lesson.id] && (
                         <div className="space-y-2">
                           {tpOptions[lesson.id].map((option: any, oi: number) => {
