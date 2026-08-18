@@ -141,57 +141,70 @@ const handleDeleteLesson = async (id: string) => {
 };
 
   // Upload PDF pour leçon
-  const handlePdfUpload = async (file: File) => {
-    if (!file) return;
-    setUploadingPdf(true);
+const handlePdfUpload = async (file: File) => {
+  if (!file) return;
+  setUploadingPdf(true);
 
-    const fileName = `${Date.now()}_${file.name.replace(/\s+/g, '_')}`;
-    const { error: uploadError } = await supabase.storage
-      .from('course-pdfs')
-      .upload(fileName, file);
+  const cleanName = sanitizeFileName(file.name);
+  const fileName = `${Date.now()}_${cleanName}`;
+  
+  const { error: uploadError } = await supabase.storage
+    .from('course-pdfs')
+    .upload(fileName, file);
 
-    if (uploadError) {
-      alert('Upload échoué : ' + uploadError.message);
-      setUploadingPdf(false);
-      return;
-    }
-
-    const { data: publicUrlData } = supabase.storage
-      .from('course-pdfs')
-      .getPublicUrl(fileName);
-
-    setLessonUrl(publicUrlData.publicUrl);
+  if (uploadError) {
+    alert('Upload échoué : ' + uploadError.message);
     setUploadingPdf(false);
-  };
+    return;
+  }
+
+  const { data: publicUrlData } = supabase.storage
+    .from('course-pdfs')
+    .getPublicUrl(fileName);
+
+  setLessonUrl(publicUrlData.publicUrl);
+  setUploadingPdf(false);
+};
+
+
+  const sanitizeFileName = (fileName: string) => {
+  return fileName
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // Supprimer les accents
+    .replace(/[^a-zA-Z0-9.\-_]/g, '_') // Remplacer caractères spéciaux par underscore
+    .replace(/\s+/g, '_'); // Remplacer espaces par underscore
+};
 
   // Upload fichier pour examen (image ou PDF)
-  const handleExamFileUpload = async (file: File) => {
-    if (!file) return;
-    setUploadingExamFile(true);
+const handleExamFileUpload = async (file: File) => {
+  if (!file) return;
+  setUploadingExamFile(true);
 
-    const fileName = `${Date.now()}_${file.name.replace(/\s+/g, '_')}`;
-    const { error: uploadError } = await supabase.storage
-      .from('course-pdfs')
-      .upload(fileName, file);
+  const cleanName = sanitizeFileName(file.name);
+  const fileName = `${Date.now()}_${cleanName}`;
 
-    if (uploadError) {
-      alert('Upload échoué : ' + uploadError.message);
-      setUploadingExamFile(false);
-      return;
-    }
+  const { error: uploadError } = await supabase.storage
+    .from('course-pdfs')
+    .upload(fileName, file);
 
-    const { data: publicUrlData } = supabase.storage
-      .from('course-pdfs')
-      .getPublicUrl(fileName);
-
-    // Ajouter l'URL aux fichiers de l'examen
-    if (file.type.startsWith('image/')) {
-      setExamImages(prev => [...prev, publicUrlData.publicUrl]);
-    } else {
-      setExamFiles(prev => [...prev, publicUrlData.publicUrl]);
-    }
+  if (uploadError) {
+    alert('Upload échoué : ' + uploadError.message);
     setUploadingExamFile(false);
-  };
+    return;
+  }
+
+  const { data: publicUrlData } = supabase.storage
+    .from('course-pdfs')
+    .getPublicUrl(fileName);
+
+  // Ajouter l'URL aux fichiers de l'examen
+  if (file.type.startsWith('image/')) {
+    setExamImages(prev => [...prev, publicUrlData.publicUrl]);
+  } else {
+    setExamFiles(prev => [...prev, publicUrlData.publicUrl]);
+  }
+  setUploadingExamFile(false);
+};
 
   const handleAddLesson = async () => {
     if (!lessonTitle.trim()) return;
