@@ -47,8 +47,10 @@ export function CourseProgram({
   const [tpOptions, setTpOptions] = useState<Record<string, any[]>>({});
   const [tpSelections, setTpSelections] = useState<Record<string, string>>({});
   const [tpCorrectCount, setTpCorrectCount] = useState(0);
+  const [tpAttemptCount, setTpAttemptCount] = useState(0);
   const [showTpOptions, setShowTpOptions] = useState<Record<string, boolean>>({});
   const [showTpContent, setShowTpContent] = useState<Record<string, boolean>>({});
+  const [selectedTp, setSelectedTp] = useState<Record<string, string>>({});
 
   const activeCourse = courses[activeCourseIndex];
   const modules = activeCourse?.modules || [];
@@ -58,9 +60,19 @@ export function CourseProgram({
   const prevModuleAssessmentId = !isFirstModule ? modules[activeModuleIndex - 1]?.assessments?.[0]?.id : null;
   const isModuleUnlocked = isFirstModule || (prevModuleAssessmentId && passedAssessments.includes(prevModuleAssessmentId));
 
-  const theoreticalLessons = activeModule?.lessons?.filter((l: any) => l.category === 'THEORIQUE') || [];
-  const practicalLessons = activeModule?.lessons?.filter((l: any) => l.category === 'PRATIQUE' && l.content_type !== 'QUIZ') || [];
-  const quizLessons = activeModule?.lessons?.filter((l: any) => l.content_type === 'QUIZ') || [];
+  // TRIER les leçons par position
+  const theoreticalLessons = (activeModule?.lessons
+    ?.filter((l: any) => l.category === 'THEORIQUE')
+    .sort((a: any, b: any) => a.position - b.position)) || [];
+    
+  const practicalLessons = (activeModule?.lessons
+    ?.filter((l: any) => l.category === 'PRATIQUE' && l.content_type !== 'QUIZ')
+    .sort((a: any, b: any) => a.position - b.position)) || [];
+    
+  const quizLessons = (activeModule?.lessons
+    ?.filter((l: any) => l.content_type === 'QUIZ')
+    .sort((a: any, b: any) => a.position - b.position)) || [];
+    
   const assessments = activeModule?.assessments || [];
 
   const isTpValidated = tpCorrectCount >= TP_TARGET;
@@ -140,10 +152,18 @@ export function CourseProgram({
       .in('lesson_id', tpIds);
     if (data) {
       const correctTpIds = new Set();
+      const selectedMap: Record<string, string> = {};
+      let totalAttempts = 0;
       data.forEach((attempt: any) => {
-        if (attempt.is_correct) correctTpIds.add(attempt.lesson_id);
+        totalAttempts++;
+        if (attempt.is_correct) {
+          correctTpIds.add(attempt.lesson_id);
+          selectedMap[attempt.lesson_id] = attempt.selected_option;
+        }
       });
       setTpCorrectCount(correctTpIds.size);
+      setTpAttemptCount(totalAttempts);
+      setTpSelections(selectedMap);
     }
   };
 
@@ -157,14 +177,19 @@ export function CourseProgram({
 
   const handleTpChoice = async (lesson: any, option: any) => {
     if (!profile) return;
-    setTpSelections(prev => ({ ...prev, [lesson.id]: option.option_text }));
+    
+    setSelectedTp(prev => ({ ...prev, [lesson.id]: option.option_text }));
+    setTpAttemptCount(prev => prev + 1);
+
     await supabase.from('tp_attempts').insert({
       student_id: profile.id,
       lesson_id: lesson.id,
       selected_option: option.option_text,
       is_correct: option.is_correct,
     });
+
     if (option.is_correct) {
+      setTpSelections(prev => ({ ...prev, [lesson.id]: option.option_text }));
       setTpCorrectCount(prev => prev + 1);
     }
   };
@@ -195,7 +220,6 @@ export function CourseProgram({
   if (!isModuleUnlocked) {
     return (
       <div className="w-full max-w-3xl mx-auto pb-20">
-        {/* Navigation modules */}
         <div className="sticky top-0 z-20 bg-[#020617]/95 backdrop-blur-xl border-b border-[#1e293b] -mx-4 px-4 py-3 flex items-center justify-between mb-8">
           <button onClick={goToPrevModule} disabled={activeModuleIndex === 0}
             className="text-slate-400 hover:text-white disabled:opacity-20 p-2">
@@ -228,7 +252,6 @@ export function CourseProgram({
           </button>
         </div>
 
-        {/* Message verrouillé */}
         <div className="text-center py-16">
           <div className="w-20 h-20 bg-amber-500/10 border border-amber-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
             <Lock className="w-10 h-10 text-amber-400" />
@@ -272,6 +295,7 @@ export function CourseProgram({
               </span>
               <span className={tpCorrectCount >= TP_TARGET ? 'text-green-400 font-bold' : 'text-slate-400'}>
                 {tpCorrectCount}/{TP_TARGET} {tpCorrectCount >= TP_TARGET && '✓'}
+                <span className="text-xs text-slate-500 ml-2">({tpAttemptCount} tentatives)</span>
               </span>
             </div>
             <div className="h-2.5 bg-slate-800 rounded-full overflow-hidden">
@@ -430,6 +454,7 @@ export function CourseProgram({
             ) : (
               practicalLessons.map((lesson: any, index: number) => (
                 <div key={lesson.id} className="bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden">
+                  {/* Header du TP */}
                   <button
                     onClick={() => setShowTpContent(prev => ({ ...prev, [lesson.id]: !prev[lesson.id] }))}
                     className="w-full flex items-center justify-between p-4 hover:bg-slate-800/50 transition-colors"
@@ -442,7 +467,7 @@ export function CourseProgram({
                     </div>
                     <div className="flex items-center gap-2">
                       {tpSelections[lesson.id] && (
-                        <span className="text-green-400 text-xs">✓ Choisi</span>
+                        <span className="text-green-400 text-xs">✓ Validé</span>
                       )}
                       {showTpContent[lesson.id] ? (
                         <ChevronUp className="w-4 h-4 text-slate-500" />
@@ -452,10 +477,12 @@ export function CourseProgram({
                     </div>
                   </button>
 
+                  {/* Contenu du TP */}
                   {showTpContent[lesson.id] && (
                     <div className="p-4 border-t border-slate-800 space-y-3">
                       <ContentViewer contentType={lesson.content_type} contentUrl={lesson.content_url} contentBody={lesson.content_body} title={lesson.title} />
 
+                      {/* Bouton voir propositions */}
                       <button
                         onClick={() => setShowTpOptions(prev => ({ ...prev, [lesson.id]: !prev[lesson.id] }))}
                         className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-purple-500/30 rounded-xl text-purple-400 hover:border-purple-500/50 transition-colors text-sm font-medium"
@@ -464,33 +491,38 @@ export function CourseProgram({
                         {showTpOptions[lesson.id] ? 'Masquer les propositions' : 'Voir les propositions de correction'}
                       </button>
 
+                      {/* Propositions */}
                       {showTpOptions[lesson.id] && tpOptions[lesson.id] && (
                         <div className="space-y-2">
                           {tpOptions[lesson.id].map((option: any, oi: number) => {
                             const isSelected = tpSelections[lesson.id] === option.option_text;
+                            const isCurrentChoice = selectedTp[lesson.id] === option.option_text && !tpSelections[lesson.id];
                             return (
-                              <button
+                              <div
                                 key={option.id}
-                                onClick={() => handleTpChoice(lesson, option)}
-                                disabled={!!tpSelections[lesson.id]}
-                                className={`w-full text-left px-4 py-3 rounded-xl border transition-all text-sm ${
+                                className={`rounded-xl border transition-all ${
                                   isSelected
-                                    ? option.is_correct
-                                      ? 'bg-green-500/20 border-green-500/50 text-green-400'
-                                      : 'bg-red-500/20 border-red-500/50 text-red-400'
-                                    : tpSelections[lesson.id]
-                                    ? option.is_correct
-                                      ? 'bg-green-500/10 border-green-500/30 text-green-400'
-                                      : 'bg-slate-800 border-slate-700 text-slate-500'
-                                    : 'bg-slate-800 border-slate-700 text-white hover:bg-slate-700'
+                                    ? 'bg-green-500/10 border-green-500/30'
+                                    : isCurrentChoice
+                                    ? 'bg-red-500/10 border-red-500/30'
+                                    : 'bg-slate-800/50 border-slate-700'
                                 }`}
                               >
-                                <span className="font-bold mr-2">Proposition {String.fromCharCode(65 + oi)}</span>
-                                {option.option_text}
-                                {tpSelections[lesson.id] && option.is_correct && (
-                                  <Check className="w-4 h-4 inline ml-2 text-green-400" />
+                                <div className="p-3">
+                                  <p className={`text-sm ${isSelected ? 'text-green-400 font-medium' : 'text-white'}`}>
+                                    <span className="font-bold mr-2">Proposition {String.fromCharCode(65 + oi)}</span>
+                                    {option.option_text}
+                                  </p>
+                                </div>
+                                {!tpSelections[lesson.id] && (
+                                  <button
+                                    onClick={() => handleTpChoice(lesson, option)}
+                                    className="w-full py-2 px-3 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 text-xs font-medium rounded-b-xl transition-colors"
+                                  >
+                                    Je choisis cette réponse
+                                  </button>
                                 )}
-                              </button>
+                              </div>
                             );
                           })}
                         </div>
