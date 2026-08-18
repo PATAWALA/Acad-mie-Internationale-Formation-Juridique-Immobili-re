@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   X, Eye, Download, ExternalLink, 
-  Maximize2, Image, FileText, Loader2 
+  Image, FileText, Loader2 
 } from 'lucide-react';
 
 interface SubmissionViewerProps {
@@ -16,8 +16,16 @@ export default function SubmissionViewer({ submissionUrl }: SubmissionViewerProp
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
 
-  const isImage = /\.(jpeg|jpg|png|gif|webp)(\?.*)?$/i.test(submissionUrl);
+  // Détection des types de fichiers
+  const isImage = /\.(jpeg|jpg|png|gif|webp|bmp)(\?.*)?$/i.test(submissionUrl);
   const isPdf = /\.pdf(\?.*)?$/i.test(submissionUrl);
+
+  // Réinitialiser l'état quand on ouvre
+  const handleOpen = () => {
+    setIsLoading(true);
+    setHasError(false);
+    setIsOpen(true);
+  };
 
   return (
     <>
@@ -25,11 +33,11 @@ export default function SubmissionViewer({ submissionUrl }: SubmissionViewerProp
       <motion.button
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
-        onClick={() => setIsOpen(true)}
+        onClick={handleOpen}
         className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 text-blue-400 text-xs font-medium rounded-lg transition-all"
       >
         <Eye className="w-3.5 h-3.5" />
-        Voir ma copie soumise
+        Voir le travail
       </motion.button>
 
       {/* Modal Viewer */}
@@ -72,16 +80,16 @@ export default function SubmissionViewer({ submissionUrl }: SubmissionViewerProp
                   </div>
                   <div>
                     <h3 className="text-base font-bold text-white">
-                      Ma copie soumise
+                      Copie soumise
                     </h3>
                     <p className="text-xs text-slate-400">
-                      {isImage ? 'Image' : isPdf ? 'Document PDF' : 'Aperçu'}
+                      {isImage ? 'Image' : isPdf ? 'Document PDF' : 'Fichier'}
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {/* Actions */}
+                  {/* Ouvrir dans un nouvel onglet */}
                   <a
                     href={submissionUrl}
                     target="_blank"
@@ -91,6 +99,7 @@ export default function SubmissionViewer({ submissionUrl }: SubmissionViewerProp
                   >
                     <ExternalLink className="w-4 h-4 text-slate-400" />
                   </a>
+                  {/* Télécharger */}
                   <a
                     href={submissionUrl}
                     download
@@ -99,6 +108,7 @@ export default function SubmissionViewer({ submissionUrl }: SubmissionViewerProp
                   >
                     <Download className="w-4 h-4 text-slate-400" />
                   </a>
+                  {/* Fermer */}
                   <button
                     onClick={() => setIsOpen(false)}
                     className="p-2 hover:bg-[#1e293b] rounded-xl transition-colors"
@@ -143,7 +153,7 @@ export default function SubmissionViewer({ submissionUrl }: SubmissionViewerProp
                 {isImage && !hasError && (
                   <img
                     src={submissionUrl}
-                    alt="Ma copie soumise"
+                    alt="Copie soumise"
                     onLoad={() => setIsLoading(false)}
                     onError={() => {
                       setIsLoading(false);
