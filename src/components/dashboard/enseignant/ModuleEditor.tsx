@@ -18,8 +18,6 @@ import {
   X,
   Upload,
   Loader2,
-  Image,
-  Check,
 } from 'lucide-react';
 
 interface Props {
@@ -96,115 +94,67 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
   const theoreticalLessons = lessons.filter(l => l.category === 'THEORIQUE');
   const practicalLessons = lessons.filter(l => l.category === 'PRATIQUE');
 
-  const handleAddQuestion = async () => {
-  if (!questionText.trim() || !activeQuizLesson) return;
-  if (!optionA.trim() || !optionB.trim() || !optionC.trim() || !optionD.trim()) {
-    alert('Veuillez remplir les 4 options.');
-    return;
-  }
-
-  const { error } = await supabase.from('quiz_questions').insert({
-    lesson_id: activeQuizLesson.id,
-    assessment_id: null,
-    question: questionText,
-    option_a: optionA,
-    option_b: optionB,
-    option_c: optionC,
-    option_d: optionD,
-    correct_answer: correctAnswer,
-    position: quizQuestions.length + 1,
-  });
-
-  if (!error) {
-    setQuestionText('');
-    setOptionA('');
-    setOptionB('');
-    setOptionC('');
-    setOptionD('');
-    setCorrectAnswer('A');
-    fetchQuizQuestions(activeQuizLesson.id);
-    onUpdate();
-  }
-};
-
-const handleDeleteQuestion = async (id: number) => {
-  if (!confirm('Supprimer cette question ?')) return;
-  await supabase.from('quiz_questions').delete().eq('id', id);
-  if (activeQuizLesson) fetchQuizQuestions(activeQuizLesson.id);
-};
-
-const handleDeleteLesson = async (id: string) => {
-  if (!confirm('Supprimer cette leçon ?')) return;
-  await supabase.from('lessons').delete().eq('id', id);
-  fetchData();
-  onUpdate();
-};
-
-  // Upload PDF pour leçon
-const handlePdfUpload = async (file: File) => {
-  if (!file) return;
-  setUploadingPdf(true);
-
-  const cleanName = sanitizeFileName(file.name);
-  const fileName = `${Date.now()}_${cleanName}`;
-  
-  const { error: uploadError } = await supabase.storage
-    .from('course-pdfs')
-    .upload(fileName, file);
-
-  if (uploadError) {
-    alert('Upload échoué : ' + uploadError.message);
-    setUploadingPdf(false);
-    return;
-  }
-
-  const { data: publicUrlData } = supabase.storage
-    .from('course-pdfs')
-    .getPublicUrl(fileName);
-
-  setLessonUrl(publicUrlData.publicUrl);
-  setUploadingPdf(false);
-};
-
-
   const sanitizeFileName = (fileName: string) => {
-  return fileName
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '') // Supprimer les accents
-    .replace(/[^a-zA-Z0-9.\-_]/g, '_') // Remplacer caractères spéciaux par underscore
-    .replace(/\s+/g, '_'); // Remplacer espaces par underscore
-};
+    return fileName
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9.\-_]/g, '_')
+      .replace(/\s+/g, '_');
+  };
 
-  // Upload fichier pour examen (image ou PDF)
-const handleExamFileUpload = async (file: File) => {
-  if (!file) return;
-  setUploadingExamFile(true);
+  const handlePdfUpload = async (file: File) => {
+    if (!file) return;
+    setUploadingPdf(true);
 
-  const cleanName = sanitizeFileName(file.name);
-  const fileName = `${Date.now()}_${cleanName}`;
+    const cleanName = sanitizeFileName(file.name);
+    const fileName = `${Date.now()}_${cleanName}`;
 
-  const { error: uploadError } = await supabase.storage
-    .from('course-pdfs')
-    .upload(fileName, file);
+    const { error: uploadError } = await supabase.storage
+      .from('course-pdfs')
+      .upload(fileName, file);
 
-  if (uploadError) {
-    alert('Upload échoué : ' + uploadError.message);
+    if (uploadError) {
+      alert('Upload échoué : ' + uploadError.message);
+      setUploadingPdf(false);
+      return;
+    }
+
+    const { data: publicUrlData } = supabase.storage
+      .from('course-pdfs')
+      .getPublicUrl(fileName);
+
+    setLessonUrl(publicUrlData.publicUrl);
+    setUploadingPdf(false);
+  };
+
+  const handleExamFileUpload = async (file: File) => {
+    if (!file) return;
+    setUploadingExamFile(true);
+
+    const cleanName = sanitizeFileName(file.name);
+    const fileName = `${Date.now()}_${cleanName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('course-pdfs')
+      .upload(fileName, file);
+
+    if (uploadError) {
+      alert('Upload échoué : ' + uploadError.message);
+      setUploadingExamFile(false);
+      return;
+    }
+
+    const { data: publicUrlData } = supabase.storage
+      .from('course-pdfs')
+      .getPublicUrl(fileName);
+
+    if (file.type.startsWith('image/')) {
+      setExamImages(prev => [...prev, publicUrlData.publicUrl]);
+    } else {
+      setExamFiles(prev => [...prev, publicUrlData.publicUrl]);
+    }
     setUploadingExamFile(false);
-    return;
-  }
-
-  const { data: publicUrlData } = supabase.storage
-    .from('course-pdfs')
-    .getPublicUrl(fileName);
-
-  // Ajouter l'URL aux fichiers de l'examen
-  if (file.type.startsWith('image/')) {
-    setExamImages(prev => [...prev, publicUrlData.publicUrl]);
-  } else {
-    setExamFiles(prev => [...prev, publicUrlData.publicUrl]);
-  }
-  setUploadingExamFile(false);
-};
+  };
 
   const handleAddLesson = async () => {
     if (!lessonTitle.trim()) return;
@@ -246,10 +196,81 @@ const handleExamFileUpload = async (file: File) => {
     onUpdate();
   };
 
+  const handleAddQuestion = async () => {
+    if (!questionText.trim() || !activeQuizLesson) return;
+    if (!optionA.trim() || !optionB.trim() || !optionC.trim() || !optionD.trim()) {
+      alert('Veuillez remplir les 4 options.');
+      return;
+    }
+
+    const { error } = await supabase.from('quiz_questions').insert({
+      lesson_id: activeQuizLesson.id,
+      assessment_id: null,
+      question: questionText,
+      option_a: optionA,
+      option_b: optionB,
+      option_c: optionC,
+      option_d: optionD,
+      correct_answer: correctAnswer,
+      position: quizQuestions.length + 1,
+    });
+
+    if (!error) {
+      setQuestionText('');
+      setOptionA('');
+      setOptionB('');
+      setOptionC('');
+      setOptionD('');
+      setCorrectAnswer('A');
+      fetchQuizQuestions(activeQuizLesson.id);
+      onUpdate();
+    }
+  };
+
+  const handleDeleteQuestion = async (id: number) => {
+    if (!confirm('Supprimer cette question ?')) return;
+    await supabase.from('quiz_questions').delete().eq('id', id);
+    if (activeQuizLesson) fetchQuizQuestions(activeQuizLesson.id);
+  };
+
+  const handleDeleteLesson = async (id: string) => {
+    if (!confirm('Supprimer cette leçon ?')) return;
+    await supabase.from('lessons').delete().eq('id', id);
+    fetchData();
+    onUpdate();
+  };
+
+  const handleDeleteQuiz = async (lessonId: string) => {
+    if (!confirm('Supprimer ce QCM et toutes ses questions ?')) return;
+
+    // 1. Supprimer les questions du QCM
+    const { error: questionsError } = await supabase
+      .from('quiz_questions')
+      .delete()
+      .eq('lesson_id', lessonId);
+
+    if (questionsError) {
+      alert('Erreur suppression questions : ' + questionsError.message);
+      return;
+    }
+
+    // 2. Supprimer la leçon QUIZ
+    const { error: lessonError } = await supabase
+      .from('lessons')
+      .delete()
+      .eq('id', lessonId);
+
+    if (lessonError) {
+      alert('Erreur suppression QCM : ' + lessonError.message);
+    } else {
+      fetchData();
+      onUpdate();
+    }
+  };
+
   const handleAddExam = async () => {
     if (!examTitle.trim()) return;
 
-    // Construire la description complète avec les fichiers
     let fullDescription = examDescription.trim() || '';
     if (examImages.length > 0) {
       fullDescription += '\n\n📷 DOCUMENTS IMAGES :\n';
@@ -391,7 +412,7 @@ const handleExamFileUpload = async (file: File) => {
                 {lessonType === 'VIDEO' && (
                   <input
                     type="text"
-                    placeholder="URL de la vidéo (YouTube, Vimeo...)"
+                    placeholder="URL de la vidéo"
                     value={lessonUrl}
                     onChange={(e) => setLessonUrl(e.target.value)}
                     className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
@@ -484,12 +505,23 @@ const handleExamFileUpload = async (file: File) => {
                         </button>
                       )}
                     </div>
-                    <button
-                      onClick={() => handleDeleteLesson(lesson.id)}
-                      className="text-red-400 hover:text-red-300 transition-colors"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    {lesson.content_type === 'QUIZ' ? (
+                      <button
+                        onClick={() => handleDeleteQuiz(lesson.id)}
+                        className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors"
+                        title="Supprimer le QCM et ses questions"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleDeleteLesson(lesson.id)}
+                        className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors"
+                        title="Supprimer"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -533,7 +565,6 @@ const handleExamFileUpload = async (file: File) => {
                   className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none"
                 />
 
-                {/* Upload de fichiers pour l'examen */}
                 <div className="space-y-2">
                   <p className="text-xs text-slate-400 font-medium">Documents à joindre :</p>
                   <label className="flex items-center justify-center gap-2 py-3 border-2 border-dashed border-slate-600 rounded-xl cursor-pointer hover:border-slate-400 transition-colors">
@@ -553,12 +584,11 @@ const handleExamFileUpload = async (file: File) => {
                   </label>
                   {uploadingExamFile && <Loader2 className="w-4 h-4 text-blue-400 animate-spin mx-auto" />}
 
-                  {/* Aperçu des images uploadées */}
                   {examImages.length > 0 && (
                     <div className="flex flex-wrap gap-2">
                       {examImages.map((url, i) => (
                         <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-slate-700">
-                          <img src={url} alt={`Document ${i + 1}`} className="w-full h-full object-cover" />
+                          <img src={url} alt={`Image ${i + 1}`} className="w-full h-full object-cover" />
                           <button
                             onClick={() => setExamImages(prev => prev.filter((_, idx) => idx !== i))}
                             className="absolute top-0 right-0 bg-red-500 text-white rounded-bl-lg p-0.5"
@@ -570,7 +600,6 @@ const handleExamFileUpload = async (file: File) => {
                     </div>
                   )}
 
-                  {/* Aperçu des PDF uploadés */}
                   {examFiles.length > 0 && (
                     <div className="space-y-1">
                       {examFiles.map((url, i) => (
@@ -608,7 +637,6 @@ const handleExamFileUpload = async (file: File) => {
               </div>
             )}
 
-            {/* Liste des examens */}
             {assessments.length === 0 ? (
               <p className="text-center text-slate-500 text-sm py-6">Aucun examen</p>
             ) : (
