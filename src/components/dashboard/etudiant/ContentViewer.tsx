@@ -11,6 +11,7 @@ import {
   AlertCircle,
   File,
 } from 'lucide-react';
+import HtmlContentViewer from './HtmlContentViewer';
 
 interface ContentViewerProps {
   contentType: string;
@@ -24,27 +25,22 @@ export default function ContentViewer({ contentType, contentUrl, contentBody, ti
   const [hasError, setHasError] = useState(false);
 
   const getYouTubeEmbedUrl = (url: string) => {
-    // YouTube
     if (url.includes('youtube.com/watch?v=')) {
       const videoId = url.split('v=')[1]?.split('&')[0];
       return `https://www.youtube.com/embed/${videoId}`;
     }
-    // YouTube court (youtu.be)
     if (url.includes('youtu.be/')) {
       const videoId = url.split('youtu.be/')[1]?.split('?')[0];
       return `https://www.youtube.com/embed/${videoId}`;
     }
-    // Vimeo
     if (url.includes('vimeo.com/')) {
       const videoId = url.split('vimeo.com/')[1]?.split('?')[0];
       return `https://player.vimeo.com/video/${videoId}`;
     }
-    // Loom
     if (url.includes('loom.com/share/')) {
       const videoId = url.split('loom.com/share/')[1]?.split('?')[0];
       return `https://www.loom.com/embed/${videoId}`;
     }
-    // Si déjà une URL d'intégration
     if (url.includes('/embed/') || url.includes('player.vimeo.com') || url.includes('loom.com/embed')) {
       return url;
     }
@@ -58,11 +54,15 @@ export default function ContentViewer({ contentType, contentUrl, contentBody, ti
       url.includes('loom.com');
   };
 
-  // ============ CONTENU TEXTE ============
+  // ============ CONTENU TEXTE (HTML ou brut) ============
   if (contentType === 'TEXT') {
     return (
-      <div className="text-slate-300 text-sm md:text-base leading-relaxed whitespace-pre-wrap">
-        {contentBody || 'Aucun contenu textuel pour cette leçon.'}
+      <div className="text-slate-300 text-sm md:text-base leading-relaxed">
+        {contentBody && contentBody.startsWith('<') ? (
+          <HtmlContentViewer content={contentBody} />
+        ) : (
+          <div className="whitespace-pre-wrap">{contentBody || 'Aucun contenu textuel pour cette leçon.'}</div>
+        )}
       </div>
     );
   }
@@ -119,7 +119,7 @@ export default function ContentViewer({ contentType, contentUrl, contentBody, ti
   // ============ CONTENU PDF ============
   if (contentType === 'PDF' && contentUrl) {
     return (
-      <div className="bg-[#020617] border border-[#1e293b] rounded-xl overflow-hidden">
+      <div className="bg-[#020617] border border-[#1e293b] rounded-xl overflow-hidden relative">
         {isLoading && (
           <div className="absolute inset-0 flex items-center justify-center bg-[#020617] z-10">
             <Loader2 className="w-8 h-8 text-blue-400 animate-spin" />
