@@ -625,8 +625,8 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
                     <div className="flex-1 min-w-0">
                       <span className="text-white text-sm font-medium block truncate">{exam.title}</span>
                       {exam.description && (
-                        <p className="text-slate-500 text-xs mt-0.5 line-clamp-2 overflow-hidden">
-                          {stripHtml(exam.description).substring(0, 120)}...
+                        <p className="text-slate-500 text-xs mt-0.5 line-clamp-1 overflow-hidden">
+                          {stripHtml(exam.description).substring(0, 80)}...
                         </p>
                       )}
                       <div className="flex items-center gap-2 mt-1">
