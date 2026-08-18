@@ -11,7 +11,7 @@ import {
   AlertCircle,
   File,
 } from 'lucide-react';
-import HtmlContentViewer from './HtmlContentViewer';
+import HtmlContentViewer from '../../HtmlContentViewer';
 
 interface ContentViewerProps {
   contentType: string;
