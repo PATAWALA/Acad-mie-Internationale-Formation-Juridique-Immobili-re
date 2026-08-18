@@ -68,12 +68,19 @@ export function CourseProgram({
     if (activeModuleIndex < modules.length - 1) setActiveModuleIndex(prev => prev + 1);
     else if (activeCourseIndex < courses.length - 1) { setActiveCourseIndex(prev => prev + 1); setActiveModuleIndex(0); }
     setActiveStep('theoretical');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const goToPrevModule = () => {
     if (activeModuleIndex > 0) setActiveModuleIndex(prev => prev - 1);
     else if (activeCourseIndex > 0) { setActiveCourseIndex(prev => prev - 1); setActiveModuleIndex((courses[activeCourseIndex - 1]?.modules?.length || 1) - 1); }
     setActiveStep('theoretical');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const goToStep = (step: ModuleStep) => {
+    setActiveStep(step);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const loadQuizForModule = async (module: any) => {
@@ -257,7 +264,7 @@ export function CourseProgram({
                 {steps.map((step) => (
                   <button
                     key={step.id}
-                    onClick={() => setActiveStep(step.id)}
+                    onClick={() => goToStep(step.id)}
                     className={`flex flex-col items-center gap-1 px-2 py-3 rounded-xl text-xs font-medium transition-all ${
                       activeStep === step.id
                         ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20'
@@ -299,6 +306,18 @@ export function CourseProgram({
                         </div>
                       ))
                     )}
+
+                    {/* Navigation bas */}
+                    <div className="flex items-center justify-between pt-6 border-t border-slate-800">
+                      <span className="text-xs text-slate-500">Théorique</span>
+                      <button
+                        onClick={() => goToStep('practical')}
+                        className="flex items-center gap-2 px-5 py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-xl text-sm font-medium transition-colors"
+                      >
+                        Passer à la Pratique
+                        <ArrowRight className="w-4 h-4" />
+                      </button>
+                    </div>
                   </motion.div>
                 )}
 
@@ -322,6 +341,24 @@ export function CourseProgram({
                         </div>
                       ))
                     )}
+
+                    {/* Navigation bas */}
+                    <div className="flex items-center justify-between pt-6 border-t border-slate-800">
+                      <button
+                        onClick={() => goToStep('theoretical')}
+                        className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-slate-400 rounded-xl text-sm hover:bg-slate-700 transition-colors"
+                      >
+                        <ArrowLeft className="w-4 h-4" />
+                        Théorique
+                      </button>
+                      <button
+                        onClick={() => goToStep('quiz')}
+                        className="flex items-center gap-2 px-5 py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-xl text-sm font-medium transition-colors"
+                      >
+                        Passer au QCM
+                        <ArrowRight className="w-4 h-4" />
+                      </button>
+                    </div>
                   </motion.div>
                 )}
 
@@ -366,6 +403,24 @@ export function CourseProgram({
                         </div>
                       ))
                     )}
+
+                    {/* Navigation bas */}
+                    <div className="flex items-center justify-between pt-6 border-t border-slate-800">
+                      <button
+                        onClick={() => goToStep('practical')}
+                        className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-slate-400 rounded-xl text-sm hover:bg-slate-700 transition-colors"
+                      >
+                        <ArrowLeft className="w-4 h-4" />
+                        Pratique
+                      </button>
+                      <button
+                        onClick={() => goToStep('exam')}
+                        className="flex items-center gap-2 px-5 py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-xl text-sm font-medium transition-colors"
+                      >
+                        Passer à l'Examen
+                        <ArrowRight className="w-4 h-4" />
+                      </button>
+                    </div>
                   </motion.div>
                 )}
 
@@ -397,7 +452,6 @@ export function CourseProgram({
 
                             {ass.description && (
                               <div className="mb-4">
-                                {/* Consignes propres */}
                                 {getCleanDescription(ass.description) && (
                                   <div className="p-4 bg-amber-500/5 border border-amber-500/10 rounded-xl mb-3">
                                     <p className="text-sm text-amber-400 font-semibold mb-2">📋 Consignes</p>
@@ -407,7 +461,6 @@ export function CourseProgram({
                                   </div>
                                 )}
 
-                                {/* Images */}
                                 {extractImagesFromDescription(ass.description).length > 0 && (
                                   <div className="space-y-3 mb-3">
                                     <p className="text-sm text-blue-400 font-semibold flex items-center gap-2">
@@ -437,7 +490,6 @@ export function CourseProgram({
                                   </div>
                                 )}
 
-                                {/* PDFs */}
                                 {extractPdfsFromDescription(ass.description).length > 0 && (
                                   <div className="space-y-2 mb-3">
                                     <p className="text-sm text-blue-400 font-semibold flex items-center gap-2">
@@ -486,6 +538,18 @@ export function CourseProgram({
                         );
                       })
                     )}
+
+                    {/* Navigation bas */}
+                    <div className="flex items-center justify-between pt-6 border-t border-slate-800">
+                      <button
+                        onClick={() => goToStep('quiz')}
+                        className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-slate-400 rounded-xl text-sm hover:bg-slate-700 transition-colors"
+                      >
+                        <ArrowLeft className="w-4 h-4" />
+                        QCM
+                      </button>
+                      <span className="text-xs text-slate-500">Fin du module</span>
+                    </div>
                   </motion.div>
                 )}
               </AnimatePresence>
