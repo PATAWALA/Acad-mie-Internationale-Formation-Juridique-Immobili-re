@@ -14,7 +14,7 @@ import {
 import { SubmissionModal } from './SubmissionModal';
 import ContentViewer from './ContentViewer';
 import SubmissionViewer from './SubmissionViewer';
-import HtmlContentViewer from './HtmlContentViewer';
+import HtmlContentViewer from '../../HtmlContentViewer';
 
 interface CourseProgramProps {
   courses: any[];
