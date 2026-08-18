@@ -9,7 +9,8 @@ import {
   Send, Award, BookOpen, Loader2, Trophy, Star, PenTool,
   Play, Download, HelpCircle, Check, X,
   ArrowLeft, ArrowRight, ExternalLink, BookMarked, Wrench,
-  GraduationCap, FileImage, Eye, TrendingUp, ChevronDown, ChevronUp
+  GraduationCap, FileImage, Eye, TrendingUp, ChevronDown, ChevronUp,
+  AlertCircle
 } from 'lucide-react';
 import { SubmissionModal } from './SubmissionModal';
 import ContentViewer from './ContentViewer';
@@ -53,7 +54,6 @@ export function CourseProgram({
   const modules = activeCourse?.modules || [];
   const activeModule = modules[activeModuleIndex];
 
-  // Vérifier si le module est débloqué
   const isFirstModule = activeModuleIndex === 0;
   const prevModuleAssessmentId = !isFirstModule ? modules[activeModuleIndex - 1]?.assessments?.[0]?.id : null;
   const isModuleUnlocked = isFirstModule || (prevModuleAssessmentId && passedAssessments.includes(prevModuleAssessmentId));
@@ -65,7 +65,8 @@ export function CourseProgram({
 
   const isTpValidated = tpCorrectCount >= TP_TARGET;
   const isQuizValidated = quizScore >= QUIZ_TARGET;
-  const isExamUnlocked = isTpValidated && isQuizValidated;
+  // L'examen est débloqué si : TP validés + QCM validés + module précédent validé
+  const isExamUnlocked = isTpValidated && isQuizValidated && isModuleUnlocked;
 
   const goToStep = (step: ModuleStep) => {
     setActiveStep(step);
@@ -73,12 +74,6 @@ export function CourseProgram({
   };
 
   const goToNextModule = () => {
-    // Vérifier si le module actuel est validé
-    const currentAssessmentId = activeModule?.assessments?.[0]?.id;
-    if (currentAssessmentId && !passedAssessments.includes(currentAssessmentId)) {
-      alert('Vous devez valider ce module avant de passer au suivant.');
-      return;
-    }
     if (activeModuleIndex < modules.length - 1) setActiveModuleIndex(prev => prev + 1);
     setActiveStep('theoretical');
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -197,28 +192,6 @@ export function CourseProgram({
     );
   }
 
-  // Si le module est verrouillé, afficher le message
-  if (!isModuleUnlocked) {
-    return (
-      <div className="w-full max-w-3xl mx-auto pb-20">
-        <div className="text-center py-20">
-          <Lock className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-          <h3 className="text-xl font-bold text-white mb-2">Module verrouillé</h3>
-          <p className="text-slate-400">
-            Validez le module {activeModuleIndex} pour débloquer celui-ci.
-          </p>
-          <button
-            onClick={goToPrevModule}
-            className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-xl text-sm font-medium transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Retour au module précédent
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="w-full max-w-3xl mx-auto pb-20">
       {/* Bandeau de progression */}
@@ -288,7 +261,18 @@ export function CourseProgram({
         </div>
       </div>
 
-      {/* Navigation modules avec verrouillage */}
+      {/* Avertissement module précédent non validé */}
+      {!isModuleUnlocked && (
+        <div className="mb-6 p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center gap-3">
+          <AlertCircle className="w-5 h-5 text-amber-400 flex-shrink-0" />
+          <p className="text-sm text-amber-400">
+            ⚠️ Vous devez valider le module {activeModuleIndex} avant de pouvoir soumettre l'examen de ce module.
+            Le contenu est accessible en lecture, mais l'examen restera verrouillé.
+          </p>
+        </div>
+      )}
+
+      {/* Navigation modules */}
       <div className="sticky top-0 z-20 bg-[#020617]/95 backdrop-blur-xl border-b border-[#1e293b] -mx-4 px-4 py-3 flex items-center justify-between mb-6">
         <button onClick={goToPrevModule} disabled={activeModuleIndex === 0}
           className="text-slate-400 hover:text-white disabled:opacity-20 p-2">
@@ -298,25 +282,16 @@ export function CourseProgram({
           {modules.map((mod: any, i: number) => {
             const modAssessmentId = mod.assessments?.[0]?.id;
             const isPassed = modAssessmentId && passedAssessments.includes(modAssessmentId);
-            const isUnlocked = i === 0 || (modules[i - 1]?.assessments?.[0]?.id && passedAssessments.includes(modules[i - 1].assessments[0].id));
             return (
               <button
                 key={i}
-                onClick={() => {
-                  if (isUnlocked || isPassed) {
-                    setActiveModuleIndex(i);
-                    setActiveStep('theoretical');
-                  }
-                }}
-                disabled={!isUnlocked && !isPassed}
+                onClick={() => { setActiveModuleIndex(i); setActiveStep('theoretical'); }}
                 className={`w-8 h-8 rounded-lg text-sm font-bold transition-all flex items-center justify-center ${
                   i === activeModuleIndex
                     ? 'bg-blue-500 text-white'
                     : isPassed
                     ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                    : isUnlocked
-                    ? 'bg-slate-800 text-slate-400 hover:bg-slate-700'
-                    : 'bg-slate-800/50 text-slate-600 cursor-not-allowed'
+                    : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
                 }`}
               >
                 {isPassed ? <CheckCircle2 className="w-4 h-4" /> : i + 1}
@@ -550,7 +525,9 @@ export function CourseProgram({
                 <Lock className="w-12 h-12 text-slate-600 mx-auto mb-3" />
                 <h3 className="text-white font-semibold mb-2">Examen verrouillé</h3>
                 <p className="text-slate-400 text-sm">
-                  Validez les TP ({tpCorrectCount}/{TP_TARGET}) et le QCM ({quizScore}/{QUIZ_TARGET}) pour débloquer l'examen.
+                  {!isModuleUnlocked && `Validez d'abord le module ${activeModuleIndex}.\n`}
+                  {!isTpValidated && `TP : ${tpCorrectCount}/${TP_TARGET}\n`}
+                  {!isQuizValidated && `QCM : ${quizScore}/${QUIZ_TARGET}`}
                 </p>
               </div>
             ) : (
