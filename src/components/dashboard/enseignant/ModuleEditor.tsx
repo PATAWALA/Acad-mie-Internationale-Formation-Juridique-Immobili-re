@@ -5,21 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { createClientComponent } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
 import {
-  BookOpen,
-  Wrench,
-  GraduationCap,
-  Plus,
-  Trash2,
-  HelpCircle,
-  FileText,
-  Video,
-  FileArchive,
-  Link2,
-  X,
-  Upload,
-  Loader2,
-  Image,
-  Check,
+  BookOpen, Wrench, GraduationCap, Plus, Trash2, HelpCircle,
+  FileText, Video, FileArchive, Link2, X, Upload, Loader2, Pencil,
 } from 'lucide-react';
 
 interface Props {
@@ -34,7 +21,6 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
   const [assessments, setAssessments] = useState<any[]>([]);
   const [quizQuestions, setQuizQuestions] = useState<any[]>([]);
 
-  // Formulaire leçon
   const [showAddLesson, setShowAddLesson] = useState(false);
   const [lessonType, setLessonType] = useState<'TEXT' | 'VIDEO' | 'PDF' | 'LINK' | 'QUIZ'>('TEXT');
   const [lessonTitle, setLessonTitle] = useState('');
@@ -42,15 +28,14 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
   const [lessonBody, setLessonBody] = useState('');
   const [uploadingPdf, setUploadingPdf] = useState(false);
 
-  // Formulaire examen
   const [showAddExam, setShowAddExam] = useState(false);
+  const [editingExam, setEditingExam] = useState<any | null>(null);
   const [examTitle, setExamTitle] = useState('');
   const [examDescription, setExamDescription] = useState('');
   const [examImages, setExamImages] = useState<string[]>([]);
   const [examFiles, setExamFiles] = useState<string[]>([]);
   const [uploadingExamFile, setUploadingExamFile] = useState(false);
 
-  // QCM
   const [activeQuizLesson, setActiveQuizLesson] = useState<any | null>(null);
   const [questionText, setQuestionText] = useState('');
   const [optionA, setOptionA] = useState('');
@@ -88,9 +73,7 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
   }, [module.id]);
 
   useEffect(() => {
-    if (activeQuizLesson) {
-      fetchQuizQuestions(activeQuizLesson.id);
-    }
+    if (activeQuizLesson) fetchQuizQuestions(activeQuizLesson.id);
   }, [activeQuizLesson]);
 
   const theoreticalLessons = lessons.filter(l => l.category === 'THEORIQUE');
@@ -104,27 +87,26 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
       .replace(/\s+/g, '_');
   };
 
+  const stripHtml = (html: string) => {
+    return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  };
+
   const handlePdfUpload = async (file: File) => {
     if (!file) return;
     setUploadingPdf(true);
-
     const cleanName = sanitizeFileName(file.name);
     const fileName = `${Date.now()}_${cleanName}`;
-
     const { error: uploadError } = await supabase.storage
       .from('course-pdfs')
       .upload(fileName, file);
-
     if (uploadError) {
       alert('Upload échoué : ' + uploadError.message);
       setUploadingPdf(false);
       return;
     }
-
     const { data: publicUrlData } = supabase.storage
       .from('course-pdfs')
       .getPublicUrl(fileName);
-
     setLessonUrl(publicUrlData.publicUrl);
     setUploadingPdf(false);
   };
@@ -132,24 +114,19 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
   const handleExamFileUpload = async (file: File) => {
     if (!file) return;
     setUploadingExamFile(true);
-
     const cleanName = sanitizeFileName(file.name);
     const fileName = `${Date.now()}_${cleanName}`;
-
     const { error: uploadError } = await supabase.storage
       .from('course-pdfs')
       .upload(fileName, file);
-
     if (uploadError) {
       alert('Upload échoué : ' + uploadError.message);
       setUploadingExamFile(false);
       return;
     }
-
     const { data: publicUrlData } = supabase.storage
       .from('course-pdfs')
       .getPublicUrl(fileName);
-
     if (file.type.startsWith('image/')) {
       setExamImages(prev => [...prev, publicUrlData.publicUrl]);
     } else {
@@ -158,17 +135,82 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
     setUploadingExamFile(false);
   };
 
+  const handleEditExam = (exam: any) => {
+    setEditingExam(exam);
+    setExamTitle(exam.title);
+    setExamDescription(exam.description || '');
+    setExamImages([]);
+    setExamFiles([]);
+    setShowAddExam(true);
+  };
+
+  const handleAddExam = async () => {
+    if (!examTitle.trim()) return;
+
+    let fullDescription = examDescription.trim() || '';
+    if (examImages.length > 0) {
+      fullDescription += '\n\n📷 DOCUMENTS IMAGES :\n';
+      examImages.forEach((url, i) => {
+        fullDescription += `Image ${i + 1}: ${url}\n`;
+      });
+    }
+    if (examFiles.length > 0) {
+      fullDescription += '\n📄 DOCUMENTS PDF :\n';
+      examFiles.forEach((url, i) => {
+        fullDescription += `PDF ${i + 1}: ${url}\n`;
+      });
+    }
+
+    if (editingExam) {
+      const { error } = await supabase
+        .from('assessments')
+        .update({ title: examTitle, description: fullDescription.trim() || null })
+        .eq('id', editingExam.id);
+      if (!error) {
+        setExamTitle('');
+        setExamDescription('');
+        setExamImages([]);
+        setExamFiles([]);
+        setEditingExam(null);
+        setShowAddExam(false);
+        fetchData();
+        onUpdate();
+      }
+    } else {
+      const { error } = await supabase.from('assessments').insert({
+        module_id: module.id,
+        course_id: module.course_id,
+        title: examTitle,
+        description: fullDescription.trim() || null,
+        type: 'EXAM',
+      });
+      if (!error) {
+        setExamTitle('');
+        setExamDescription('');
+        setExamImages([]);
+        setExamFiles([]);
+        setShowAddExam(false);
+        fetchData();
+        onUpdate();
+      }
+    }
+  };
+
+  const handleDeleteExam = async (id: string) => {
+    if (!confirm('Supprimer cet examen ?')) return;
+    await supabase.from('assessments').delete().eq('id', id);
+    fetchData();
+    onUpdate();
+  };
+
   const handleAddLesson = async () => {
     if (!lessonTitle.trim()) return;
-
     if (lessonType === 'PDF' && !lessonUrl) {
       alert('Veuillez télécharger un fichier PDF.');
       return;
     }
-
     const category = activeTab === 'theoretical' ? 'THEORIQUE' : 'PRATIQUE';
     const position = category === 'THEORIQUE' ? theoreticalLessons.length + 1 : practicalLessons.length + 1;
-
     const { data, error } = await supabase.from('lessons').insert({
       module_id: module.id,
       title: lessonTitle,
@@ -178,22 +220,18 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
       category,
       position,
     }).select('*').single();
-
     if (error) {
       alert('Erreur: ' + error.message);
       return;
     }
-
     setLessonTitle('');
     setLessonUrl('');
     setLessonBody('');
     setLessonType('TEXT');
     setShowAddLesson(false);
-
     if (lessonType === 'QUIZ' && data) {
       setActiveQuizLesson(data);
     }
-
     fetchData();
     onUpdate();
   };
@@ -204,7 +242,6 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
       alert('Veuillez remplir les 4 options.');
       return;
     }
-
     const { error } = await supabase.from('quiz_questions').insert({
       lesson_id: activeQuizLesson.id,
       assessment_id: null,
@@ -216,7 +253,6 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
       correct_answer: correctAnswer,
       position: quizQuestions.length + 1,
     });
-
     if (!error) {
       setQuestionText('');
       setOptionA('');
@@ -244,75 +280,24 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
 
   const handleDeleteQuiz = async (lessonId: string) => {
     if (!confirm('Supprimer ce QCM et toutes ses questions ?')) return;
-
     const { error: questionsError } = await supabase
       .from('quiz_questions')
       .delete()
       .eq('lesson_id', lessonId);
-
     if (questionsError) {
       alert('Erreur suppression questions : ' + questionsError.message);
       return;
     }
-
     const { error: lessonError } = await supabase
       .from('lessons')
       .delete()
       .eq('id', lessonId);
-
     if (lessonError) {
       alert('Erreur suppression QCM : ' + lessonError.message);
     } else {
       fetchData();
       onUpdate();
     }
-  };
-
-  const handleAddExam = async () => {
-    if (!examTitle.trim()) return;
-
-    let fullDescription = examDescription.trim() || '';
-    if (examImages.length > 0) {
-      fullDescription += '\n\n📷 DOCUMENTS IMAGES :\n';
-      examImages.forEach((url, i) => {
-        fullDescription += `Image ${i + 1}: ${url}\n`;
-      });
-    }
-    if (examFiles.length > 0) {
-      fullDescription += '\n📄 DOCUMENTS PDF :\n';
-      examFiles.forEach((url, i) => {
-        fullDescription += `PDF ${i + 1}: ${url}\n`;
-      });
-    }
-
-    const { error } = await supabase.from('assessments').insert({
-      module_id: module.id,
-      course_id: module.course_id,
-      title: examTitle,
-      description: fullDescription.trim() || null,
-      type: 'EXAM',
-    });
-
-    if (!error) {
-      setExamTitle('');
-      setExamDescription('');
-      setExamImages([]);
-      setExamFiles([]);
-      setShowAddExam(false);
-      fetchData();
-      onUpdate();
-    }
-  };
-
-  const handleDeleteExam = async (id: string) => {
-    if (!confirm('Supprimer cet examen ?')) return;
-    await supabase.from('assessments').delete().eq('id', id);
-    fetchData();
-    onUpdate();
-  };
-
-  const stripHtml = (html: string) => {
-    return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
   };
 
   const lessonTypes = [
@@ -337,9 +322,7 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
             onClick={() => setActiveTab(tab.id as any)}
             className={cn(
               "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors",
-              activeTab === tab.id
-                ? "bg-blue-500 text-white"
-                : "bg-slate-800 text-slate-400 hover:text-white"
+              activeTab === tab.id ? "bg-blue-500 text-white" : "bg-slate-800 text-slate-400 hover:text-white"
             )}
           >
             <tab.icon className="w-4 h-4" />
@@ -352,13 +335,7 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
       <AnimatePresence mode="wait">
         {/* THÉORIQUE / PRATIQUE */}
         {(activeTab === 'theoretical' || activeTab === 'practical') && (
-          <motion.div
-            key={activeTab}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="space-y-3"
-          >
+          <motion.div key={activeTab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-3">
             <button
               onClick={() => {
                 setShowAddLesson(true);
@@ -378,15 +355,10 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
                   {lessonTypes.map((type) => (
                     <button
                       key={type.type}
-                      onClick={() => {
-                        setLessonType(type.type as any);
-                        setLessonUrl('');
-                      }}
+                      onClick={() => { setLessonType(type.type as any); setLessonUrl(''); }}
                       className={cn(
                         "flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border transition-colors",
-                        lessonType === type.type
-                          ? `${type.bg} ${type.color} border-current`
-                          : "border-slate-600 text-slate-400 hover:text-white"
+                        lessonType === type.type ? `${type.bg} ${type.color} border-current` : "border-slate-600 text-slate-400 hover:text-white"
                       )}
                     >
                       <type.icon className="w-4 h-4" />
@@ -513,7 +485,6 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
                       <button
                         onClick={() => handleDeleteQuiz(lesson.id)}
                         className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors"
-                        title="Supprimer le QCM et ses questions"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -521,7 +492,6 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
                       <button
                         onClick={() => handleDeleteLesson(lesson.id)}
                         className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors"
-                        title="Supprimer"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -535,15 +505,16 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
 
         {/* EXAMENS */}
         {activeTab === 'exams' && (
-          <motion.div
-            key="exams"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="space-y-3"
-          >
+          <motion.div key="exams" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-3">
             <button
-              onClick={() => setShowAddExam(true)}
+              onClick={() => {
+                setEditingExam(null);
+                setExamTitle('');
+                setExamDescription('');
+                setExamImages([]);
+                setExamFiles([]);
+                setShowAddExam(true);
+              }}
               className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-slate-700 rounded-xl text-slate-400 hover:text-white hover:border-slate-500 transition-colors"
             >
               <Plus className="w-4 h-4" />
@@ -569,7 +540,6 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
                   className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none"
                 />
 
-                {/* Upload de fichiers pour l'examen */}
                 <div className="space-y-2">
                   <p className="text-xs text-slate-400 font-medium">Documents à joindre :</p>
                   <label className="flex items-center justify-center gap-2 py-3 border-2 border-dashed border-slate-600 rounded-xl cursor-pointer hover:border-slate-400 transition-colors">
@@ -589,7 +559,6 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
                   </label>
                   {uploadingExamFile && <Loader2 className="w-4 h-4 text-blue-400 animate-spin mx-auto" />}
 
-                  {/* Aperçu des images uploadées */}
                   {examImages.length > 0 && (
                     <div className="flex flex-wrap gap-2">
                       {examImages.map((url, i) => (
@@ -606,7 +575,6 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
                     </div>
                   )}
 
-                  {/* Aperçu des PDF uploadés */}
                   {examFiles.length > 0 && (
                     <div className="space-y-1">
                       {examFiles.map((url, i) => (
@@ -632,10 +600,13 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
                     disabled={!examTitle.trim() || uploadingExamFile}
                     className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium disabled:opacity-50"
                   >
-                    Ajouter
+                    {editingExam ? 'Enregistrer' : 'Ajouter'}
                   </button>
                   <button
-                    onClick={() => setShowAddExam(false)}
+                    onClick={() => {
+                      setShowAddExam(false);
+                      setEditingExam(null);
+                    }}
                     className="px-4 py-2 bg-slate-700 text-slate-400 hover:text-white rounded-lg text-sm"
                   >
                     Annuler
@@ -671,12 +642,22 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
                         )}
                       </div>
                     </div>
-                    <button
-                      onClick={() => handleDeleteExam(exam.id)}
-                      className="text-red-400 hover:text-red-300 transition-colors flex-shrink-0 ml-3"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+                      <button
+                        onClick={() => handleEditExam(exam)}
+                        className="p-1.5 text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 rounded-lg transition-colors"
+                        title="Modifier"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteExam(exam.id)}
+                        className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors"
+                        title="Supprimer"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
