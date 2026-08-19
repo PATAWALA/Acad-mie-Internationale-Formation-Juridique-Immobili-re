@@ -60,7 +60,6 @@ export function CourseProgram({
   const prevModuleAssessmentId = !isFirstModule ? modules[activeModuleIndex - 1]?.assessments?.[0]?.id : null;
   const isModuleUnlocked = isFirstModule || (prevModuleAssessmentId && passedAssessments.includes(prevModuleAssessmentId));
 
-  // TRIER les leçons par position
   const theoreticalLessons = (activeModule?.lessons
     ?.filter((l: any) => l.category === 'THEORIQUE')
     .sort((a: any, b: any) => a.position - b.position)) || [];
@@ -216,7 +215,6 @@ export function CourseProgram({
     );
   }
 
-  // SI MODULE VERROUILLÉ → Afficher uniquement le message jaune
   if (!isModuleUnlocked) {
     return (
       <div className="w-full max-w-3xl mx-auto pb-20">
@@ -454,7 +452,6 @@ export function CourseProgram({
             ) : (
               practicalLessons.map((lesson: any, index: number) => (
                 <div key={lesson.id} className="bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden">
-                  {/* Header du TP */}
                   <button
                     onClick={() => setShowTpContent(prev => ({ ...prev, [lesson.id]: !prev[lesson.id] }))}
                     className="w-full flex items-center justify-between p-4 hover:bg-slate-800/50 transition-colors"
@@ -477,12 +474,10 @@ export function CourseProgram({
                     </div>
                   </button>
 
-                  {/* Contenu du TP */}
                   {showTpContent[lesson.id] && (
                     <div className="p-4 border-t border-slate-800 space-y-3">
                       <ContentViewer contentType={lesson.content_type} contentUrl={lesson.content_url} contentBody={lesson.content_body} title={lesson.title} />
 
-                      {/* Bouton voir propositions */}
                       <button
                         onClick={() => setShowTpOptions(prev => ({ ...prev, [lesson.id]: !prev[lesson.id] }))}
                         className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-purple-500/30 rounded-xl text-purple-400 hover:border-purple-500/50 transition-colors text-sm font-medium"
@@ -491,7 +486,6 @@ export function CourseProgram({
                         {showTpOptions[lesson.id] ? 'Masquer les propositions' : 'Voir les propositions de correction'}
                       </button>
 
-                      {/* Propositions */}
                       {showTpOptions[lesson.id] && tpOptions[lesson.id] && (
                         <div className="space-y-2">
                           {tpOptions[lesson.id].map((option: any, oi: number) => {
@@ -509,15 +503,22 @@ export function CourseProgram({
                                 }`}
                               >
                                 <div className="p-3">
-                                  <p className={`text-sm ${isSelected ? 'text-green-400 font-medium' : 'text-white'}`}>
-                                    <span className="font-bold mr-2">Proposition {String.fromCharCode(65 + oi)}</span>
-                                    {option.option_text}
+                                  <p className={`text-sm font-bold mb-1 ${isSelected ? 'text-green-400' : 'text-purple-400'}`}>
+                                    Proposition {String.fromCharCode(65 + oi)}
                                   </p>
+                                  {/* Rendu HTML pour les propositions */}
+                                  {option.option_text.startsWith('<') ? (
+                                    <HtmlContentViewer content={option.option_text} />
+                                  ) : (
+                                    <p className={`text-sm ${isSelected ? 'text-green-400' : 'text-white'}`}>
+                                      {option.option_text}
+                                    </p>
+                                  )}
                                 </div>
                                 {!tpSelections[lesson.id] && (
                                   <button
                                     onClick={() => handleTpChoice(lesson, option)}
-                                    className="w-full py-2 px-3 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 text-xs font-medium rounded-b-xl transition-colors"
+                                    className="w-full py-2.5 px-3 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 text-xs font-medium rounded-b-xl transition-colors"
                                   >
                                     Je choisis cette réponse
                                   </button>
