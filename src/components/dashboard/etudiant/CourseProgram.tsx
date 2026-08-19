@@ -70,6 +70,13 @@ export function CourseProgram({
   const prevModuleAssessmentId = !isFirstModule ? modules[activeModuleIndex - 1]?.assessments?.[0]?.id : null;
   const isModuleUnlocked = isFirstModule || (prevModuleAssessmentId && passedAssessments.includes(prevModuleAssessmentId));
 
+
+  const getPositionFromTitle = (title: string) => {
+  if (!title) return 9999;
+  const match = title.match(/TP\s*(\d+)/i);
+  return match ? parseInt(match[1], 10) : 9999;
+};
+
   // Utilisation de useMemo pour un tri stable et performant
   const theoreticalLessons = useMemo(() => {
     return (activeModule?.lessons || [])
@@ -78,10 +85,14 @@ export function CourseProgram({
   }, [activeModule?.lessons]);
 
   const practicalLessons = useMemo(() => {
-    return (activeModule?.lessons || [])
-      .filter((l: any) => l.category === 'PRATIQUE' && l.content_type !== 'QUIZ')
-      .sort((a: any, b: any) => Number(a.position) - Number(b.position));
-  }, [activeModule?.lessons]);
+  return (activeModule?.lessons || [])
+    .filter((l: any) => l.category === 'PRATIQUE' && l.content_type !== 'QUIZ')
+    .map((l: any) => ({
+      ...l,
+      position: l.position ?? getPositionFromTitle(l.title),
+    }))
+    .sort((a: any, b: any) => Number(a.position) - Number(b.position));
+}, [activeModule?.lessons]);
 
   const quizLessons = useMemo(() => {
     return (activeModule?.lessons || [])
@@ -112,6 +123,8 @@ export function CourseProgram({
     setActiveStep(step);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  
 
   console.log('practicalLessons triés :', practicalLessons.map((l: any) => `${l.position}: ${l.title}`));
 console.log('Ordre dans la boucle :', [...practicalLessons].sort((a: any, b: any) => Number(a.position) - Number(b.position)).map((l: any) => `${l.position}: ${l.title}`));
