@@ -74,11 +74,11 @@ export function CourseProgram({
   ?.filter((l: any) => l.category === 'THEORIQUE')
   .sort((a: any, b: any) => Number(a.position) - Number(b.position))) || [];
 
-  const practicalLessons = (activeModule?.lessons
+const practicalLessons = (activeModule?.lessons
   ?.filter((l: any) => l.category === 'PRATIQUE' && l.content_type !== 'QUIZ')
   .sort((a: any, b: any) => Number(a.position) - Number(b.position))) || [];
 
-  const quizLessons = (activeModule?.lessons
+const quizLessons = (activeModule?.lessons
   ?.filter((l: any) => l.content_type === 'QUIZ')
   .sort((a: any, b: any) => Number(a.position) - Number(b.position))) || [];
 
