@@ -113,6 +113,9 @@ export function CourseProgram({
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  console.log('practicalLessons triés :', practicalLessons.map((l: any) => `${l.position}: ${l.title}`));
+console.log('Ordre dans la boucle :', [...practicalLessons].sort((a: any, b: any) => Number(a.position) - Number(b.position)).map((l: any) => `${l.position}: ${l.title}`));
+
   const goToNextModule = () => {
     if (activeModuleIndex < modules.length - 1) setActiveModuleIndex(prev => prev + 1);
     setActiveStep('theoretical');
