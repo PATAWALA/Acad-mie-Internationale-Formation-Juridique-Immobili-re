@@ -107,9 +107,10 @@ export default function FormationView({ certId, onPaymentSuccess, onPayClick }: 
 
     // 3. Si payé, charger les cours et soumissions
     if (enr.payment_status === 'PAID') {
+      // ✅ MODIFICATION : ajout de `position` dans la sélection des leçons
       const { data: coursesData } = await supabase
         .from('courses')
-        .select('id, title, description, modules(id, title, week_number, lessons(id, title, content_type, content_url, content_body, category), assessments(id, title, description, type, max_score))')
+        .select('id, title, description, modules(id, title, week_number, lessons(id, title, content_type, content_url, content_body, category, position), assessments(id, title, description, type, max_score))')
         .eq('certificate_id', certId)
         .order('id');
       setCourses(coursesData || []);
