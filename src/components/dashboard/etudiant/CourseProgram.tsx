@@ -10,7 +10,7 @@ import {
   Play, Download, HelpCircle, Check, X,
   ArrowLeft, ArrowRight, ExternalLink, BookMarked, Wrench,
   GraduationCap, FileImage, Eye, TrendingUp, ChevronDown, ChevronUp,
-  AlertCircle
+  AlertCircle, RefreshCw
 } from 'lucide-react';
 import { SubmissionModal } from './SubmissionModal';
 import ContentViewer from './ContentViewer';
@@ -47,8 +47,8 @@ export function CourseProgram({
   const [tpOptions, setTpOptions] = useState<Record<string, any[]>>({});
   const [tpSelections, setTpSelections] = useState<Record<string, string>>({});
   const [tpCorrectCount, setTpCorrectCount] = useState(0);
-  const [tpAttemptCount, setTpAttemptCount] = useState(0);
   const [tpFailedAttempts, setTpFailedAttempts] = useState(0);
+  const [quizFailedAttempts, setQuizFailedAttempts] = useState(0);
   const [showTpOptions, setShowTpOptions] = useState<Record<string, boolean>>({});
   const [showTpContent, setShowTpContent] = useState<Record<string, boolean>>({});
   const [selectedTp, setSelectedTp] = useState<Record<string, string>>({});
@@ -76,17 +76,23 @@ export function CourseProgram({
     
   const assessments = activeModule?.assessments || [];
 
-  // Score TP : commence à 16, diminue de 1 à chaque MAUVAISE réponse
+  // Score TP : commence à 16, diminue de 1 à chaque mauvaise réponse
   const tpScore = Math.max(0, TP_TARGET - tpFailedAttempts);
   
-  // Score QCM : commence à 12, diminue de 1 à chaque MAUVAISE réponse
-  const quizFailedAttempts = Object.values(quizAnswers[activeModule?.id] || {}).filter((a: any) => !a.is_correct).length;
+  // Score QCM : commence à 12, diminue de 1 à chaque mauvaise réponse
   const quizScoreDisplay = Math.max(0, QUIZ_TARGET - quizFailedAttempts);
 
-  // L'examen est débloqué si : tous les TP sont validés ET tous les QCM sont validés
+  // TP validé si tous les TP sont corrects
   const isTpValidated = tpCorrectCount >= practicalLessons.length && practicalLessons.length > 0;
-  const isQuizValidated = quizScore >= quizLessons.length * 10; // 10 questions par QCM
+  
+  // QCM validé si toutes les questions sont correctes
+  const isQuizValidated = quizScore >= (quizQuestions[activeModule?.id]?.length || 0) && (quizQuestions[activeModule?.id]?.length || 0) > 0;
+
+  // Examen débloqué si TP validés ET QCM validés
   const isExamUnlocked = isTpValidated && isQuizValidated && isModuleUnlocked;
+
+  // Bouton Recommencer si TP = 0 ET QCM = 0
+  const canRestart = tpScore <= 0 && quizScoreDisplay <= 0 && (tpFailedAttempts > 0 || quizFailedAttempts > 0);
 
   const goToStep = (step: ModuleStep) => {
     setActiveStep(step);
@@ -103,6 +109,29 @@ export function CourseProgram({
     if (activeModuleIndex > 0) setActiveModuleIndex(prev => prev - 1);
     setActiveStep('theoretical');
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleRestart = async () => {
+    if (!profile) return;
+    if (!confirm('Recommencer ? Toutes vos tentatives seront enregistrées, mais les scores seront réinitialisés à 16/16 et 12/12.')) return;
+    
+    // Réinitialiser les scores
+    setTpFailedAttempts(0);
+    setQuizFailedAttempts(0);
+    setTpCorrectCount(0);
+    setTpSelections({});
+    setSelectedTp({});
+    setTpFeedback({});
+    setQuizScore(0);
+    setQuizAnswers(prev => ({ ...prev, [activeModule.id]: {} }));
+    
+    // Enregistrer la réinitialisation
+    await supabase.from('tp_attempts').insert({
+      student_id: profile.id,
+      lesson_id: practicalLessons[0]?.id || '00000000-0000-0000-0000-000000000000',
+      selected_option: 'RÉINITIALISATION',
+      is_correct: false,
+    });
   };
 
   const loadTpOptions = async (module: any) => {
@@ -141,10 +170,18 @@ export function CourseProgram({
           .in('question_id', questions.map((q: any) => q.id));
         if (answers) {
           const map: Record<string, any> = {};
-          answers.forEach((a: any) => { const qid = a.question_id ?? 0; if (qid) map[qid] = a; });
+          let failed = 0;
+          answers.forEach((a: any) => { 
+            const qid = a.question_id ?? 0; 
+            if (qid) {
+              map[qid] = a;
+              if (!a.is_correct) failed++;
+            }
+          });
           setQuizAnswers(prev => ({ ...prev, [module.id]: map }));
           const correct = answers.filter(a => a.is_correct).length;
           setQuizScore(correct);
+          setQuizFailedAttempts(failed);
         }
       }
     }
@@ -162,20 +199,17 @@ export function CourseProgram({
     if (data) {
       const correctTpIds = new Set();
       const selectedMap: Record<string, string> = {};
-      let totalAttempts = 0;
-      let failedAttempts = 0;
+      let failed = 0;
       data.forEach((attempt: any) => {
-        totalAttempts++;
         if (attempt.is_correct) {
           correctTpIds.add(attempt.lesson_id);
           selectedMap[attempt.lesson_id] = attempt.selected_option;
-        } else {
-          failedAttempts++;
+        } else if (attempt.selected_option !== 'RÉINITIALISATION') {
+          failed++;
         }
       });
       setTpCorrectCount(correctTpIds.size);
-      setTpAttemptCount(totalAttempts);
-      setTpFailedAttempts(failedAttempts);
+      setTpFailedAttempts(failed);
       setTpSelections(selectedMap);
     }
   };
@@ -192,7 +226,6 @@ export function CourseProgram({
     if (!profile) return;
     
     setSelectedTp(prev => ({ ...prev, [lesson.id]: option.option_text }));
-    setTpAttemptCount(prev => prev + 1);
 
     await supabase.from('tp_attempts').insert({
       student_id: profile.id,
@@ -204,10 +237,10 @@ export function CourseProgram({
     if (option.is_correct) {
       setTpSelections(prev => ({ ...prev, [lesson.id]: option.option_text }));
       setTpCorrectCount(prev => prev + 1);
-      setTpFeedback(prev => ({ ...prev, [lesson.id]: { correct: true, message: '✅ Bonne réponse !' } }));
+      setTpFeedback(prev => ({ ...prev, [lesson.id]: { correct: true, message: '✅ Bonne réponse ! TP validé.' } }));
     } else {
       setTpFailedAttempts(prev => prev + 1);
-      setTpFeedback(prev => ({ ...prev, [lesson.id]: { correct: false, message: '❌ Mauvaise réponse. Réessayez.' } }));
+      setTpFeedback(prev => ({ ...prev, [lesson.id]: { correct: false, message: '❌ Mauvaise réponse. Relisez le TP et réessayez.' } }));
     }
   };
 
@@ -221,7 +254,9 @@ export function CourseProgram({
     setQuizAnswers(prev => ({ ...prev, [activeModule.id]: { ...(prev[activeModule.id] || {}), [question.id]: { selected_answer: answer, is_correct: isCorrect } } }));
     const answers = { ...(quizAnswers[activeModule.id] || {}), [question.id]: { selected_answer: answer, is_correct: isCorrect } };
     const correctCount = Object.values(answers).filter(a => (a as any).is_correct).length;
+    const failedCount = Object.values(answers).filter(a => !(a as any).is_correct).length;
     setQuizScore(correctCount);
+    setQuizFailedAttempts(failedCount);
   };
 
   if (!courses?.length) {
@@ -311,7 +346,7 @@ export function CourseProgram({
               </span>
               <span className="text-slate-400">
                 {tpScore}/{TP_TARGET}
-                {isTpValidated && <span className="text-green-400 font-bold ml-1">✓</span>}
+                {isTpValidated && <span className="text-green-400 font-bold ml-1">✓ Validé</span>}
               </span>
             </div>
             <div className="h-2.5 bg-slate-800 rounded-full overflow-hidden">
@@ -332,7 +367,7 @@ export function CourseProgram({
               </span>
               <span className="text-slate-400">
                 {quizScoreDisplay}/{QUIZ_TARGET}
-                {isQuizValidated && <span className="text-green-400 font-bold ml-1">✓</span>}
+                {isQuizValidated && <span className="text-green-400 font-bold ml-1">✓ Validé</span>}
               </span>
             </div>
             <div className="h-2.5 bg-slate-800 rounded-full overflow-hidden">
@@ -344,6 +379,19 @@ export function CourseProgram({
               />
             </div>
           </div>
+
+          {/* Bouton Recommencer si tout est épuisé */}
+          {canRestart && (
+            <div className="pt-2 border-t border-slate-800">
+              <button
+                onClick={handleRestart}
+                className="w-full flex items-center justify-center gap-2 py-2.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 rounded-xl text-sm font-medium transition-colors"
+              >
+                <RefreshCw className="w-4 h-4" />
+                Recommencer (réinitialiser mes points)
+              </button>
+            </div>
+          )}
 
           <div className="flex items-center justify-between pt-2 border-t border-slate-800">
             <span className="text-slate-400 flex items-center gap-2">
