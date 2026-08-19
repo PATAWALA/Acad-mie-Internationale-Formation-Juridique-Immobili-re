@@ -121,10 +121,9 @@ export function CourseProgram({
 
   // Charger les questions d'un TP et leurs options
   const loadTpQuestionsAndOptions = async (lessonId: string) => {
-    if (!profile) return;
     setLoadingTP(prev => ({ ...prev, [lessonId]: true }));
 
-    // Charger les questions du TP
+    // Charger les questions du TP (ne dépend pas du profil)
     const { data: questions } = await supabase
       .from('tp_questions')
       .select('*')
@@ -151,30 +150,98 @@ export function CourseProgram({
         setTpQuestionOptions(prev => ({ ...prev, ...optionsMap }));
       }
 
-      // Charger les tentatives de l'étudiant pour ces questions
-      const { data: attempts } = await supabase
-        .from('tp_attempts')
-        .select('*')
-        .eq('student_id', profile.id)
-        .in('tp_question_id', questionIds);
+      // Charger les tentatives de l'étudiant (si profil disponible)
+      if (profile) {
+        const { data: attempts } = await supabase
+          .from('tp_attempts')
+          .select('*')
+          .eq('student_id', profile.id)
+          .in('tp_question_id', questionIds);
 
-      if (attempts) {
-        const correctMap: Record<string, string> = {};
-        const attemptsMap: Record<string, number> = {};
-        attempts.forEach((att: any) => {
-          if (!att.is_correct) return;
-          correctMap[att.tp_question_id] = att.selected_option;
-          attemptsMap[att.tp_question_id] = (attemptsMap[att.tp_question_id] || 0) + 1;
-        });
-        setTpQuestionSelections(prev => ({ ...prev, ...correctMap }));
-        setTpQuestionAttempts(prev => ({ ...prev, ...attemptsMap }));
+        if (attempts) {
+          const correctMap: Record<string, string> = {};
+          const attemptsMap: Record<string, number> = {};
+          attempts.forEach((att: any) => {
+            if (!att.is_correct) return;
+            correctMap[att.tp_question_id] = att.selected_option;
+            attemptsMap[att.tp_question_id] = (attemptsMap[att.tp_question_id] || 0) + 1;
+          });
+          setTpQuestionSelections(prev => ({ ...prev, ...correctMap }));
+          setTpQuestionAttempts(prev => ({ ...prev, ...attemptsMap }));
+        }
       }
     }
 
     setLoadingTP(prev => ({ ...prev, [lessonId]: false }));
   };
 
-  // Charger les questions/options pour tous les TP lors du chargement du module
+  // Charger les QCM
+  const loadQuizForModule = async (module: any) => {
+    if (quizLessons.length === 0) return;
+    const lessonIds = quizLessons.map((l: any) => l.id);
+    const { data: questions } = await supabase
+      .from('quiz_questions')
+      .select('*')
+      .in('lesson_id', lessonIds)
+      .order('position', { ascending: true });
+    if (questions && questions.length > 0) {
+      setQuizQuestions(prev => ({ ...prev, [module.id]: questions }));
+      if (profile) {
+        const { data: answers } = await supabase
+          .from('quiz_answers')
+          .select('*')
+          .eq('student_id', profile.id)
+          .in('question_id', questions.map((q: any) => q.id));
+        if (answers) {
+          const map: Record<string, any> = {};
+          let failed = 0;
+          answers.forEach((a: any) => {
+            const qid = a.question_id ?? 0;
+            if (qid) {
+              map[qid] = a;
+              if (!a.is_correct) failed++;
+            }
+          });
+          setQuizAnswers(prev => ({ ...prev, [module.id]: map }));
+          const correct = answers.filter((a: any) => a.is_correct).length;
+          setQuizScore(correct);
+          setQuizFailedAttempts(failed);
+          const attemptsMap: Record<string, number> = {};
+          answers.forEach((a: any) => {
+            const qid = a.question_id ?? 0;
+            if (qid) attemptsMap[qid] = (attemptsMap[qid] || 0) + 1;
+          });
+          setQuizAttemptsCount(attemptsMap);
+        }
+      }
+    }
+  };
+
+  // Charger les tentatives globales des TP
+  const loadTpAttempts = async () => {
+    if (!profile) return;
+    const tpIds = practicalLessons.map((l: any) => l.id);
+    if (tpIds.length === 0) return;
+    const { data } = await supabase
+      .from('tp_attempts')
+      .select('*')
+      .eq('student_id', profile.id)
+      .in('lesson_id', tpIds);
+    if (data) {
+      const correctTpIds = new Set<string>();
+      const selectedMap: Record<string, string> = {};
+      data.forEach((attempt: any) => {
+        if (attempt.is_correct) {
+          correctTpIds.add(attempt.lesson_id);
+          selectedMap[attempt.lesson_id] = attempt.selected_option;
+        }
+      });
+      setTpCorrectCount(correctTpIds.size);
+      setTpSelections(selectedMap);
+    }
+  };
+
+  // Effet principal : chargement initial et quand le profil arrive
   useEffect(() => {
     if (activeModule && isModuleUnlocked) {
       // Charger les questions pour chaque TP
@@ -182,82 +249,16 @@ export function CourseProgram({
         loadTpQuestionsAndOptions(lesson.id);
       });
 
-      // Charger les QCM
-      const loadQuizForModule = async (module: any) => {
-        if (quizLessons.length === 0) return;
-        const lessonIds = quizLessons.map((l: any) => l.id);
-        const { data: questions } = await supabase
-          .from('quiz_questions')
-          .select('*')
-          .in('lesson_id', lessonIds)
-          .order('position', { ascending: true });
-        if (questions && questions.length > 0) {
-          setQuizQuestions(prev => ({ ...prev, [module.id]: questions }));
-          if (profile) {
-            const { data: answers } = await supabase
-              .from('quiz_answers')
-              .select('*')
-              .eq('student_id', profile.id)
-              .in('question_id', questions.map((q: any) => q.id));
-            if (answers) {
-              const map: Record<string, any> = {};
-              let failed = 0;
-              answers.forEach((a: any) => {
-                const qid = a.question_id ?? 0;
-                if (qid) {
-                  map[qid] = a;
-                  if (!a.is_correct) failed++;
-                }
-              });
-              setQuizAnswers(prev => ({ ...prev, [module.id]: map }));
-              const correct = answers.filter((a: any) => a.is_correct).length;
-              setQuizScore(correct);
-              setQuizFailedAttempts(failed);
-              const attemptsMap: Record<string, number> = {};
-              answers.forEach((a: any) => {
-                const qid = a.question_id ?? 0;
-                if (qid) attemptsMap[qid] = (attemptsMap[qid] || 0) + 1;
-              });
-              setQuizAttemptsCount(attemptsMap);
-            }
-          }
-        }
-      };
       loadQuizForModule(activeModule);
-
-      // Charger les TP tentatives globales (pour le nombre de TP validés)
-      const loadTpAttempts = async () => {
-        if (!profile) return;
-        const tpIds = practicalLessons.map((l: any) => l.id);
-        if (tpIds.length === 0) return;
-        const { data } = await supabase
-          .from('tp_attempts')
-          .select('*')
-          .eq('student_id', profile.id)
-          .in('lesson_id', tpIds);
-        if (data) {
-          const correctTpIds = new Set<string>();
-          const selectedMap: Record<string, string> = {};
-          data.forEach((attempt: any) => {
-            if (attempt.is_correct) {
-              correctTpIds.add(attempt.lesson_id);
-              selectedMap[attempt.lesson_id] = attempt.selected_option;
-            }
-          });
-          setTpCorrectCount(correctTpIds.size);
-          setTpSelections(selectedMap);
-        }
-      };
       loadTpAttempts();
     }
-  }, [activeModule?.id, practicalLessons.length, quizLessons.length, isModuleUnlocked]);
+  }, [activeModule?.id, practicalLessons.length, quizLessons.length, isModuleUnlocked, profile]);
 
   // ------------------- Gestion TP (choix d'une option) -------------------
   const handleTpOptionClick = async (lessonId: string, questionId: string, optionText: string, isCorrect: boolean) => {
     if (!profile) return;
     const currentAttempts = tpQuestionAttempts[questionId] || 0;
 
-    // Enregistrer la tentative (bonne ou mauvaise) dans tp_attempts
     await supabase.from('tp_attempts').insert({
       student_id: profile.id,
       lesson_id: lessonId,
@@ -269,7 +270,6 @@ export function CourseProgram({
     setTpQuestionAttempts(prev => ({ ...prev, [questionId]: currentAttempts + 1 }));
 
     if (isCorrect) {
-      // Afficher le bouton Valider pour cette question
       setTpQuestionCorrectSelected(prev => ({ ...prev, [questionId]: true }));
       setTpQuestionFeedback(prev => ({
         ...prev,
@@ -287,7 +287,6 @@ export function CourseProgram({
   const handleTpQuestionValidate = async (lessonId: string, questionId: string, optionText: string) => {
     if (!profile) return;
 
-    // Marquer la question comme validée
     setTpQuestionSelections(prev => ({ ...prev, [questionId]: optionText }));
     setTpQuestionCorrectSelected(prev => ({ ...prev, [questionId]: false }));
     setTpQuestionFeedback(prev => ({
@@ -299,7 +298,6 @@ export function CourseProgram({
     const questions = tpQuestions[lessonId] || [];
     const allValidated = questions.every((q: any) => tpQuestionSelections[q.id] !== undefined);
     if (allValidated) {
-      // Marquer le TP comme entièrement validé
       setTpSelections(prev => ({ ...prev, [lessonId]: optionText }));
       setTpCorrectCount(prev => prev + 1);
     }
@@ -345,21 +343,21 @@ export function CourseProgram({
     setSelectedQuizOption(prev => ({ ...prev, [question.id]: '' }));
   };
 
-  // Déterminer si un TP est déverrouillé (le précédent TP doit être validé)
+  // Déterminer si un TP est déverrouillé
   const isTpUnlocked = (index: number) => {
     if (index === 0) return true;
     const prevTp = practicalLessons[index - 1];
     return prevTp && tpSelections[prevTp.id] !== undefined;
   };
 
-  // Déterminer si une question QCM est déverrouillée (la précédente doit être validée)
+  // Déterminer si une question QCM est déverrouillée
   const isQuizQuestionUnlocked = (index: number) => {
     if (index === 0) return true;
     const prevQuestion = quizQuestions[activeModule?.id]?.[index - 1];
     return prevQuestion && quizAnswers[activeModule?.id]?.[prevQuestion.id]?.is_correct;
   };
 
-  // Déterminer si une question TP est déverrouillée (la précédente doit être validée)
+  // Déterminer si une question TP est déverrouillée
   const isTpQuestionUnlocked = (lessonId: string, questionIndex: number) => {
     if (questionIndex === 0) return true;
     const questions = tpQuestions[lessonId] || [];
@@ -675,7 +673,6 @@ export function CourseProgram({
                                   <ListChecks className="w-5 h-5 text-blue-400 flex-shrink-0 mt-1" />
                                   <div className="flex-1">
                                     <h4 className="text-white font-semibold">Question {qIndex + 1}</h4>
-                                    {/* Afficher le texte de la question (contrat) */}
                                     <HtmlContentViewer content={question.question_text} />
                                   </div>
                                 </div>
@@ -684,7 +681,6 @@ export function CourseProgram({
                                   <p className="text-amber-400 text-sm mt-2">🔒 Validez la question précédente pour débloquer celle-ci.</p>
                                 ) : (
                                   <>
-                                    {/* Options de la question */}
                                     <div className="space-y-2 mt-3">
                                       {qOptions.map((option: any, oi: number) => {
                                         const isSelected = qSelected === option.option_text;
@@ -711,7 +707,6 @@ export function CourseProgram({
                                       })}
                                     </div>
 
-                                    {/* Feedback pour la question */}
                                     {qFeedback && (
                                       <div className={`mt-3 p-3 rounded-lg ${qFeedback.correct ? 'bg-green-500/10 border border-green-500/20' : 'bg-red-500/10 border border-red-500/20'}`}>
                                         <p className={`text-sm font-medium ${qFeedback.correct ? 'text-green-400' : 'text-red-400'}`}>
@@ -720,7 +715,6 @@ export function CourseProgram({
                                       </div>
                                     )}
 
-                                    {/* Bouton Valider pour la question */}
                                     {isQCorrectSelected && !qSelected && (
                                       <button
                                         onClick={() => handleTpQuestionValidate(lesson.id, qId, qSelected || '')}
@@ -738,7 +732,6 @@ export function CourseProgram({
                           <p className="text-center text-slate-500 py-4">Aucune question pour ce TP.</p>
                         )}
 
-                        {/* Si le TP est entièrement validé */}
                         {isTpDone && (
                           <p className="text-green-400 font-bold text-center py-2">
                             ✅ TP validé
