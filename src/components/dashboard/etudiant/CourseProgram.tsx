@@ -5,16 +5,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { createClientComponent } from '@/lib/supabase/client';
 import { useStudent } from '@/context/StudentContext';
 import {
-  Lock, CheckCircle2, Clock, FileText, Video,
-  Send, Award, BookOpen, Loader2, Trophy, Star, PenTool,
-  Play, Download, HelpCircle, Check, X,
-  ArrowLeft, ArrowRight, ExternalLink, BookMarked, Wrench,
-  GraduationCap, FileImage, Eye, TrendingUp, ChevronDown, ChevronUp,
-  AlertCircle, RefreshCw, LockOpen, ListChecks, CheckSquare, Square, XCircle
+  Lock, CheckCircle2, BookOpen, Loader2, HelpCircle,
+  ArrowLeft, ArrowRight, BookMarked, Wrench,
+  GraduationCap, TrendingUp, ChevronDown, ChevronUp,
+  ListChecks, XCircle, Send
 } from 'lucide-react';
 import { SubmissionModal } from './SubmissionModal';
 import ContentViewer from './ContentViewer';
-import SubmissionViewer from './SubmissionViewer';
 import HtmlContentViewer from '../../HtmlContentViewer';
 
 interface CourseProgramProps {
@@ -38,35 +35,30 @@ export function CourseProgram({
   const [activeCourseIndex, setActiveCourseIndex] = useState(0);
   const [activeModuleIndex, setActiveModuleIndex] = useState(0);
   const [activeStep, setActiveStep] = useState<ModuleStep>('theoretical');
+
+  // QCM states
   const [quizQuestions, setQuizQuestions] = useState<Record<string, any[]>>({});
   const [quizAnswers, setQuizAnswers] = useState<Record<string, any>>({});
   const [quizScore, setQuizScore] = useState(0);
-  const [tpOptions, setTpOptions] = useState<Record<string, any[]>>({});
-  const [tpSelections, setTpSelections] = useState<Record<string, string>>({});
-  const [tpCorrectCount, setTpCorrectCount] = useState(0);
-  const [tpFailedAttempts, setTpFailedAttempts] = useState(0);
-  const [quizFailedAttempts, setQuizFailedAttempts] = useState(0);
-  const [showTpOptions, setShowTpOptions] = useState<Record<string, boolean>>({});
-  const [showTpContent, setShowTpContent] = useState<Record<string, boolean>>({});
-  const [selectedTp, setSelectedTp] = useState<Record<string, string>>({});
-  const [tpFeedback, setTpFeedback] = useState<Record<string, { correct: boolean; message: string; attempts?: number }>>({});
-  const [tpAttemptsCount, setTpAttemptsCount] = useState<Record<string, number>>({});
   const [quizAttemptsCount, setQuizAttemptsCount] = useState<Record<string, number>>({});
 
-  // Nouveaux états pour les questions multiples des TP
+  // TP question states (multi-questions)
   const [tpQuestions, setTpQuestions] = useState<Record<string, any[]>>({});
   const [tpQuestionOptions, setTpQuestionOptions] = useState<Record<string, any[]>>({});
   const [tpQuestionSelections, setTpQuestionSelections] = useState<Record<string, string>>({});
   const [tpQuestionCorrectSelected, setTpQuestionCorrectSelected] = useState<Record<string, boolean>>({});
   const [tpQuestionFeedback, setTpQuestionFeedback] = useState<Record<string, { correct: boolean; message: string }>>({});
   const [tpQuestionAttempts, setTpQuestionAttempts] = useState<Record<string, number>>({});
-  const [loadingTP, setLoadingTP] = useState<Record<string, boolean>>({});
   const [tpQuestionChosenOption, setTpQuestionChosenOption] = useState<Record<string, string>>({});
+  const [loadingTP, setLoadingTP] = useState<Record<string, boolean>>({});
 
-  // États pour validation manuelle
-  const [selectedTpOption, setSelectedTpOption] = useState<Record<string, string>>({});
+  // TP validation states
+  const [tpSelections, setTpSelections] = useState<Record<string, string>>({});
+  const [tpCorrectCount, setTpCorrectCount] = useState(0);
+
+  // UI states
+  const [showTpContent, setShowTpContent] = useState<Record<string, boolean>>({});
   const [selectedQuizOption, setSelectedQuizOption] = useState<Record<string, string>>({});
-  const [tpCorrectSelected, setTpCorrectSelected] = useState<Record<string, boolean>>({});
   const [quizCorrectSelected, setQuizCorrectSelected] = useState<Record<string, boolean>>({});
   const [quizFeedback, setQuizFeedback] = useState<Record<string, string>>({});
 
@@ -92,25 +84,23 @@ export function CourseProgram({
 
   const assessments = activeModule?.assessments || [];
 
-  // Calculs de progression basés sur les questions validées
   const totalTp = practicalLessons.length;
   const totalQuiz = quizQuestions[activeModule?.id]?.length || 0;
 
-  // Nombre total de questions TP dans le module
   const totalTpQuestions = practicalLessons.reduce(
     (acc: number, lesson: any) => acc + (tpQuestions[lesson.id]?.length || 0),
     0
-);
-  // Nombre de questions TP validées (réponses correctes confirmées)
+  );
   const tpValidatedQuestions = Object.keys(tpQuestionSelections).length;
 
-  const isTpValidated = tpCorrectCount >= totalTp && totalTp > 0; // TP entièrement validés
+  const isTpValidated = tpCorrectCount >= totalTp && totalTp > 0;
   const isQuizValidated = quizScore >= totalQuiz && totalQuiz > 0;
   const isExamUnlocked = isTpValidated && isQuizValidated && isModuleUnlocked;
 
   const tpNoteSur20 = totalTpQuestions > 0 ? Math.round((tpValidatedQuestions / totalTpQuestions) * 20) : 0;
   const quizNoteSur10 = totalQuiz > 0 ? Math.round((quizScore / totalQuiz) * 10) : 0;
 
+  // Navigation
   const goToStep = (step: ModuleStep) => {
     setActiveStep(step);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -200,18 +190,13 @@ export function CourseProgram({
           .in('question_id', questions.map((q: any) => q.id));
         if (answers) {
           const map: Record<string, any> = {};
-          let failed = 0;
           answers.forEach((a: any) => {
             const qid = a.question_id ?? 0;
-            if (qid) {
-              map[qid] = a;
-              if (!a.is_correct) failed++;
-            }
+            if (qid) map[qid] = a;
           });
           setQuizAnswers(prev => ({ ...prev, [module.id]: map }));
           const correct = answers.filter((a: any) => a.is_correct).length;
           setQuizScore(correct);
-          setQuizFailedAttempts(failed);
           const attemptsMap: Record<string, number> = {};
           answers.forEach((a: any) => {
             const qid = a.question_id ?? 0;
@@ -223,44 +208,37 @@ export function CourseProgram({
     }
   };
 
-  // Charger les tentatives globales des TP (pour tpCorrectCount)
-  const loadTpAttempts = async () => {
-  if (!profile) return;
-  const tpIds = practicalLessons.map((l: any) => l.id);
-  if (tpIds.length === 0) return;
-  const { data: questions } = await supabase
-    .from('tp_questions')
-    .select('id, lesson_id')
-    .in('lesson_id', tpIds);
-
-  if (questions) {
-    const questionIds = questions.map((q: any) => q.id);
-    const { data: attempts } = await supabase
-      .from('tp_attempts')
-      .select('*')
-      .eq('student_id', profile.id)
-      .in('tp_question_id', questionIds)
-      .eq('is_correct', true);
-
-    if (attempts) {
-      // Construire tpQuestionSelections à partir des tentatives correctes
-      const correctMap: Record<string, string> = {};
-      attempts.forEach((att: any) => {
-        if (att.tp_question_id) {
-          correctMap[att.tp_question_id] = att.selected_option;
-        }
+  // Effet principal : charge les TP et QCM
+  useEffect(() => {
+    if (activeModule && isModuleUnlocked) {
+      practicalLessons.forEach((lesson: any) => {
+        loadTpQuestionsAndOptions(lesson.id);
       });
-      setTpQuestionSelections(prev => ({ ...prev, ...correctMap }));
+      loadQuizForModule(activeModule);
     }
-  }
-};
+  }, [activeModule?.id, practicalLessons.length, quizLessons.length, isModuleUnlocked, profile]);
 
-  // ------------------- Gestion TP (choix d'une option) -------------------
+  // Effet pour recalculer tpSelections et tpCorrectCount
+  useEffect(() => {
+    if (!tpQuestions) return;
+    const validTpMap: Record<string, string> = {};
+    let count = 0;
+    practicalLessons.forEach((lesson: any) => {
+      const questions = tpQuestions[lesson.id] || [];
+      if (questions.length > 0 && questions.every((q: any) => tpQuestionSelections[q.id] !== undefined)) {
+        validTpMap[lesson.id] = 'validated';
+        count++;
+      }
+    });
+    setTpSelections(validTpMap);
+    setTpCorrectCount(count);
+  }, [tpQuestionSelections, tpQuestions, practicalLessons]);
+
+  // Gestion clic sur une option de TP
   const handleTpOptionClick = async (lessonId: string, questionId: string, optionText: string, isCorrect: boolean) => {
     if (!profile) return;
     const currentAttempts = tpQuestionAttempts[questionId] || 0;
 
-    // Enregistrer l'option cliquée pour l'affichage immédiat
     setTpQuestionChosenOption(prev => ({ ...prev, [questionId]: optionText }));
 
     await supabase.from('tp_attempts').insert({
@@ -281,7 +259,6 @@ export function CourseProgram({
       }));
     } else {
       setTpQuestionCorrectSelected(prev => ({ ...prev, [questionId]: false }));
-      // On ne garde que le message d'erreur minimal, affiché directement sur l'option
       setTpQuestionFeedback(prev => ({
         ...prev,
         [questionId]: { correct: false, message: '❌ Mauvaise réponse' }
@@ -289,27 +266,22 @@ export function CourseProgram({
     }
   };
 
-  // ------------------- Validation d'une question TP -------------------
+  // Validation d'une question TP
   const handleTpQuestionValidate = async (lessonId: string, questionId: string, optionText: string) => {
     if (!profile) return;
 
-    setTpQuestionSelections(prev => ({ ...prev, [questionId]: optionText }));
+    const updatedSelections = { ...tpQuestionSelections, [questionId]: optionText };
+    setTpQuestionSelections(updatedSelections);
     setTpQuestionCorrectSelected(prev => ({ ...prev, [questionId]: false }));
     setTpQuestionFeedback(prev => ({
       ...prev,
       [questionId]: { correct: true, message: `✅ Question validée en ${tpQuestionAttempts[questionId] || 1} tentative(s).` }
     }));
 
-    // Vérifier si toutes les questions de ce TP sont validées
-    const questions = tpQuestions[lessonId] || [];
-    const allValidated = questions.every((q: any) => tpQuestionSelections[q.id] !== undefined);
-    if (allValidated) {
-      setTpSelections(prev => ({ ...prev, [lessonId]: optionText }));
-      setTpCorrectCount(prev => prev + 1);
-    }
+    // Le useEffect recalculera tpSelections et tpCorrectCount automatiquement
   };
 
-  // ------------------- Gestion QCM -------------------
+  // Gestion QCM
   const handleQuizChoice = async (question: any, answer: string) => {
     if (!profile) return;
     const isCorrect = answer === question.correct_answer;
@@ -349,28 +321,21 @@ export function CourseProgram({
     setSelectedQuizOption(prev => ({ ...prev, [question.id]: '' }));
   };
 
-  // Déterminer si un TP est déverrouillé
+  // Verrouillage séquentiel TP et QCM
   const isTpUnlocked = (index: number) => {
-  if (index === 0) return true;
-  const prevTp = practicalLessons[index - 1];
-  if (!prevTp) return false;
+    if (index === 0) return true;
+    const prevTp = practicalLessons[index - 1];
+    if (!prevTp) return false;
+    const questions = tpQuestions[prevTp.id] || [];
+    return questions.every((q: any) => tpQuestionSelections[q.id] !== undefined);
+  };
 
-  // Vérifier que toutes les questions du TP précédent sont validées
-  const questions = tpQuestions[prevTp.id] || [];
-  const allValidated = questions.every(
-    (q: any) => tpQuestionSelections[q.id] !== undefined
-  );
-  return allValidated;
-};
-
-  // Déterminer si une question QCM est déverrouillée
   const isQuizQuestionUnlocked = (index: number) => {
     if (index === 0) return true;
     const prevQuestion = quizQuestions[activeModule?.id]?.[index - 1];
     return prevQuestion && quizAnswers[activeModule?.id]?.[prevQuestion.id]?.is_correct;
   };
 
-  // Déterminer si une question TP est déverrouillée
   const isTpQuestionUnlocked = (lessonId: string, questionIndex: number) => {
     if (questionIndex === 0) return true;
     const questions = tpQuestions[lessonId] || [];
@@ -390,7 +355,6 @@ export function CourseProgram({
   if (!isModuleUnlocked) {
     return (
       <div className="w-full max-w-3xl mx-auto pb-20">
-        {/* navigation modules + message module verrouillé */}
         <div className="sticky top-0 z-20 bg-[#020617]/95 backdrop-blur-xl border-b border-[#1e293b] -mx-4 px-4 py-3 flex items-center justify-between mb-8">
           <button onClick={goToPrevModule} disabled={activeModuleIndex === 0}
             className="text-slate-400 hover:text-white disabled:opacity-20 p-2">
@@ -623,7 +587,7 @@ export function CourseProgram({
           </motion.div>
         )}
 
-        {/* PRATIQUE (TP) avec questions multiples */}
+        {/* PRATIQUE (TP) */}
         {activeStep === 'practical' && (
           <motion.div key="practical" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-6">
             {practicalLessons.length === 0 ? (
@@ -634,7 +598,6 @@ export function CourseProgram({
                 const isTpDone = tpSelections[lesson.id] !== undefined;
                 return (
                   <div key={lesson.id} className={`bg-slate-900/50 border rounded-xl overflow-hidden ${!isUnlocked ? 'border-slate-800 opacity-60' : 'border-slate-800'}`}>
-                    {/* Header TP */}
                     <div className="flex items-center justify-between p-4">
                       <div className="flex items-center gap-3">
                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${isTpDone ? 'bg-green-500/10' : 'bg-orange-500/10'}`}>
@@ -697,7 +660,7 @@ export function CourseProgram({
                                         const isCorrectOption = option.is_correct;
                                         const isWrongChosen = isChosen && !isCorrectOption;
                                         const isGoodChosen = isChosen && isCorrectOption;
-                                        const isAlreadyValidated = qSelected !== undefined; // question validée
+                                        const isAlreadyValidated = qSelected !== undefined;
 
                                         return (
                                           <button
