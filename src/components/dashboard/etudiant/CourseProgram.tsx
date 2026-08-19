@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClientComponent } from '@/lib/supabase/client';
 import { useStudent } from '@/context/StudentContext';
@@ -70,17 +70,24 @@ export function CourseProgram({
   const prevModuleAssessmentId = !isFirstModule ? modules[activeModuleIndex - 1]?.assessments?.[0]?.id : null;
   const isModuleUnlocked = isFirstModule || (prevModuleAssessmentId && passedAssessments.includes(prevModuleAssessmentId));
 
-  const theoreticalLessons = (activeModule?.lessons
-  ?.filter((l: any) => l.category === 'THEORIQUE')
-  .sort((a: any, b: any) => Number(a.position) - Number(b.position))) || [];
+  // Utilisation de useMemo pour un tri stable et performant
+  const theoreticalLessons = useMemo(() => {
+    return (activeModule?.lessons || [])
+      .filter((l: any) => l.category === 'THEORIQUE')
+      .sort((a: any, b: any) => Number(a.position) - Number(b.position));
+  }, [activeModule?.lessons]);
 
-const practicalLessons = (activeModule?.lessons
-  ?.filter((l: any) => l.category === 'PRATIQUE' && l.content_type !== 'QUIZ')
-  .sort((a: any, b: any) => Number(a.position) - Number(b.position))) || [];
+  const practicalLessons = useMemo(() => {
+    return (activeModule?.lessons || [])
+      .filter((l: any) => l.category === 'PRATIQUE' && l.content_type !== 'QUIZ')
+      .sort((a: any, b: any) => Number(a.position) - Number(b.position));
+  }, [activeModule?.lessons]);
 
-const quizLessons = (activeModule?.lessons
-  ?.filter((l: any) => l.content_type === 'QUIZ')
-  .sort((a: any, b: any) => Number(a.position) - Number(b.position))) || [];
+  const quizLessons = useMemo(() => {
+    return (activeModule?.lessons || [])
+      .filter((l: any) => l.content_type === 'QUIZ')
+      .sort((a: any, b: any) => Number(a.position) - Number(b.position));
+  }, [activeModule?.lessons]);
 
   const assessments = activeModule?.assessments || [];
 
@@ -216,7 +223,7 @@ const quizLessons = (activeModule?.lessons
       });
       loadQuizForModule(activeModule);
     }
-  }, [activeModule?.id, practicalLessons.length, quizLessons.length, isModuleUnlocked, profile]);
+  }, [activeModule?.id, practicalLessons, quizLessons, isModuleUnlocked, profile]);
 
   // Effet pour recalculer tpSelections et tpCorrectCount
   useEffect(() => {
@@ -587,143 +594,145 @@ const quizLessons = (activeModule?.lessons
           </motion.div>
         )}
 
-        {/* PRATIQUE (TP) */}
+        {/* PRATIQUE (TP) - tri forcé dans la boucle */}
         {activeStep === 'practical' && (
           <motion.div key="practical" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-6">
             {practicalLessons.length === 0 ? (
               <p className="text-center text-slate-500 py-8">Aucun TP pour ce module</p>
             ) : (
-              practicalLessons.map((lesson: any, tpIndex: number) => {
-                const isUnlocked = isTpUnlocked(tpIndex);
-                const isTpDone = tpSelections[lesson.id] !== undefined;
-                return (
-                  <div key={lesson.id} className={`bg-slate-900/50 border rounded-xl overflow-hidden ${!isUnlocked ? 'border-slate-800 opacity-60' : 'border-slate-800'}`}>
-                    <div className="flex items-center justify-between p-4">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${isTpDone ? 'bg-green-500/10' : 'bg-orange-500/10'}`}>
-                          {isTpDone ? <CheckCircle2 className="w-4 h-4 text-green-400" /> : <Wrench className="w-4 h-4 text-orange-400" />}
+              [...practicalLessons]
+                .sort((a: any, b: any) => Number(a.position) - Number(b.position))
+                .map((lesson: any, tpIndex: number) => {
+                  const isUnlocked = isTpUnlocked(tpIndex);
+                  const isTpDone = tpSelections[lesson.id] !== undefined;
+                  return (
+                    <div key={lesson.id} className={`bg-slate-900/50 border rounded-xl overflow-hidden ${!isUnlocked ? 'border-slate-800 opacity-60' : 'border-slate-800'}`}>
+                      <div className="flex items-center justify-between p-4">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${isTpDone ? 'bg-green-500/10' : 'bg-orange-500/10'}`}>
+                            {isTpDone ? <CheckCircle2 className="w-4 h-4 text-green-400" /> : <Wrench className="w-4 h-4 text-orange-400" />}
+                          </div>
+                          <span className="text-white font-medium text-sm">{lesson.title}</span>
                         </div>
-                        <span className="text-white font-medium text-sm">{lesson.title}</span>
+                        {!isUnlocked ? (
+                          <Lock className="w-4 h-4 text-slate-600" />
+                        ) : (
+                          <button onClick={() => setShowTpContent(prev => ({ ...prev, [lesson.id]: !prev[lesson.id] }))}
+                            className="text-slate-400 hover:text-white">
+                            {showTpContent[lesson.id] ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                          </button>
+                        )}
                       </div>
-                      {!isUnlocked ? (
-                        <Lock className="w-4 h-4 text-slate-600" />
-                      ) : (
-                        <button onClick={() => setShowTpContent(prev => ({ ...prev, [lesson.id]: !prev[lesson.id] }))}
-                          className="text-slate-400 hover:text-white">
-                          {showTpContent[lesson.id] ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                        </button>
+
+                      {!isUnlocked && (
+                        <div className="px-4 pb-4">
+                          <p className="text-amber-400 text-sm">🔒 Validez le TP {tpIndex} pour débloquer ce TP.</p>
+                        </div>
+                      )}
+
+                      {isUnlocked && showTpContent[lesson.id] && (
+                        <div className="p-4 border-t border-slate-800 space-y-6">
+                          <ContentViewer contentType={lesson.content_type} contentUrl={lesson.content_url} contentBody={lesson.content_body} title={lesson.title} />
+
+                          {loadingTP[lesson.id] ? (
+                            <div className="flex items-center justify-center py-8">
+                              <Loader2 className="w-6 h-6 animate-spin text-blue-400" />
+                              <span className="ml-2 text-slate-400">Chargement des questions...</span>
+                            </div>
+                          ) : tpQuestions[lesson.id] && tpQuestions[lesson.id].length > 0 ? (
+                            tpQuestions[lesson.id].map((question: any, qIndex: number) => {
+                              const qId = question.id;
+                              const isQUnlocked = isTpQuestionUnlocked(lesson.id, qIndex);
+                              const qOptions = tpQuestionOptions[qId] || [];
+                              const qSelected = tpQuestionSelections[qId];
+                              const isQCorrectSelected = tpQuestionCorrectSelected[qId];
+                              const chosenOption = tpQuestionChosenOption[qId];
+                              const qFeedback = tpQuestionFeedback[qId];
+
+                              return (
+                                <div key={qId} className={`border rounded-xl p-4 ${!isQUnlocked ? 'border-slate-800 bg-slate-900/30 opacity-60' : 'border-slate-700 bg-slate-900/60'}`}>
+                                  <div className="flex items-start gap-2 mb-3">
+                                    <ListChecks className="w-5 h-5 text-blue-400 flex-shrink-0 mt-1" />
+                                    <div className="flex-1">
+                                      <h4 className="text-white font-semibold">Question {qIndex + 1}</h4>
+                                      <HtmlContentViewer content={question.question_text} />
+                                    </div>
+                                  </div>
+
+                                  {!isQUnlocked ? (
+                                    <p className="text-amber-400 text-sm mt-2">🔒 Validez la question précédente pour débloquer celle-ci.</p>
+                                  ) : (
+                                    <>
+                                      <div className="space-y-2 mt-3">
+                                        {qOptions.map((option: any, oi: number) => {
+                                          const isChosen = chosenOption === option.option_text;
+                                          const isCorrectOption = option.is_correct;
+                                          const isWrongChosen = isChosen && !isCorrectOption;
+                                          const isGoodChosen = isChosen && isCorrectOption;
+                                          const isAlreadyValidated = qSelected !== undefined;
+
+                                          return (
+                                            <button
+                                              key={option.id}
+                                              onClick={() => handleTpOptionClick(lesson.id, qId, option.option_text, option.is_correct)}
+                                              disabled={isQCorrectSelected || isAlreadyValidated}
+                                              className={`w-full text-left p-3 rounded-xl border transition-all ${
+                                                isWrongChosen
+                                                  ? 'border-red-500 bg-red-500/10'
+                                                  : isGoodChosen
+                                                  ? 'border-green-500 bg-green-500/10'
+                                                  : 'border-slate-700 bg-slate-800/50 hover:border-slate-500'
+                                              }`}
+                                            >
+                                              <div className="flex justify-between items-start">
+                                                <p className={`text-sm font-bold mb-1 ${isGoodChosen ? 'text-green-400' : isWrongChosen ? 'text-red-400' : 'text-white'}`}>
+                                                  Proposition {String.fromCharCode(65 + oi)}
+                                                </p>
+                                                {isWrongChosen && <XCircle className="w-5 h-5 text-red-400 flex-shrink-0" />}
+                                                {isGoodChosen && <CheckCircle2 className="w-5 h-5 text-green-400 flex-shrink-0" />}
+                                              </div>
+                                              <HtmlContentViewer content={option.option_text} />
+                                              {isWrongChosen && (
+                                                <p className="text-red-400 text-xs font-semibold mt-1">Mauvaise réponse</p>
+                                              )}
+                                            </button>
+                                          );
+                                        })}
+                                      </div>
+
+                                      {qFeedback && qFeedback.correct && (
+                                        <div className="mt-3 p-3 rounded-lg bg-green-500/10 border border-green-500/20">
+                                          <p className="text-sm font-medium text-green-400">{qFeedback.message}</p>
+                                        </div>
+                                      )}
+
+                                      {isQCorrectSelected && qFeedback.correct && (
+                                        <button
+                                          onClick={() => handleTpQuestionValidate(lesson.id, qId, chosenOption || '')}
+                                          className="mt-4 w-full py-3 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-xl transition-colors"
+                                        >
+                                          Valider ma réponse
+                                        </button>
+                                      )}
+                                    </>
+                                  )}
+                                </div>
+                              );
+                            })
+                          ) : (
+                            <p className="text-center text-slate-500 py-4">Aucune question pour ce TP.</p>
+                          )}
+
+                          {isTpDone && (
+                            <p className="text-green-400 font-bold text-center py-2">
+                              ✅ TP validé
+                            </p>
+                          )}
+                        </div>
                       )}
                     </div>
-
-                    {!isUnlocked && (
-                      <div className="px-4 pb-4">
-                        <p className="text-amber-400 text-sm">🔒 Validez le TP {tpIndex} pour débloquer ce TP.</p>
-                      </div>
-                    )}
-
-                    {isUnlocked && showTpContent[lesson.id] && (
-                      <div className="p-4 border-t border-slate-800 space-y-6">
-                        <ContentViewer contentType={lesson.content_type} contentUrl={lesson.content_url} contentBody={lesson.content_body} title={lesson.title} />
-
-                        {loadingTP[lesson.id] ? (
-                          <div className="flex items-center justify-center py-8">
-                            <Loader2 className="w-6 h-6 animate-spin text-blue-400" />
-                            <span className="ml-2 text-slate-400">Chargement des questions...</span>
-                          </div>
-                        ) : tpQuestions[lesson.id] && tpQuestions[lesson.id].length > 0 ? (
-                          tpQuestions[lesson.id].map((question: any, qIndex: number) => {
-                            const qId = question.id;
-                            const isQUnlocked = isTpQuestionUnlocked(lesson.id, qIndex);
-                            const qOptions = tpQuestionOptions[qId] || [];
-                            const qSelected = tpQuestionSelections[qId];
-                            const isQCorrectSelected = tpQuestionCorrectSelected[qId];
-                            const chosenOption = tpQuestionChosenOption[qId];
-                            const qFeedback = tpQuestionFeedback[qId];
-
-                            return (
-                              <div key={qId} className={`border rounded-xl p-4 ${!isQUnlocked ? 'border-slate-800 bg-slate-900/30 opacity-60' : 'border-slate-700 bg-slate-900/60'}`}>
-                                <div className="flex items-start gap-2 mb-3">
-                                  <ListChecks className="w-5 h-5 text-blue-400 flex-shrink-0 mt-1" />
-                                  <div className="flex-1">
-                                    <h4 className="text-white font-semibold">Question {qIndex + 1}</h4>
-                                    <HtmlContentViewer content={question.question_text} />
-                                  </div>
-                                </div>
-
-                                {!isQUnlocked ? (
-                                  <p className="text-amber-400 text-sm mt-2">🔒 Validez la question précédente pour débloquer celle-ci.</p>
-                                ) : (
-                                  <>
-                                    <div className="space-y-2 mt-3">
-                                      {qOptions.map((option: any, oi: number) => {
-                                        const isChosen = chosenOption === option.option_text;
-                                        const isCorrectOption = option.is_correct;
-                                        const isWrongChosen = isChosen && !isCorrectOption;
-                                        const isGoodChosen = isChosen && isCorrectOption;
-                                        const isAlreadyValidated = qSelected !== undefined;
-
-                                        return (
-                                          <button
-                                            key={option.id}
-                                            onClick={() => handleTpOptionClick(lesson.id, qId, option.option_text, option.is_correct)}
-                                            disabled={isQCorrectSelected || isAlreadyValidated}
-                                            className={`w-full text-left p-3 rounded-xl border transition-all ${
-                                              isWrongChosen
-                                                ? 'border-red-500 bg-red-500/10'
-                                                : isGoodChosen
-                                                ? 'border-green-500 bg-green-500/10'
-                                                : 'border-slate-700 bg-slate-800/50 hover:border-slate-500'
-                                            }`}
-                                          >
-                                            <div className="flex justify-between items-start">
-                                              <p className={`text-sm font-bold mb-1 ${isGoodChosen ? 'text-green-400' : isWrongChosen ? 'text-red-400' : 'text-white'}`}>
-                                                Proposition {String.fromCharCode(65 + oi)}
-                                              </p>
-                                              {isWrongChosen && <XCircle className="w-5 h-5 text-red-400 flex-shrink-0" />}
-                                              {isGoodChosen && <CheckCircle2 className="w-5 h-5 text-green-400 flex-shrink-0" />}
-                                            </div>
-                                            <HtmlContentViewer content={option.option_text} />
-                                            {isWrongChosen && (
-                                              <p className="text-red-400 text-xs font-semibold mt-1">Mauvaise réponse</p>
-                                            )}
-                                          </button>
-                                        );
-                                      })}
-                                    </div>
-
-                                    {qFeedback && qFeedback.correct && (
-                                      <div className="mt-3 p-3 rounded-lg bg-green-500/10 border border-green-500/20">
-                                        <p className="text-sm font-medium text-green-400">{qFeedback.message}</p>
-                                      </div>
-                                    )}
-
-                                    {isQCorrectSelected && qFeedback.correct && (
-                                      <button
-                                        onClick={() => handleTpQuestionValidate(lesson.id, qId, chosenOption || '')}
-                                        className="mt-4 w-full py-3 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-xl transition-colors"
-                                      >
-                                        Valider ma réponse
-                                      </button>
-                                    )}
-                                  </>
-                                )}
-                              </div>
-                            );
-                          })
-                        ) : (
-                          <p className="text-center text-slate-500 py-4">Aucune question pour ce TP.</p>
-                        )}
-
-                        {isTpDone && (
-                          <p className="text-green-400 font-bold text-center py-2">
-                            ✅ TP validé
-                          </p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })
+                  );
+                })
             )}
 
             <div className="flex justify-between pt-4">
