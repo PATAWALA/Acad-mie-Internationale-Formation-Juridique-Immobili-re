@@ -10,7 +10,7 @@ import {
   Play, Download, HelpCircle, Check, X,
   ArrowLeft, ArrowRight, ExternalLink, BookMarked, Wrench,
   GraduationCap, FileImage, Eye, TrendingUp, ChevronDown, ChevronUp,
-  AlertCircle, RefreshCw, LockOpen, ListChecks, CheckSquare, Square
+  AlertCircle, RefreshCw, LockOpen, ListChecks, CheckSquare, Square, XCircle
 } from 'lucide-react';
 import { SubmissionModal } from './SubmissionModal';
 import ContentViewer from './ContentViewer';
@@ -61,6 +61,7 @@ export function CourseProgram({
   const [tpQuestionFeedback, setTpQuestionFeedback] = useState<Record<string, { correct: boolean; message: string }>>({});
   const [tpQuestionAttempts, setTpQuestionAttempts] = useState<Record<string, number>>({});
   const [loadingTP, setLoadingTP] = useState<Record<string, boolean>>({});
+  const [tpQuestionChosenOption, setTpQuestionChosenOption] = useState<Record<string, string>>({});
 
   // États pour validation manuelle
   const [selectedTpOption, setSelectedTpOption] = useState<Record<string, string>>({});
@@ -91,15 +92,23 @@ export function CourseProgram({
 
   const assessments = activeModule?.assessments || [];
 
-  // Calculs de progression basés sur les validations
+  // Calculs de progression basés sur les questions validées
   const totalTp = practicalLessons.length;
   const totalQuiz = quizQuestions[activeModule?.id]?.length || 0;
 
-  const isTpValidated = tpCorrectCount >= totalTp && totalTp > 0;
+  // Nombre total de questions TP dans le module
+  const totalTpQuestions = practicalLessons.reduce(
+    (acc, lesson) => acc + (tpQuestions[lesson.id]?.length || 0),
+    0
+  );
+  // Nombre de questions TP validées (réponses correctes confirmées)
+  const tpValidatedQuestions = Object.keys(tpQuestionSelections).length;
+
+  const isTpValidated = tpCorrectCount >= totalTp && totalTp > 0; // TP entièrement validés
   const isQuizValidated = quizScore >= totalQuiz && totalQuiz > 0;
   const isExamUnlocked = isTpValidated && isQuizValidated && isModuleUnlocked;
 
-  const tpNoteSur20 = totalTp > 0 ? Math.round((tpCorrectCount / totalTp) * 20) : 0;
+  const tpNoteSur20 = totalTpQuestions > 0 ? Math.round((tpValidatedQuestions / totalTpQuestions) * 20) : 0;
   const quizNoteSur10 = totalQuiz > 0 ? Math.round((quizScore / totalQuiz) * 10) : 0;
 
   const goToStep = (step: ModuleStep) => {
@@ -123,7 +132,6 @@ export function CourseProgram({
   const loadTpQuestionsAndOptions = async (lessonId: string) => {
     setLoadingTP(prev => ({ ...prev, [lessonId]: true }));
 
-    // Charger les questions du TP (ne dépend pas du profil)
     const { data: questions } = await supabase
       .from('tp_questions')
       .select('*')
@@ -133,7 +141,6 @@ export function CourseProgram({
     if (questions && questions.length > 0) {
       setTpQuestions(prev => ({ ...prev, [lessonId]: questions }));
 
-      // Charger les options pour chaque question
       const questionIds = questions.map((q: any) => q.id);
       const { data: options } = await supabase
         .from('tp_options')
@@ -150,7 +157,6 @@ export function CourseProgram({
         setTpQuestionOptions(prev => ({ ...prev, ...optionsMap }));
       }
 
-      // Charger les tentatives de l'étudiant (si profil disponible)
       if (profile) {
         const { data: attempts } = await supabase
           .from('tp_attempts')
@@ -217,7 +223,7 @@ export function CourseProgram({
     }
   };
 
-  // Charger les tentatives globales des TP
+  // Charger les tentatives globales des TP (pour tpCorrectCount)
   const loadTpAttempts = async () => {
     if (!profile) return;
     const tpIds = practicalLessons.map((l: any) => l.id);
@@ -241,10 +247,8 @@ export function CourseProgram({
     }
   };
 
-  // Effet principal : chargement initial et quand le profil arrive
   useEffect(() => {
     if (activeModule && isModuleUnlocked) {
-      // Charger les questions pour chaque TP
       practicalLessons.forEach((lesson: any) => {
         loadTpQuestionsAndOptions(lesson.id);
       });
@@ -258,6 +262,9 @@ export function CourseProgram({
   const handleTpOptionClick = async (lessonId: string, questionId: string, optionText: string, isCorrect: boolean) => {
     if (!profile) return;
     const currentAttempts = tpQuestionAttempts[questionId] || 0;
+
+    // Enregistrer l'option cliquée pour l'affichage immédiat
+    setTpQuestionChosenOption(prev => ({ ...prev, [questionId]: optionText }));
 
     await supabase.from('tp_attempts').insert({
       student_id: profile.id,
@@ -276,9 +283,11 @@ export function CourseProgram({
         [questionId]: { correct: true, message: '✅ Bonne réponse ! Cliquez sur Valider pour confirmer.' }
       }));
     } else {
+      setTpQuestionCorrectSelected(prev => ({ ...prev, [questionId]: false }));
+      // On ne garde que le message d'erreur minimal, affiché directement sur l'option
       setTpQuestionFeedback(prev => ({
         ...prev,
-        [questionId]: { correct: false, message: `❌ Mauvaise réponse. Relisez et réessayez. (Tentative ${currentAttempts + 1})` }
+        [questionId]: { correct: false, message: '❌ Mauvaise réponse' }
       }));
     }
   };
@@ -294,7 +303,7 @@ export function CourseProgram({
       [questionId]: { correct: true, message: `✅ Question validée en ${tpQuestionAttempts[questionId] || 1} tentative(s).` }
     }));
 
-    // Vérifier si toutes les questions du TP sont validées
+    // Vérifier si toutes les questions de ce TP sont validées
     const questions = tpQuestions[lessonId] || [];
     const allValidated = questions.every((q: any) => tpQuestionSelections[q.id] !== undefined);
     if (allValidated) {
@@ -452,17 +461,16 @@ export function CourseProgram({
                 Travaux Pratiques
               </span>
               <span className="text-slate-400">
-                {tpCorrectCount}/{totalTp} validés
-                {isTpValidated && <span className="text-green-400 font-bold ml-1">✓</span>}
+                {tpValidatedQuestions}/{totalTpQuestions} questions
                 <span className="ml-2">({tpNoteSur20}/20)</span>
               </span>
             </div>
             <div className="h-2.5 bg-slate-800 rounded-full overflow-hidden">
               <div
                 className={`h-full rounded-full transition-all duration-500 ${
-                  isTpValidated ? 'bg-green-500' : 'bg-blue-500'
+                  tpNoteSur20 >= 20 ? 'bg-green-500' : 'bg-blue-500'
                 }`}
-                style={{ width: `${totalTp > 0 ? (tpCorrectCount / totalTp) * 100 : 0}%` }}
+                style={{ width: `${totalTpQuestions > 0 ? (tpValidatedQuestions / totalTpQuestions) * 100 : 0}%` }}
               />
             </div>
           </div>
@@ -561,7 +569,7 @@ export function CourseProgram({
           }`}>
           <Wrench className="w-5 h-5" />
           TP
-          <span className="text-[10px]">{tpCorrectCount}/{totalTp}</span>
+          <span className="text-[10px]">{tpValidatedQuestions}/{totalTpQuestions}</span>
         </button>
         <button onClick={() => goToStep('quiz')}
           className={`flex flex-col items-center gap-1 px-2 py-3 rounded-xl text-xs font-medium transition-all ${
@@ -648,23 +656,21 @@ export function CourseProgram({
 
                     {isUnlocked && showTpContent[lesson.id] && (
                       <div className="p-4 border-t border-slate-800 space-y-6">
-                        {/* Contenu principal du TP */}
                         <ContentViewer contentType={lesson.content_type} contentUrl={lesson.content_url} contentBody={lesson.content_body} title={lesson.title} />
 
-                        {/* Indicateur de chargement des questions */}
                         {loadingTP[lesson.id] ? (
                           <div className="flex items-center justify-center py-8">
                             <Loader2 className="w-6 h-6 animate-spin text-blue-400" />
                             <span className="ml-2 text-slate-400">Chargement des questions...</span>
                           </div>
                         ) : tpQuestions[lesson.id] && tpQuestions[lesson.id].length > 0 ? (
-                          // Questions du TP
                           tpQuestions[lesson.id].map((question: any, qIndex: number) => {
                             const qId = question.id;
                             const isQUnlocked = isTpQuestionUnlocked(lesson.id, qIndex);
                             const qOptions = tpQuestionOptions[qId] || [];
                             const qSelected = tpQuestionSelections[qId];
                             const isQCorrectSelected = tpQuestionCorrectSelected[qId];
+                            const chosenOption = tpQuestionChosenOption[qId];
                             const qFeedback = tpQuestionFeedback[qId];
 
                             return (
@@ -683,41 +689,50 @@ export function CourseProgram({
                                   <>
                                     <div className="space-y-2 mt-3">
                                       {qOptions.map((option: any, oi: number) => {
-                                        const isSelected = qSelected === option.option_text;
-                                        const isThisCorrect = option.is_correct;
+                                        const isChosen = chosenOption === option.option_text;
+                                        const isCorrectOption = option.is_correct;
+                                        const isWrongChosen = isChosen && !isCorrectOption;
+                                        const isGoodChosen = isChosen && isCorrectOption;
+                                        const isAlreadyValidated = qSelected !== undefined; // question validée
+
                                         return (
                                           <button
                                             key={option.id}
                                             onClick={() => handleTpOptionClick(lesson.id, qId, option.option_text, option.is_correct)}
-                                            disabled={isQCorrectSelected || isSelected}
+                                            disabled={isQCorrectSelected || isAlreadyValidated}
                                             className={`w-full text-left p-3 rounded-xl border transition-all ${
-                                              isSelected && isThisCorrect
+                                              isWrongChosen
+                                                ? 'border-red-500 bg-red-500/10'
+                                                : isGoodChosen
                                                 ? 'border-green-500 bg-green-500/10'
-                                                : isSelected
-                                                ? 'border-purple-500 bg-purple-500/10'
                                                 : 'border-slate-700 bg-slate-800/50 hover:border-slate-500'
                                             }`}
                                           >
-                                            <p className={`text-sm font-bold mb-1 ${isSelected && isThisCorrect ? 'text-green-400' : 'text-white'}`}>
-                                              Proposition {String.fromCharCode(65 + oi)}
-                                            </p>
+                                            <div className="flex justify-between items-start">
+                                              <p className={`text-sm font-bold mb-1 ${isGoodChosen ? 'text-green-400' : isWrongChosen ? 'text-red-400' : 'text-white'}`}>
+                                                Proposition {String.fromCharCode(65 + oi)}
+                                              </p>
+                                              {isWrongChosen && <XCircle className="w-5 h-5 text-red-400 flex-shrink-0" />}
+                                              {isGoodChosen && <CheckCircle2 className="w-5 h-5 text-green-400 flex-shrink-0" />}
+                                            </div>
                                             <HtmlContentViewer content={option.option_text} />
+                                            {isWrongChosen && (
+                                              <p className="text-red-400 text-xs font-semibold mt-1">Mauvaise réponse</p>
+                                            )}
                                           </button>
                                         );
                                       })}
                                     </div>
 
-                                    {qFeedback && (
-                                      <div className={`mt-3 p-3 rounded-lg ${qFeedback.correct ? 'bg-green-500/10 border border-green-500/20' : 'bg-red-500/10 border border-red-500/20'}`}>
-                                        <p className={`text-sm font-medium ${qFeedback.correct ? 'text-green-400' : 'text-red-400'}`}>
-                                          {qFeedback.message}
-                                        </p>
+                                    {qFeedback && qFeedback.correct && (
+                                      <div className="mt-3 p-3 rounded-lg bg-green-500/10 border border-green-500/20">
+                                        <p className="text-sm font-medium text-green-400">{qFeedback.message}</p>
                                       </div>
                                     )}
 
-                                    {isQCorrectSelected && !qSelected && (
+                                    {isQCorrectSelected && qFeedback.correct && (
                                       <button
-                                        onClick={() => handleTpQuestionValidate(lesson.id, qId, qSelected || '')}
+                                        onClick={() => handleTpQuestionValidate(lesson.id, qId, chosenOption || '')}
                                         className="mt-4 w-full py-3 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-xl transition-colors"
                                       >
                                         Valider ma réponse
