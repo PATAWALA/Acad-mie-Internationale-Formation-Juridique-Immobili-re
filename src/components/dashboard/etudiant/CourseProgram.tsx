@@ -60,6 +60,7 @@ export function CourseProgram({
   const [tpQuestionCorrectSelected, setTpQuestionCorrectSelected] = useState<Record<string, boolean>>({});
   const [tpQuestionFeedback, setTpQuestionFeedback] = useState<Record<string, { correct: boolean; message: string }>>({});
   const [tpQuestionAttempts, setTpQuestionAttempts] = useState<Record<string, number>>({});
+  const [loadingTP, setLoadingTP] = useState<Record<string, boolean>>({});
 
   // États pour validation manuelle
   const [selectedTpOption, setSelectedTpOption] = useState<Record<string, string>>({});
@@ -121,6 +122,8 @@ export function CourseProgram({
   // Charger les questions d'un TP et leurs options
   const loadTpQuestionsAndOptions = async (lessonId: string) => {
     if (!profile) return;
+    setLoadingTP(prev => ({ ...prev, [lessonId]: true }));
+
     // Charger les questions du TP
     const { data: questions } = await supabase
       .from('tp_questions')
@@ -167,6 +170,8 @@ export function CourseProgram({
         setTpQuestionAttempts(prev => ({ ...prev, ...attemptsMap }));
       }
     }
+
+    setLoadingTP(prev => ({ ...prev, [lessonId]: false }));
   };
 
   // Charger les questions/options pour tous les TP lors du chargement du module
@@ -177,7 +182,7 @@ export function CourseProgram({
         loadTpQuestionsAndOptions(lesson.id);
       });
 
-      // Charger les QCM (ancien code)
+      // Charger les QCM
       const loadQuizForModule = async (module: any) => {
         if (quizLessons.length === 0) return;
         const lessonIds = quizLessons.map((l: any) => l.id);
@@ -625,7 +630,7 @@ export function CourseProgram({
                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${isTpDone ? 'bg-green-500/10' : 'bg-orange-500/10'}`}>
                           {isTpDone ? <CheckCircle2 className="w-4 h-4 text-green-400" /> : <Wrench className="w-4 h-4 text-orange-400" />}
                         </div>
-                        <span className="text-white font-medium text-sm">TP {tpIndex + 1} : {lesson.title}</span>
+                        <span className="text-white font-medium text-sm">{lesson.title}</span>
                       </div>
                       {!isUnlocked ? (
                         <Lock className="w-4 h-4 text-slate-600" />
@@ -648,80 +653,90 @@ export function CourseProgram({
                         {/* Contenu principal du TP */}
                         <ContentViewer contentType={lesson.content_type} contentUrl={lesson.content_url} contentBody={lesson.content_body} title={lesson.title} />
 
-                        {/* Questions du TP */}
-                        {tpQuestions[lesson.id]?.map((question: any, qIndex: number) => {
-                          const qId = question.id;
-                          const isQUnlocked = isTpQuestionUnlocked(lesson.id, qIndex);
-                          const qOptions = tpQuestionOptions[qId] || [];
-                          const qSelected = tpQuestionSelections[qId];
-                          const isQCorrectSelected = tpQuestionCorrectSelected[qId];
-                          const qFeedback = tpQuestionFeedback[qId];
+                        {/* Indicateur de chargement des questions */}
+                        {loadingTP[lesson.id] ? (
+                          <div className="flex items-center justify-center py-8">
+                            <Loader2 className="w-6 h-6 animate-spin text-blue-400" />
+                            <span className="ml-2 text-slate-400">Chargement des questions...</span>
+                          </div>
+                        ) : tpQuestions[lesson.id] && tpQuestions[lesson.id].length > 0 ? (
+                          // Questions du TP
+                          tpQuestions[lesson.id].map((question: any, qIndex: number) => {
+                            const qId = question.id;
+                            const isQUnlocked = isTpQuestionUnlocked(lesson.id, qIndex);
+                            const qOptions = tpQuestionOptions[qId] || [];
+                            const qSelected = tpQuestionSelections[qId];
+                            const isQCorrectSelected = tpQuestionCorrectSelected[qId];
+                            const qFeedback = tpQuestionFeedback[qId];
 
-                          return (
-                            <div key={qId} className={`border rounded-xl p-4 ${!isQUnlocked ? 'border-slate-800 bg-slate-900/30 opacity-60' : 'border-slate-700 bg-slate-900/60'}`}>
-                              <div className="flex items-start gap-2 mb-3">
-                                <ListChecks className="w-5 h-5 text-blue-400 flex-shrink-0 mt-1" />
-                                <div className="flex-1">
-                                  <h4 className="text-white font-semibold">Question {qIndex + 1}</h4>
-                                  {/* Afficher le texte de la question (contrat) */}
-                                  <HtmlContentViewer content={question.question_text} />
-                                </div>
-                              </div>
-
-                              {!isQUnlocked ? (
-                                <p className="text-amber-400 text-sm mt-2">🔒 Validez la question précédente pour débloquer celle-ci.</p>
-                              ) : (
-                                <>
-                                  {/* Options de la question */}
-                                  <div className="space-y-2 mt-3">
-                                    {qOptions.map((option: any, oi: number) => {
-                                      const isSelected = qSelected === option.option_text;
-                                      const isThisCorrect = option.is_correct;
-                                      return (
-                                        <button
-                                          key={option.id}
-                                          onClick={() => handleTpOptionClick(lesson.id, qId, option.option_text, option.is_correct)}
-                                          disabled={isQCorrectSelected || isSelected}
-                                          className={`w-full text-left p-3 rounded-xl border transition-all ${
-                                            isSelected && isThisCorrect
-                                              ? 'border-green-500 bg-green-500/10'
-                                              : isSelected
-                                              ? 'border-purple-500 bg-purple-500/10'
-                                              : 'border-slate-700 bg-slate-800/50 hover:border-slate-500'
-                                          }`}
-                                        >
-                                          <p className={`text-sm font-bold mb-1 ${isSelected && isThisCorrect ? 'text-green-400' : 'text-white'}`}>
-                                            Proposition {String.fromCharCode(65 + oi)}
-                                          </p>
-                                          <HtmlContentViewer content={option.option_text} />
-                                        </button>
-                                      );
-                                    })}
+                            return (
+                              <div key={qId} className={`border rounded-xl p-4 ${!isQUnlocked ? 'border-slate-800 bg-slate-900/30 opacity-60' : 'border-slate-700 bg-slate-900/60'}`}>
+                                <div className="flex items-start gap-2 mb-3">
+                                  <ListChecks className="w-5 h-5 text-blue-400 flex-shrink-0 mt-1" />
+                                  <div className="flex-1">
+                                    <h4 className="text-white font-semibold">Question {qIndex + 1}</h4>
+                                    {/* Afficher le texte de la question (contrat) */}
+                                    <HtmlContentViewer content={question.question_text} />
                                   </div>
+                                </div>
 
-                                  {/* Feedback pour la question */}
-                                  {qFeedback && (
-                                    <div className={`mt-3 p-3 rounded-lg ${qFeedback.correct ? 'bg-green-500/10 border border-green-500/20' : 'bg-red-500/10 border border-red-500/20'}`}>
-                                      <p className={`text-sm font-medium ${qFeedback.correct ? 'text-green-400' : 'text-red-400'}`}>
-                                        {qFeedback.message}
-                                      </p>
+                                {!isQUnlocked ? (
+                                  <p className="text-amber-400 text-sm mt-2">🔒 Validez la question précédente pour débloquer celle-ci.</p>
+                                ) : (
+                                  <>
+                                    {/* Options de la question */}
+                                    <div className="space-y-2 mt-3">
+                                      {qOptions.map((option: any, oi: number) => {
+                                        const isSelected = qSelected === option.option_text;
+                                        const isThisCorrect = option.is_correct;
+                                        return (
+                                          <button
+                                            key={option.id}
+                                            onClick={() => handleTpOptionClick(lesson.id, qId, option.option_text, option.is_correct)}
+                                            disabled={isQCorrectSelected || isSelected}
+                                            className={`w-full text-left p-3 rounded-xl border transition-all ${
+                                              isSelected && isThisCorrect
+                                                ? 'border-green-500 bg-green-500/10'
+                                                : isSelected
+                                                ? 'border-purple-500 bg-purple-500/10'
+                                                : 'border-slate-700 bg-slate-800/50 hover:border-slate-500'
+                                            }`}
+                                          >
+                                            <p className={`text-sm font-bold mb-1 ${isSelected && isThisCorrect ? 'text-green-400' : 'text-white'}`}>
+                                              Proposition {String.fromCharCode(65 + oi)}
+                                            </p>
+                                            <HtmlContentViewer content={option.option_text} />
+                                          </button>
+                                        );
+                                      })}
                                     </div>
-                                  )}
 
-                                  {/* Bouton Valider pour la question */}
-                                  {isQCorrectSelected && !qSelected && (
-                                    <button
-                                      onClick={() => handleTpQuestionValidate(lesson.id, qId, qSelected || '')}
-                                      className="mt-4 w-full py-3 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-xl transition-colors"
-                                    >
-                                      Valider ma réponse
-                                    </button>
-                                  )}
-                                </>
-                              )}
-                            </div>
-                          );
-                        })}
+                                    {/* Feedback pour la question */}
+                                    {qFeedback && (
+                                      <div className={`mt-3 p-3 rounded-lg ${qFeedback.correct ? 'bg-green-500/10 border border-green-500/20' : 'bg-red-500/10 border border-red-500/20'}`}>
+                                        <p className={`text-sm font-medium ${qFeedback.correct ? 'text-green-400' : 'text-red-400'}`}>
+                                          {qFeedback.message}
+                                        </p>
+                                      </div>
+                                    )}
+
+                                    {/* Bouton Valider pour la question */}
+                                    {isQCorrectSelected && !qSelected && (
+                                      <button
+                                        onClick={() => handleTpQuestionValidate(lesson.id, qId, qSelected || '')}
+                                        className="mt-4 w-full py-3 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-xl transition-colors"
+                                      >
+                                        Valider ma réponse
+                                      </button>
+                                    )}
+                                  </>
+                                )}
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <p className="text-center text-slate-500 py-4">Aucune question pour ce TP.</p>
+                        )}
 
                         {/* Si le TP est entièrement validé */}
                         {isTpDone && (
