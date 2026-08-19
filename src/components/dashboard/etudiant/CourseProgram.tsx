@@ -225,38 +225,35 @@ export function CourseProgram({
 
   // Charger les tentatives globales des TP (pour tpCorrectCount)
   const loadTpAttempts = async () => {
-    if (!profile) return;
-    const tpIds = practicalLessons.map((l: any) => l.id);
-    if (tpIds.length === 0) return;
-    const { data } = await supabase
+  if (!profile) return;
+  const tpIds = practicalLessons.map((l: any) => l.id);
+  if (tpIds.length === 0) return;
+  const { data: questions } = await supabase
+    .from('tp_questions')
+    .select('id, lesson_id')
+    .in('lesson_id', tpIds);
+
+  if (questions) {
+    const questionIds = questions.map((q: any) => q.id);
+    const { data: attempts } = await supabase
       .from('tp_attempts')
       .select('*')
       .eq('student_id', profile.id)
-      .in('lesson_id', tpIds);
-    if (data) {
-      const correctTpIds = new Set<string>();
-      const selectedMap: Record<string, string> = {};
-      data.forEach((attempt: any) => {
-        if (attempt.is_correct) {
-          correctTpIds.add(attempt.lesson_id);
-          selectedMap[attempt.lesson_id] = attempt.selected_option;
+      .in('tp_question_id', questionIds)
+      .eq('is_correct', true);
+
+    if (attempts) {
+      // Construire tpQuestionSelections à partir des tentatives correctes
+      const correctMap: Record<string, string> = {};
+      attempts.forEach((att: any) => {
+        if (att.tp_question_id) {
+          correctMap[att.tp_question_id] = att.selected_option;
         }
       });
-      setTpCorrectCount(correctTpIds.size);
-      setTpSelections(selectedMap);
+      setTpQuestionSelections(prev => ({ ...prev, ...correctMap }));
     }
-  };
-
-  useEffect(() => {
-    if (activeModule && isModuleUnlocked) {
-      practicalLessons.forEach((lesson: any) => {
-        loadTpQuestionsAndOptions(lesson.id);
-      });
-
-      loadQuizForModule(activeModule);
-      loadTpAttempts();
-    }
-  }, [activeModule?.id, practicalLessons.length, quizLessons.length, isModuleUnlocked, profile]);
+  }
+};
 
   // ------------------- Gestion TP (choix d'une option) -------------------
   const handleTpOptionClick = async (lessonId: string, questionId: string, optionText: string, isCorrect: boolean) => {
@@ -354,10 +351,17 @@ export function CourseProgram({
 
   // Déterminer si un TP est déverrouillé
   const isTpUnlocked = (index: number) => {
-    if (index === 0) return true;
-    const prevTp = practicalLessons[index - 1];
-    return prevTp && tpSelections[prevTp.id] !== undefined;
-  };
+  if (index === 0) return true;
+  const prevTp = practicalLessons[index - 1];
+  if (!prevTp) return false;
+
+  // Vérifier que toutes les questions du TP précédent sont validées
+  const questions = tpQuestions[prevTp.id] || [];
+  const allValidated = questions.every(
+    (q: any) => tpQuestionSelections[q.id] !== undefined
+  );
+  return allValidated;
+};
 
   // Déterminer si une question QCM est déverrouillée
   const isQuizQuestionUnlocked = (index: number) => {
