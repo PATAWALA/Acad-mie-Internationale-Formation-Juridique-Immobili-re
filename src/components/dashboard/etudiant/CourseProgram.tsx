@@ -44,14 +44,15 @@ export function CourseProgram({
   const [quizQuestions, setQuizQuestions] = useState<Record<string, any[]>>({});
   const [quizAnswers, setQuizAnswers] = useState<Record<string, any>>({});
   const [quizScore, setQuizScore] = useState(0);
-  const [quizAttempts, setQuizAttempts] = useState(0);
   const [tpOptions, setTpOptions] = useState<Record<string, any[]>>({});
   const [tpSelections, setTpSelections] = useState<Record<string, string>>({});
   const [tpCorrectCount, setTpCorrectCount] = useState(0);
   const [tpAttemptCount, setTpAttemptCount] = useState(0);
+  const [tpFailedAttempts, setTpFailedAttempts] = useState(0);
   const [showTpOptions, setShowTpOptions] = useState<Record<string, boolean>>({});
   const [showTpContent, setShowTpContent] = useState<Record<string, boolean>>({});
   const [selectedTp, setSelectedTp] = useState<Record<string, string>>({});
+  const [tpFeedback, setTpFeedback] = useState<Record<string, { correct: boolean; message: string }>>({});
 
   const activeCourse = courses[activeCourseIndex];
   const modules = activeCourse?.modules || [];
@@ -75,19 +76,17 @@ export function CourseProgram({
     
   const assessments = activeModule?.assessments || [];
 
-  // Score TP : commence à 16, diminue de 1 à chaque échec
-  const tpScore = Math.max(0, TP_TARGET - (tpAttemptCount - tpCorrectCount));
-  const isTpValidated = tpScore >= TP_TARGET;
-  const isTpBurned = tpScore <= 0;
+  // Score TP : commence à 16, diminue de 1 à chaque MAUVAISE réponse
+  const tpScore = Math.max(0, TP_TARGET - tpFailedAttempts);
+  
+  // Score QCM : commence à 12, diminue de 1 à chaque MAUVAISE réponse
+  const quizFailedAttempts = Object.values(quizAnswers[activeModule?.id] || {}).filter((a: any) => !a.is_correct).length;
+  const quizScoreDisplay = Math.max(0, QUIZ_TARGET - quizFailedAttempts);
 
-  // Score QCM : commence à 12, diminue de 1 à chaque mauvaise réponse
-  const quizTotalAttempts = quizAttempts;
-  const quizScoreDisplay = Math.max(0, QUIZ_TARGET - quizAttempts + quizScore);
-  const isQuizValidated = quizScore >= QUIZ_TARGET || quizScoreDisplay >= QUIZ_TARGET;
-  const isQuizBurned = quizScoreDisplay <= 0;
-
-  // L'examen est débloqué si : TP validés OU brûlés, ET QCM validés OU brûlés
-  const isExamUnlocked = (isTpValidated || isTpBurned) && (isQuizValidated || isQuizBurned) && isModuleUnlocked;
+  // L'examen est débloqué si : tous les TP sont validés ET tous les QCM sont validés
+  const isTpValidated = tpCorrectCount >= practicalLessons.length && practicalLessons.length > 0;
+  const isQuizValidated = quizScore >= quizLessons.length * 10; // 10 questions par QCM
+  const isExamUnlocked = isTpValidated && isQuizValidated && isModuleUnlocked;
 
   const goToStep = (step: ModuleStep) => {
     setActiveStep(step);
@@ -146,7 +145,6 @@ export function CourseProgram({
           setQuizAnswers(prev => ({ ...prev, [module.id]: map }));
           const correct = answers.filter(a => a.is_correct).length;
           setQuizScore(correct);
-          setQuizAttempts(answers.length);
         }
       }
     }
@@ -165,15 +163,19 @@ export function CourseProgram({
       const correctTpIds = new Set();
       const selectedMap: Record<string, string> = {};
       let totalAttempts = 0;
+      let failedAttempts = 0;
       data.forEach((attempt: any) => {
         totalAttempts++;
         if (attempt.is_correct) {
           correctTpIds.add(attempt.lesson_id);
           selectedMap[attempt.lesson_id] = attempt.selected_option;
+        } else {
+          failedAttempts++;
         }
       });
       setTpCorrectCount(correctTpIds.size);
       setTpAttemptCount(totalAttempts);
+      setTpFailedAttempts(failedAttempts);
       setTpSelections(selectedMap);
     }
   };
@@ -202,6 +204,10 @@ export function CourseProgram({
     if (option.is_correct) {
       setTpSelections(prev => ({ ...prev, [lesson.id]: option.option_text }));
       setTpCorrectCount(prev => prev + 1);
+      setTpFeedback(prev => ({ ...prev, [lesson.id]: { correct: true, message: '✅ Bonne réponse !' } }));
+    } else {
+      setTpFailedAttempts(prev => prev + 1);
+      setTpFeedback(prev => ({ ...prev, [lesson.id]: { correct: false, message: '❌ Mauvaise réponse. Réessayez.' } }));
     }
   };
 
@@ -216,7 +222,6 @@ export function CourseProgram({
     const answers = { ...(quizAnswers[activeModule.id] || {}), [question.id]: { selected_answer: answer, is_correct: isCorrect } };
     const correctCount = Object.values(answers).filter(a => (a as any).is_correct).length;
     setQuizScore(correctCount);
-    setQuizAttempts(Object.keys(answers).length);
   };
 
   if (!courses?.length) {
@@ -304,15 +309,15 @@ export function CourseProgram({
                 <Wrench className="w-4 h-4" />
                 Travaux Pratiques
               </span>
-              <span className={tpScore >= TP_TARGET ? 'text-green-400 font-bold' : tpScore <= 0 ? 'text-red-400 font-bold' : 'text-slate-400'}>
-                {tpScore}/{TP_TARGET} {tpScore >= TP_TARGET ? '✓' : tpScore <= 0 ? '✗' : ''}
-                <span className="text-xs text-slate-500 ml-2">({tpAttemptCount} tentatives)</span>
+              <span className="text-slate-400">
+                {tpScore}/{TP_TARGET}
+                {isTpValidated && <span className="text-green-400 font-bold ml-1">✓</span>}
               </span>
             </div>
             <div className="h-2.5 bg-slate-800 rounded-full overflow-hidden">
               <div
                 className={`h-full rounded-full transition-all duration-500 ${
-                  tpScore >= TP_TARGET ? 'bg-green-500' : tpScore <= 0 ? 'bg-red-500' : 'bg-blue-500'
+                  isTpValidated ? 'bg-green-500' : tpScore < TP_TARGET ? 'bg-amber-500' : 'bg-blue-500'
                 }`}
                 style={{ width: `${Math.min((tpScore / TP_TARGET) * 100, 100)}%` }}
               />
@@ -325,14 +330,15 @@ export function CourseProgram({
                 <HelpCircle className="w-4 h-4" />
                 QCM
               </span>
-              <span className={quizScoreDisplay >= QUIZ_TARGET ? 'text-green-400 font-bold' : quizScoreDisplay <= 0 ? 'text-red-400 font-bold' : 'text-slate-400'}>
-                {quizScoreDisplay}/{QUIZ_TARGET} {quizScoreDisplay >= QUIZ_TARGET ? '✓' : quizScoreDisplay <= 0 ? '✗' : ''}
+              <span className="text-slate-400">
+                {quizScoreDisplay}/{QUIZ_TARGET}
+                {isQuizValidated && <span className="text-green-400 font-bold ml-1">✓</span>}
               </span>
             </div>
             <div className="h-2.5 bg-slate-800 rounded-full overflow-hidden">
               <div
                 className={`h-full rounded-full transition-all duration-500 ${
-                  quizScoreDisplay >= QUIZ_TARGET ? 'bg-green-500' : quizScoreDisplay <= 0 ? 'bg-red-500' : 'bg-blue-500'
+                  isQuizValidated ? 'bg-green-500' : quizScoreDisplay < QUIZ_TARGET ? 'bg-amber-500' : 'bg-blue-500'
                 }`}
                 style={{ width: `${Math.min((quizScoreDisplay / QUIZ_TARGET) * 100, 100)}%` }}
               />
@@ -395,7 +401,7 @@ export function CourseProgram({
         <h2 className="text-xl md:text-2xl font-bold text-white">{activeModule?.title}</h2>
       </div>
 
-      {/* Onglets - Examen cliquable */}
+      {/* Onglets */}
       <div className="grid grid-cols-4 gap-2 mb-6">
         <button onClick={() => goToStep('theoretical')}
           className={`flex flex-col items-center gap-1 px-2 py-3 rounded-xl text-xs font-medium transition-all ${
@@ -411,7 +417,7 @@ export function CourseProgram({
           }`}>
           <Wrench className="w-5 h-5" />
           TP
-          <span className="text-[10px]">{tpScore >= TP_TARGET ? '✓ ' : tpScore <= 0 ? '✗ ' : ''}{tpScore}/{TP_TARGET}</span>
+          <span className="text-[10px]">{tpScore}/{TP_TARGET}</span>
         </button>
         <button onClick={() => goToStep('quiz')}
           className={`flex flex-col items-center gap-1 px-2 py-3 rounded-xl text-xs font-medium transition-all ${
@@ -419,7 +425,7 @@ export function CourseProgram({
           }`}>
           <HelpCircle className="w-5 h-5" />
           QCM
-          <span className="text-[10px]">{quizScoreDisplay >= QUIZ_TARGET ? '✓ ' : quizScoreDisplay <= 0 ? '✗ ' : ''}{quizScoreDisplay}/{QUIZ_TARGET}</span>
+          <span className="text-[10px]">{quizScoreDisplay}/{QUIZ_TARGET}</span>
         </button>
         <button onClick={() => goToStep('exam')}
           className={`flex flex-col items-center gap-1 px-2 py-3 rounded-xl text-xs font-medium transition-all ${
@@ -494,6 +500,15 @@ export function CourseProgram({
                   {showTpContent[lesson.id] && (
                     <div className="p-4 border-t border-slate-800 space-y-3">
                       <ContentViewer contentType={lesson.content_type} contentUrl={lesson.content_url} contentBody={lesson.content_body} title={lesson.title} />
+
+                      {/* Feedback après choix */}
+                      {tpFeedback[lesson.id] && (
+                        <div className={`p-3 rounded-lg ${tpFeedback[lesson.id].correct ? 'bg-green-500/10 border border-green-500/20' : 'bg-red-500/10 border border-red-500/20'}`}>
+                          <p className={`text-sm font-medium ${tpFeedback[lesson.id].correct ? 'text-green-400' : 'text-red-400'}`}>
+                            {tpFeedback[lesson.id].message}
+                          </p>
+                        </div>
+                      )}
 
                       <button
                         onClick={() => setShowTpOptions(prev => ({ ...prev, [lesson.id]: !prev[lesson.id] }))}
@@ -612,50 +627,36 @@ export function CourseProgram({
           </motion.div>
         )}
 
-        {/* EXAMEN - Cliquable avec message si verrouillé */}
+        {/* EXAMEN */}
         {activeStep === 'exam' && (
           <motion.div key="exam" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-4">
             {!isExamUnlocked ? (
-              <div className="text-center py-12 bg-slate-900/50 border border-slate-800 rounded-xl">
-                <div className="w-16 h-16 bg-amber-500/10 border border-amber-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Lock className="w-8 h-8 text-amber-400" />
+              <div className="text-center py-16 bg-slate-900/50 border border-slate-800 rounded-xl">
+                <div className="w-20 h-20 bg-amber-500/10 border border-amber-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <Lock className="w-10 h-10 text-amber-400" />
                 </div>
-                <h3 className="text-xl font-bold text-white mb-3">Examen verrouillé</h3>
+                <h2 className="text-2xl font-bold text-white mb-3">Examen verrouillé</h2>
                 <div className="space-y-3 max-w-md mx-auto">
-                  {!isTpValidated && !isTpBurned && (
+                  {!isTpValidated && (
                     <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
                       <p className="text-amber-400 text-sm font-medium">
-                        ⚠️ Vous devez valider tous les TP ({tpScore}/{TP_TARGET})
+                        ⚠️ Vous devez valider tous les TP ({tpCorrectCount}/{practicalLessons.length})
                       </p>
                     </div>
                   )}
-                  {!isQuizValidated && !isQuizBurned && (
+                  {!isQuizValidated && (
                     <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
                       <p className="text-amber-400 text-sm font-medium">
-                        ⚠️ Vous devez valider le QCM ({quizScoreDisplay}/{QUIZ_TARGET})
-                      </p>
-                    </div>
-                  )}
-                  {isTpBurned && (
-                    <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
-                      <p className="text-red-400 text-sm font-medium">
-                        ❌ Vos points TP sont épuisés (0/{TP_TARGET}). L'examen reste verrouillé car le QCM n'est pas validé.
-                      </p>
-                    </div>
-                  )}
-                  {isQuizBurned && (
-                    <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
-                      <p className="text-red-400 text-sm font-medium">
-                        ❌ Vos points QCM sont épuisés (0/{QUIZ_TARGET}). L'examen reste verrouillé car les TP ne sont pas validés.
+                        ⚠️ Vous devez valider le QCM ({quizScore}/{quizQuestions[activeModule.id]?.length || 0})
                       </p>
                     </div>
                   )}
                   <p className="text-slate-400 text-sm">
-                    Validez les TP et le QCM, ou épuisez vos points pour débloquer l'examen.
+                    Répondez à tous les TP et au QCM avant de pouvoir soumettre l'examen.
                   </p>
                   <button
                     onClick={() => goToStep('practical')}
-                    className="mt-2 inline-flex items-center gap-2 px-5 py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-xl text-sm font-medium transition-colors"
+                    className="mt-4 inline-flex items-center gap-2 px-5 py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-xl text-sm font-medium transition-colors"
                   >
                     <Wrench className="w-4 h-4" />
                     Aller aux TP
