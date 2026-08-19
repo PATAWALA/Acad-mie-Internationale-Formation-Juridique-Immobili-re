@@ -71,16 +71,16 @@ export function CourseProgram({
   const isModuleUnlocked = isFirstModule || (prevModuleAssessmentId && passedAssessments.includes(prevModuleAssessmentId));
 
   const theoreticalLessons = (activeModule?.lessons
-    ?.filter((l: any) => l.category === 'THEORIQUE')
-    .sort((a: any, b: any) => a.position - b.position)) || [];
+  ?.filter((l: any) => l.category === 'THEORIQUE')
+  .sort((a: any, b: any) => Number(a.position) - Number(b.position))) || [];
 
   const practicalLessons = (activeModule?.lessons
-    ?.filter((l: any) => l.category === 'PRATIQUE' && l.content_type !== 'QUIZ')
-    .sort((a: any, b: any) => a.position - b.position)) || [];
+  ?.filter((l: any) => l.category === 'PRATIQUE' && l.content_type !== 'QUIZ')
+  .sort((a: any, b: any) => Number(a.position) - Number(b.position))) || [];
 
   const quizLessons = (activeModule?.lessons
-    ?.filter((l: any) => l.content_type === 'QUIZ')
-    .sort((a: any, b: any) => a.position - b.position)) || [];
+  ?.filter((l: any) => l.content_type === 'QUIZ')
+  .sort((a: any, b: any) => Number(a.position) - Number(b.position))) || [];
 
   const assessments = activeModule?.assessments || [];
 
