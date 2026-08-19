@@ -956,6 +956,7 @@ export type Database = {
           lesson_id: string | null
           selected_option: string
           student_id: string | null
+          tp_question_id: string | null
         }
         Insert: {
           created_at?: string | null
@@ -964,6 +965,7 @@ export type Database = {
           lesson_id?: string | null
           selected_option: string
           student_id?: string | null
+          tp_question_id?: string | null
         }
         Update: {
           created_at?: string | null
@@ -972,6 +974,7 @@ export type Database = {
           lesson_id?: string | null
           selected_option?: string
           student_id?: string | null
+          tp_question_id?: string | null
         }
         Relationships: [
           {
@@ -988,6 +991,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "tp_attempts_tp_question_id_fkey"
+            columns: ["tp_question_id"]
+            isOneToOne: false
+            referencedRelation: "tp_questions"
+            referencedColumns: ["id"]
+          },
         ]
       }
       tp_options: {
@@ -997,6 +1007,7 @@ export type Database = {
           lesson_id: string | null
           option_text: string
           position: number | null
+          tp_question_id: string | null
         }
         Insert: {
           id?: string
@@ -1004,6 +1015,7 @@ export type Database = {
           lesson_id?: string | null
           option_text: string
           position?: number | null
+          tp_question_id?: string | null
         }
         Update: {
           id?: string
@@ -1011,10 +1023,50 @@ export type Database = {
           lesson_id?: string | null
           option_text?: string
           position?: number | null
+          tp_question_id?: string | null
         }
         Relationships: [
           {
             foreignKeyName: "tp_options_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tp_options_tp_question_id_fkey"
+            columns: ["tp_question_id"]
+            isOneToOne: false
+            referencedRelation: "tp_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tp_questions: {
+        Row: {
+          created_at: string | null
+          id: string
+          lesson_id: string
+          position: number
+          question_text: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          lesson_id: string
+          position?: number
+          question_text: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          lesson_id?: string
+          position?: number
+          question_text?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tp_questions_lesson_id_fkey"
             columns: ["lesson_id"]
             isOneToOne: false
             referencedRelation: "lessons"
