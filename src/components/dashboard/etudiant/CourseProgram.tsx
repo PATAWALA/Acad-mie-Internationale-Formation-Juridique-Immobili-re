@@ -98,9 +98,9 @@ export function CourseProgram({
 
   // Nombre total de questions TP dans le module
   const totalTpQuestions = practicalLessons.reduce(
-    (acc, lesson) => acc + (tpQuestions[lesson.id]?.length || 0),
+    (acc: number, lesson: any) => acc + (tpQuestions[lesson.id]?.length || 0),
     0
-  );
+);
   // Nombre de questions TP validées (réponses correctes confirmées)
   const tpValidatedQuestions = Object.keys(tpQuestionSelections).length;
 
