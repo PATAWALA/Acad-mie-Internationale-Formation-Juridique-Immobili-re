@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClientComponent } from '@/lib/supabase/client';
 import { useStudent } from '@/context/StudentContext';
@@ -8,7 +8,7 @@ import {
   Lock, CheckCircle2, BookOpen, Loader2, HelpCircle,
   ArrowLeft, ArrowRight, BookMarked, Wrench,
   GraduationCap, TrendingUp, ChevronDown, ChevronUp,
-  ListChecks, XCircle, Send
+  ListChecks, XCircle, Send, Star
 } from 'lucide-react';
 import { SubmissionModal } from './SubmissionModal';
 import ContentViewer from './ContentViewer';
@@ -42,7 +42,7 @@ export function CourseProgram({
   const [quizScore, setQuizScore] = useState(0);
   const [quizAttemptsCount, setQuizAttemptsCount] = useState<Record<string, number>>({});
 
-  // TP question states (multi-questions)
+  // TP question states
   const [tpQuestions, setTpQuestions] = useState<Record<string, any[]>>({});
   const [tpQuestionOptions, setTpQuestionOptions] = useState<Record<string, any[]>>({});
   const [tpQuestionSelections, setTpQuestionSelections] = useState<Record<string, string>>({});
@@ -52,32 +52,70 @@ export function CourseProgram({
   const [tpQuestionChosenOption, setTpQuestionChosenOption] = useState<Record<string, string>>({});
   const [loadingTP, setLoadingTP] = useState<Record<string, boolean>>({});
 
-  // TP validation states
+  // TP validation
   const [tpSelections, setTpSelections] = useState<Record<string, string>>({});
   const [tpCorrectCount, setTpCorrectCount] = useState(0);
 
-  // UI states
+  // UI
   const [showTpContent, setShowTpContent] = useState<Record<string, boolean>>({});
   const [selectedQuizOption, setSelectedQuizOption] = useState<Record<string, string>>({});
   const [quizCorrectSelected, setQuizCorrectSelected] = useState<Record<string, boolean>>({});
   const [quizFeedback, setQuizFeedback] = useState<Record<string, string>>({});
 
+  // Examen final
+  const [finalAssessment, setFinalAssessment] = useState<any | null>(null);
+  const [allModulesPassed, setAllModulesPassed] = useState(false);
+
+  // Ref pour scroll
+  const mainContentRef = useRef<HTMLElement | null>(null);
+
   const activeCourse = courses[activeCourseIndex];
   const modules = activeCourse?.modules || [];
   const activeModule = modules[activeModuleIndex];
+  const isFinalExamActive = activeModuleIndex === modules.length && !!finalAssessment;
 
   const isFirstModule = activeModuleIndex === 0;
   const prevModuleAssessmentId = !isFirstModule ? modules[activeModuleIndex - 1]?.assessments?.[0]?.id : null;
   const isModuleUnlocked = isFirstModule || (prevModuleAssessmentId && passedAssessments.includes(prevModuleAssessmentId));
 
+  // Helper pour scroller
+  const scrollToTop = () => {
+    const main = document.getElementById('main-content');
+    if (main) {
+      main.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  // Charger l'examen final
+  useEffect(() => {
+    const loadFinalAssessment = async () => {
+      if (!activeCourse) return;
+      const { data } = await supabase
+        .from('assessments')
+        .select('*')
+        .eq('course_id', activeCourse.id)
+        .eq('type', 'FINAL')
+        .maybeSingle();
+      setFinalAssessment(data || null);
+    };
+    loadFinalAssessment();
+  }, [activeCourse]);
+
+  // Vérifier si tous les modules sont validés
+  useEffect(() => {
+    const moduleExamIds = modules.flatMap((mod: any) => mod.assessments?.map((a: any) => a.id) || []);
+    const allPassed = moduleExamIds.length > 0 && moduleExamIds.every((id: string) => passedAssessments.includes(id));
+    setAllModulesPassed(allPassed);
+  }, [modules, passedAssessments]);
 
   const getPositionFromTitle = (title: string) => {
-  if (!title) return 9999;
-  const match = title.match(/TP\s*(\d+)/i);
-  return match ? parseInt(match[1], 10) : 9999;
-};
+    if (!title) return 9999;
+    const match = title.match(/TP\s*(\d+)/i);
+    return match ? parseInt(match[1], 10) : 9999;
+  };
 
-  // Utilisation de useMemo pour un tri stable et performant
   const theoreticalLessons = useMemo(() => {
     return (activeModule?.lessons || [])
       .filter((l: any) => l.category === 'THEORIQUE')
@@ -85,14 +123,14 @@ export function CourseProgram({
   }, [activeModule?.lessons]);
 
   const practicalLessons = useMemo(() => {
-  return (activeModule?.lessons || [])
-    .filter((l: any) => l.category === 'PRATIQUE' && l.content_type !== 'QUIZ')
-    .map((l: any) => ({
-      ...l,
-      position: l.position ?? getPositionFromTitle(l.title),
-    }))
-    .sort((a: any, b: any) => Number(a.position) - Number(b.position));
-}, [activeModule?.lessons]);
+    return (activeModule?.lessons || [])
+      .filter((l: any) => l.category === 'PRATIQUE' && l.content_type !== 'QUIZ')
+      .map((l: any) => ({
+        ...l,
+        position: l.position ?? getPositionFromTitle(l.title),
+      }))
+      .sort((a: any, b: any) => Number(a.position) - Number(b.position));
+  }, [activeModule?.lessons]);
 
   const quizLessons = useMemo(() => {
     return (activeModule?.lessons || [])
@@ -118,33 +156,33 @@ export function CourseProgram({
   const tpNoteSur20 = totalTpQuestions > 0 ? Math.round((tpValidatedQuestions / totalTpQuestions) * 20) : 0;
   const quizNoteSur10 = totalQuiz > 0 ? Math.round((quizScore / totalQuiz) * 10) : 0;
 
-  // Navigation
   const goToStep = (step: ModuleStep) => {
     setActiveStep(step);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    scrollToTop();
   };
 
-  
-
-  console.log('practicalLessons triés :', practicalLessons.map((l: any) => `${l.position}: ${l.title}`));
-console.log('Ordre dans la boucle :', [...practicalLessons].sort((a: any, b: any) => Number(a.position) - Number(b.position)).map((l: any) => `${l.position}: ${l.title}`));
-
   const goToNextModule = () => {
-    if (activeModuleIndex < modules.length - 1) setActiveModuleIndex(prev => prev + 1);
-    setActiveStep('theoretical');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (activeModuleIndex < modules.length - 1) {
+      setActiveModuleIndex(prev => prev + 1);
+      setActiveStep('theoretical');
+      scrollToTop();
+    } else if (finalAssessment && allModulesPassed) {
+      setActiveModuleIndex(modules.length); // aller à l'examen final
+      scrollToTop();
+    }
   };
 
   const goToPrevModule = () => {
-    if (activeModuleIndex > 0) setActiveModuleIndex(prev => prev - 1);
-    setActiveStep('theoretical');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (activeModuleIndex > 0) {
+      setActiveModuleIndex(prev => prev - 1);
+      setActiveStep('theoretical');
+      scrollToTop();
+    }
   };
 
   // Charger les questions d'un TP et leurs options
   const loadTpQuestionsAndOptions = async (lessonId: string) => {
     setLoadingTP(prev => ({ ...prev, [lessonId]: true }));
-
     const { data: questions } = await supabase
       .from('tp_questions')
       .select('*')
@@ -153,7 +191,6 @@ console.log('Ordre dans la boucle :', [...practicalLessons].sort((a: any, b: any
 
     if (questions && questions.length > 0) {
       setTpQuestions(prev => ({ ...prev, [lessonId]: questions }));
-
       const questionIds = questions.map((q: any) => q.id);
       const { data: options } = await supabase
         .from('tp_options')
@@ -190,7 +227,6 @@ console.log('Ordre dans la boucle :', [...practicalLessons].sort((a: any, b: any
         }
       }
     }
-
     setLoadingTP(prev => ({ ...prev, [lessonId]: false }));
   };
 
@@ -231,17 +267,16 @@ console.log('Ordre dans la boucle :', [...practicalLessons].sort((a: any, b: any
     }
   };
 
-  // Effet principal : charge les TP et QCM
   useEffect(() => {
-    if (activeModule && isModuleUnlocked) {
+    if (activeModule && isModuleUnlocked && !isFinalExamActive) {
       practicalLessons.forEach((lesson: any) => {
         loadTpQuestionsAndOptions(lesson.id);
       });
       loadQuizForModule(activeModule);
     }
-  }, [activeModule?.id, practicalLessons, quizLessons, isModuleUnlocked, profile]);
+  }, [activeModule?.id, practicalLessons, quizLessons, isModuleUnlocked, profile, isFinalExamActive]);
 
-  // Effet pour recalculer tpSelections et tpCorrectCount
+  // Recalculer tpSelections et tpCorrectCount
   useEffect(() => {
     if (!tpQuestions) return;
     const validTpMap: Record<string, string> = {};
@@ -257,11 +292,9 @@ console.log('Ordre dans la boucle :', [...practicalLessons].sort((a: any, b: any
     setTpCorrectCount(count);
   }, [tpQuestionSelections, tpQuestions, practicalLessons]);
 
-  // Gestion clic sur une option de TP
   const handleTpOptionClick = async (lessonId: string, questionId: string, optionText: string, isCorrect: boolean) => {
     if (!profile) return;
     const currentAttempts = tpQuestionAttempts[questionId] || 0;
-
     setTpQuestionChosenOption(prev => ({ ...prev, [questionId]: optionText }));
 
     await supabase.from('tp_attempts').insert({
@@ -289,10 +322,8 @@ console.log('Ordre dans la boucle :', [...practicalLessons].sort((a: any, b: any
     }
   };
 
-  // Validation d'une question TP
   const handleTpQuestionValidate = async (lessonId: string, questionId: string, optionText: string) => {
     if (!profile) return;
-
     const updatedSelections = { ...tpQuestionSelections, [questionId]: optionText };
     setTpQuestionSelections(updatedSelections);
     setTpQuestionCorrectSelected(prev => ({ ...prev, [questionId]: false }));
@@ -300,11 +331,9 @@ console.log('Ordre dans la boucle :', [...practicalLessons].sort((a: any, b: any
       ...prev,
       [questionId]: { correct: true, message: `✅ Question validée en ${tpQuestionAttempts[questionId] || 1} tentative(s).` }
     }));
-
-    // Le useEffect recalculera tpSelections et tpCorrectCount automatiquement
+    // scroll automatique vers le haut après validation ? optionnel
   };
 
-  // Gestion QCM
   const handleQuizChoice = async (question: any, answer: string) => {
     if (!profile) return;
     const isCorrect = answer === question.correct_answer;
@@ -344,7 +373,6 @@ console.log('Ordre dans la boucle :', [...practicalLessons].sort((a: any, b: any
     setSelectedQuizOption(prev => ({ ...prev, [question.id]: '' }));
   };
 
-  // Verrouillage séquentiel TP et QCM
   const isTpUnlocked = (index: number) => {
     if (index === 0) return true;
     const prevTp = practicalLessons[index - 1];
@@ -375,6 +403,99 @@ console.log('Ordre dans la boucle :', [...practicalLessons].sort((a: any, b: any
     );
   }
 
+  if (isFinalExamActive) {
+    // Vue examen final
+    return (
+      <div className="w-full max-w-3xl mx-auto pb-20">
+        {/* Navigation modules avec bouton final actif */}
+        <div className="sticky top-0 z-20 bg-[#020617]/95 backdrop-blur-xl border-b border-[#1e293b] -mx-4 px-4 py-3 flex items-center justify-between mb-6">
+          <button onClick={goToPrevModule} disabled={activeModuleIndex === 0}
+            className="text-slate-400 hover:text-white disabled:opacity-20 p-2">
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div className="flex items-center gap-1.5">
+            {modules.map((mod: any, i: number) => {
+              const modAssessmentId = mod.assessments?.[0]?.id;
+              const isPassed = modAssessmentId && passedAssessments.includes(modAssessmentId);
+              return (
+                <button
+                  key={i}
+                  onClick={() => { setActiveModuleIndex(i); setActiveStep('theoretical'); scrollToTop(); }}
+                  className={`w-8 h-8 rounded-lg text-sm font-bold transition-all flex items-center justify-center ${
+                    i === activeModuleIndex
+                      ? 'bg-blue-500 text-white'
+                      : isPassed
+                      ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                      : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                  }`}
+                >
+                  {isPassed ? <CheckCircle2 className="w-4 h-4" /> : i + 1}
+                </button>
+              );
+            })}
+            {/* Bouton examen final */}
+            <button
+              onClick={() => { setActiveModuleIndex(modules.length); scrollToTop(); }}
+              className={`w-8 h-8 rounded-lg text-sm font-bold transition-all flex items-center justify-center ${
+                isFinalExamActive ? 'bg-amber-500 text-white' : 'bg-slate-800 text-slate-400'
+              }`}
+            >
+              <Star className="w-4 h-4" />
+            </button>
+          </div>
+          <button onClick={goToNextModule} disabled={activeModuleIndex === modules.length}
+            className="text-slate-400 hover:text-white disabled:opacity-20 p-2">
+            <ArrowRight className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Contenu examen final */}
+        <div className="bg-slate-900/50 border border-blue-500/30 rounded-2xl p-6">
+          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            <Star className="w-6 h-6 text-amber-400" />
+            Examen final de formation
+          </h2>
+          <p className="text-slate-400 text-sm mt-1">
+            Vous avez validé tous les modules. Cet examen final est requis pour obtenir votre certificat.
+          </p>
+
+          {finalAssessment.description && (
+            <div className="mt-4 p-4 bg-amber-500/5 border border-amber-500/10 rounded-xl">
+              <HtmlContentViewer content={finalAssessment.description} />
+            </div>
+          )}
+
+          {submissionsMap[finalAssessment.id] ? (
+            <p className={`mt-3 text-sm font-medium ${submissionsMap[finalAssessment.id].status === 'PASSED' ? 'text-green-400' : 'text-amber-400'}`}>
+              {submissionsMap[finalAssessment.id].status === 'PASSED'
+                ? `✅ Examen final validé - ${submissionsMap[finalAssessment.id].grade}/20`
+                : '⏳ Examen final en attente de correction'}
+            </p>
+          ) : (
+            <button
+              onClick={() => setSelectedAssessment({ id: finalAssessment.id, title: finalAssessment.title })}
+              className="mt-4 w-full flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white font-bold rounded-xl"
+            >
+              <Send className="w-5 h-5" />
+              Soumettre mon examen final
+            </button>
+          )}
+        </div>
+
+        <AnimatePresence>
+          {selectedAssessment && (
+            <SubmissionModal
+              isOpen={!!selectedAssessment}
+              onClose={() => setSelectedAssessment(null)}
+              assessmentId={selectedAssessment.id}
+              userStatus={userStatus}
+            />
+          )}
+        </AnimatePresence>
+      </div>
+    );
+  }
+
   if (!isModuleUnlocked) {
     return (
       <div className="w-full max-w-3xl mx-auto pb-20">
@@ -390,7 +511,7 @@ console.log('Ordre dans la boucle :', [...practicalLessons].sort((a: any, b: any
               return (
                 <button
                   key={i}
-                  onClick={() => { setActiveModuleIndex(i); setActiveStep('theoretical'); }}
+                  onClick={() => { setActiveModuleIndex(i); setActiveStep('theoretical'); scrollToTop(); }}
                   className={`w-8 h-8 rounded-lg text-sm font-bold transition-all flex items-center justify-center ${
                     i === activeModuleIndex
                       ? 'bg-amber-500 text-white'
@@ -519,7 +640,7 @@ console.log('Ordre dans la boucle :', [...practicalLessons].sort((a: any, b: any
             return (
               <button
                 key={i}
-                onClick={() => { setActiveModuleIndex(i); setActiveStep('theoretical'); }}
+                onClick={() => { setActiveModuleIndex(i); setActiveStep('theoretical'); scrollToTop(); }}
                 className={`w-8 h-8 rounded-lg text-sm font-bold transition-all flex items-center justify-center ${
                   i === activeModuleIndex
                     ? 'bg-blue-500 text-white'
@@ -532,8 +653,31 @@ console.log('Ordre dans la boucle :', [...practicalLessons].sort((a: any, b: any
               </button>
             );
           })}
+          {/* Bouton examen final si existe */}
+          {finalAssessment && (
+            <button
+              onClick={() => {
+                if (allModulesPassed) {
+                  setActiveModuleIndex(modules.length);
+                  scrollToTop();
+                } else {
+                  alert('Vous devez valider tous les modules avant de passer l\'examen final.');
+                }
+              }}
+              className={`w-8 h-8 rounded-lg text-sm font-bold transition-all flex items-center justify-center ${
+                isFinalExamActive
+                  ? 'bg-amber-500 text-white'
+                  : allModulesPassed
+                  ? 'bg-slate-800 text-amber-400 hover:bg-slate-700'
+                  : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+              }`}
+              title="Examen final"
+            >
+              <Star className="w-4 h-4" />
+            </button>
+          )}
         </div>
-        <button onClick={goToNextModule} disabled={activeModuleIndex === modules.length - 1}
+        <button onClick={goToNextModule} disabled={activeModuleIndex === modules.length - 1 && !(finalAssessment && allModulesPassed)}
           className="text-slate-400 hover:text-white disabled:opacity-20 p-2">
           <ArrowRight className="w-5 h-5" />
         </button>
@@ -610,7 +754,7 @@ console.log('Ordre dans la boucle :', [...practicalLessons].sort((a: any, b: any
           </motion.div>
         )}
 
-        {/* PRATIQUE (TP) - tri forcé dans la boucle */}
+        {/* PRATIQUE (TP) */}
         {activeStep === 'practical' && (
           <motion.div key="practical" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-6">
             {practicalLessons.length === 0 ? (
