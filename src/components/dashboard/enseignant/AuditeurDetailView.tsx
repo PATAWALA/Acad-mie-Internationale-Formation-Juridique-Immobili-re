@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClientComponent } from '@/lib/supabase/client';
 import { getStudentProgress } from '@/lib/student-progress';
-import { User, Mail, ArrowLeft, Loader2, CheckCircle2, XCircle, Clock, FileText, HelpCircle, Wrench, ChevronDown, ChevronUp } from 'lucide-react';
+import { User, Mail, ArrowLeft, Loader2, CheckCircle2, XCircle, Clock, FileText, HelpCircle, Wrench, ChevronDown, ChevronUp, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Props {
@@ -19,6 +19,8 @@ export default function AuditeurDetailView({ studentId, certId, onBack }: Props)
   const [profile, setProfile] = useState<any>(null);
   const [progress, setProgress] = useState<any>(null);
   const [moduleDetails, setModuleDetails] = useState<any[]>([]);
+  const [finalExam, setFinalExam] = useState<any | null>(null);
+  const [finalSubmission, setFinalSubmission] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [openModules, setOpenModules] = useState<Record<string, boolean>>({});
 
@@ -39,7 +41,6 @@ export default function AuditeurDetailView({ studentId, certId, onBack }: Props)
       setProgress(progressData);
 
       if (progressData?.modules) {
-        // Pour chaque module, récupérer les détails TP, QCM, examens
         const details = [];
         for (const mod of progressData.modules) {
           const moduleId = mod.module.id;
@@ -148,6 +149,33 @@ export default function AuditeurDetailView({ studentId, certId, onBack }: Props)
           });
         }
         setModuleDetails(details);
+      }
+
+      // ---- Examen final ----
+      const { data: courseData } = await supabase
+        .from('courses')
+        .select('id')
+        .eq('certificate_id', certId)
+        .single();
+
+      if (courseData) {
+        const { data: final } = await supabase
+          .from('assessments')
+          .select('id, title, description')
+          .eq('course_id', courseData.id)
+          .eq('type', 'FINAL')
+          .maybeSingle();
+        setFinalExam(final);
+
+        if (final) {
+          const { data: finalSub } = await supabase
+            .from('submissions')
+            .select('id, submission_url, status, grade, feedback')
+            .eq('assessment_id', final.id)
+            .eq('student_id', studentId)
+            .maybeSingle();
+          setFinalSubmission(finalSub || null);
+        }
       }
 
       setLoading(false);
@@ -313,6 +341,50 @@ export default function AuditeurDetailView({ studentId, certId, onBack }: Props)
               </AnimatePresence>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Examen final */}
+      {finalExam && (
+        <div className="bg-slate-900/50 border border-amber-500/30 rounded-xl overflow-hidden">
+          <div className="p-4 flex items-center justify-between bg-amber-500/5 border-b border-amber-500/10">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-amber-500/10 rounded-lg flex items-center justify-center">
+                <Star className="w-4 h-4 text-amber-400" />
+              </div>
+              <h3 className="text-white font-semibold">Examen final</h3>
+            </div>
+            {finalSubmission ? (
+              <span className={cn("inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border",
+                finalSubmission.status === 'PASSED' ? "bg-green-500/10 text-green-400 border-green-500/20" : "bg-amber-500/10 text-amber-400 border-amber-500/20"
+              )}>
+                {finalSubmission.status === 'PASSED' ? '✅ Validé' : '⏳ En attente'}
+              </span>
+            ) : (
+              <span className="text-xs text-slate-500">Non soumis</span>
+            )}
+          </div>
+          <div className="p-4">
+            {finalSubmission ? (
+              <div className="space-y-2">
+                <p className="text-sm text-slate-300">Statut : {finalSubmission.status}</p>
+                <p className="text-sm text-slate-300">Note : {finalSubmission.grade ?? '-'}/20</p>
+                {finalSubmission.feedback && (
+                  <p className="text-sm text-slate-400">Feedback : {finalSubmission.feedback}</p>
+                )}
+                <a
+                  href={finalSubmission.submission_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-blue-400 hover:text-blue-300 text-xs"
+                >
+                  Voir la copie
+                </a>
+              </div>
+            ) : (
+              <p className="text-sm text-slate-500">L'étudiant n'a pas encore soumis son examen final.</p>
+            )}
+          </div>
         </div>
       )}
     </div>
