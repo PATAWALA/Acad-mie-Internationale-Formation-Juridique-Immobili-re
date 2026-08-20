@@ -2,19 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { createClientComponent } from '@/lib/supabase/client';
-import { Search, Users, Loader2, ArrowLeft, UserCircle } from 'lucide-react';
+import { Search, Users, Loader2, ArrowLeft, UserCircle, Filter } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Tables } from '@/types/database';
-
-type ProfileRow = Tables<'profiles'>;
-type ModuleRow = Tables<'modules'>;
-type LessonRow = Tables<'lessons'>;
-type TpQuestionRow = Tables<'tp_questions'>;
-type QuizQuestionRow = Tables<'quiz_questions'>;
-type AssessmentRow = Tables<'assessments'>;
-type TpAttemptRow = Tables<'tp_attempts'>;
-type QuizAnswerRow = Tables<'quiz_answers'>;
-type SubmissionRow = Tables<'submissions'>;
+import AuditeurDetailView from './AuditeurDetailView';
 
 interface AuditeursListProps {
   certId: number;
@@ -36,6 +27,7 @@ export default function AuditeursList({ certId, onBack }: AuditeursListProps) {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'COMPLETED' | 'IN_PROGRESS' | 'NOT_STARTED'>('ALL');
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchAllData = async () => {
@@ -54,7 +46,7 @@ export default function AuditeursList({ certId, onBack }: AuditeursListProps) {
         return;
       }
 
-      // 2. Récupérer les inscriptions payées
+      // 2. Inscriptions payées
       const { data: enrolls, error: enrollError } = await supabase
         .from('enrollments')
         .select('student_id')
@@ -67,10 +59,9 @@ export default function AuditeursList({ certId, onBack }: AuditeursListProps) {
         return;
       }
 
-      // Filtrer les student_id null, en sachant que la colonne est nullable dans la DB
       const studentIds: string[] = enrolls
-  .map((e) => e.student_id)
-  .filter((id): id is string => id !== null);
+        .map((e) => e.student_id)
+        .filter((id): id is string => id !== null);
 
       if (studentIds.length === 0) {
         setLoading(false);
@@ -78,7 +69,7 @@ export default function AuditeursList({ certId, onBack }: AuditeursListProps) {
         return;
       }
 
-      // 3. Récupérer les profils
+      // 3. Profils
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select('id, full_name, email')
@@ -90,7 +81,7 @@ export default function AuditeursList({ certId, onBack }: AuditeursListProps) {
         return;
       }
 
-      // 4. Récupérer tous les modules du cours
+      // 4. Modules
       const { data: modules, error: modulesError } = await supabase
         .from('modules')
         .select('id, title, week_number')
@@ -103,9 +94,9 @@ export default function AuditeursList({ certId, onBack }: AuditeursListProps) {
         return;
       }
 
-      const moduleIds = (modules as ModuleRow[]).map((m) => m.id);
+      const moduleIds = modules.map((m) => m.id);
 
-      // 5. Récupérer toutes les leçons
+      // 5. Leçons
       const { data: allLessons, error: lessonsError } = await supabase
         .from('lessons')
         .select('id, title, module_id, content_type, category')
@@ -117,22 +108,22 @@ export default function AuditeursList({ certId, onBack }: AuditeursListProps) {
         return;
       }
 
-      const lessons = allLessons as LessonRow[];
+      const lessons = allLessons;
       const tpLessons = lessons.filter((l) => l.category === 'PRATIQUE' && l.content_type !== 'QUIZ');
       const quizLessons = lessons.filter((l) => l.content_type === 'QUIZ');
       const tpLessonIds = tpLessons.map((l) => l.id);
       const quizLessonIds = quizLessons.map((l) => l.id);
 
       // 6. Questions TP et QCM
-      let tpQuestionsData: TpQuestionRow[] = [];
-      let quizQuestionsData: QuizQuestionRow[] = [];
+      let tpQuestionsData: Pick<Tables<'tp_questions'>, 'id' | 'lesson_id'>[] = [];
+      let quizQuestionsData: Pick<Tables<'quiz_questions'>, 'id' | 'lesson_id'>[] = [];
       if (tpLessonIds.length > 0) {
         const { data, error } = await supabase
           .from('tp_questions')
           .select('id, lesson_id')
           .in('lesson_id', tpLessonIds);
         if (error) console.error(error);
-        tpQuestionsData = (data as TpQuestionRow[]) || [];
+        tpQuestionsData = data || [];
       }
       if (quizLessonIds.length > 0) {
         const { data, error } = await supabase
@@ -140,20 +131,20 @@ export default function AuditeursList({ certId, onBack }: AuditeursListProps) {
           .select('id, lesson_id')
           .in('lesson_id', quizLessonIds);
         if (error) console.error(error);
-        quizQuestionsData = (data as QuizQuestionRow[]) || [];
+        quizQuestionsData = data || [];
       }
 
       const totalTpQuestions = tpQuestionsData.length;
       const totalQuizQuestions = quizQuestionsData.length;
 
-      // 7. Examens de module
+      // 7. Examens de modules
       const { data: assessments, error: assessmentsError } = await supabase
         .from('assessments')
         .select('id, module_id, type')
         .in('module_id', moduleIds)
         .eq('type', 'EXAM');
       if (assessmentsError) console.error(assessmentsError);
-      const assessmentList = (assessments as AssessmentRow[]) || [];
+      const assessmentList = assessments || [];
       const assessmentIds = assessmentList.map((a) => a.id);
 
       // 8. Tentatives TP correctes
@@ -166,7 +157,7 @@ export default function AuditeursList({ certId, onBack }: AuditeursListProps) {
           .in('lesson_id', tpLessonIds)
           .eq('is_correct', true);
         if (tpError) console.error(tpError);
-        (tpAttempts as TpAttemptRow[])?.forEach((att) => {
+        (tpAttempts || []).forEach((att) => {
           if (att.student_id && att.tp_question_id) {
             if (!tpCorrectMap[att.student_id]) tpCorrectMap[att.student_id] = new Set();
             tpCorrectMap[att.student_id].add(att.tp_question_id);
@@ -185,7 +176,7 @@ export default function AuditeursList({ certId, onBack }: AuditeursListProps) {
           .in('question_id', qIds)
           .eq('is_correct', true);
         if (quizError) console.error(quizError);
-        (quizAnswers as QuizAnswerRow[])?.forEach((ans) => {
+        (quizAnswers || []).forEach((ans) => {
           if (ans.student_id && ans.question_id !== null) {
             if (!quizCorrectMap[ans.student_id]) quizCorrectMap[ans.student_id] = new Set();
             quizCorrectMap[ans.student_id].add(String(ans.question_id));
@@ -203,15 +194,15 @@ export default function AuditeursList({ certId, onBack }: AuditeursListProps) {
           .in('assessment_id', assessmentIds)
           .eq('status', 'PASSED');
         if (subError) console.error(subError);
-        (submissions as SubmissionRow[])?.forEach((sub) => {
+        (submissions || []).forEach((sub) => {
           if (sub.student_id) {
             examPassedMap[sub.student_id] = (examPassedMap[sub.student_id] || 0) + 1;
           }
         });
       }
 
-      // 11. Calcul progression
-      const progressData: StudentProgress[] = (profiles as ProfileRow[]).map((profile) => {
+      // 11. Calculer la progression
+      const progressData: StudentProgress[] = profiles.map((profile) => {
         const tpCorrect = tpCorrectMap[profile.id] || new Set();
         const quizCorrect = quizCorrectMap[profile.id] || new Set();
         const examsPassed = examPassedMap[profile.id] || 0;
@@ -241,6 +232,17 @@ export default function AuditeursList({ certId, onBack }: AuditeursListProps) {
     fetchAllData();
   }, [certId, supabase]);
 
+  // Si un étudiant est sélectionné, afficher le détail
+  if (selectedStudentId) {
+    return (
+      <AuditeurDetailView
+        studentId={selectedStudentId}
+        certId={certId}
+        onBack={() => setSelectedStudentId(null)}
+      />
+    );
+  }
+
   const filteredStudents = students.filter((student) => {
     if (statusFilter !== 'ALL') {
       const pct = student.progressPercent || 0;
@@ -256,11 +258,16 @@ export default function AuditeursList({ certId, onBack }: AuditeursListProps) {
 
   return (
     <div className="space-y-6">
-      <button onClick={onBack} className="inline-flex items-center gap-2 text-slate-400 hover:text-white transition-colors">
+      {/* Bouton retour vers formations */}
+      <button
+        onClick={onBack}
+        className="inline-flex items-center gap-2 text-slate-400 hover:text-white transition-colors"
+      >
         <ArrowLeft className="w-4 h-4" />
         Retour aux formations
       </button>
 
+      {/* En-tête */}
       <div>
         <h1 className="text-xl md:text-2xl font-bold text-white flex items-center gap-3">
           <div className="w-10 h-10 bg-blue-500/10 rounded-xl flex items-center justify-center">
@@ -273,30 +280,34 @@ export default function AuditeursList({ certId, onBack }: AuditeursListProps) {
         </p>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
+      {/* Filtres */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
           <input
             type="text"
             placeholder="Rechercher par nom ou email..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-800 border border-slate-600 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-colors"
           />
         </div>
-
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as 'ALL' | 'COMPLETED' | 'IN_PROGRESS' | 'NOT_STARTED')}
-          className="..."
-        >
-          <option value="ALL">Tous</option>
-          <option value="COMPLETED">Terminés</option>
-          <option value="IN_PROGRESS">En cours</option>
-          <option value="NOT_STARTED">Non commencés</option>
-        </select>
+        <div className="relative">
+          <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as 'ALL' | 'COMPLETED' | 'IN_PROGRESS' | 'NOT_STARTED')}
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-800 border border-slate-600 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 appearance-none cursor-pointer transition-colors"
+          >
+            <option value="ALL">Tous</option>
+            <option value="COMPLETED">Terminés</option>
+            <option value="IN_PROGRESS">En cours</option>
+            <option value="NOT_STARTED">Non commencés</option>
+          </select>
+        </div>
       </div>
 
+      {/* Liste des auditeurs */}
       {loading ? (
         <div className="flex items-center justify-center py-16">
           <Loader2 className="w-8 h-8 text-blue-400 animate-spin" />
@@ -348,7 +359,10 @@ export default function AuditeursList({ certId, onBack }: AuditeursListProps) {
                   {pct === 100 ? 'Terminé' : pct > 0 ? 'En cours' : 'Non commencé'}
                 </span>
 
-                <button className="px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 transition-colors">
+                <button
+                  onClick={() => setSelectedStudentId(student.id)}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 transition-colors"
+                >
                   Détails
                 </button>
               </div>
