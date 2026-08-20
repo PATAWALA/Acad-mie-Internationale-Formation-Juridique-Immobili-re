@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createClientComponent } from '@/lib/supabase/client';
-import { Search, Users, Loader2, ArrowLeft, UserCircle, Filter } from 'lucide-react';
+import { Search, Users, Loader2, ArrowLeft, UserCircle, Filter, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Tables } from '@/types/database';
 import AuditeurDetailView from './AuditeurDetailView';
@@ -28,26 +28,27 @@ export default function AuditeursList({ certId, onBack }: AuditeursListProps) {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'COMPLETED' | 'IN_PROGRESS' | 'NOT_STARTED'>('ALL');
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
+  const [hasCourse, setHasCourse] = useState<boolean>(true);
 
   useEffect(() => {
     const fetchAllData = async () => {
       setLoading(true);
 
-      // 1. Récupérer le cours
+      // 1. Récupérer le premier cours associé à la formation (peut être null)
       const { data: course, error: courseError } = await supabase
-  .from('courses')
-  .select('id')
-  .eq('certificate_id', certId)
-  .limit(1)
-  .maybeSingle(); // ✅ retourne le premier cours, pas d'erreur
+        .from('courses')
+        .select('id')
+        .eq('certificate_id', certId)
+        .limit(1)
+        .maybeSingle();
 
-      if (courseError || !course) {
-        setLoading(false);
-        setStudents([]);
-        return;
-      }
+      if (courseError) console.error(courseError);
 
-      // 2. Inscriptions payées
+      // Définir si la formation a un cours
+      const courseId = course?.id || null;
+      setHasCourse(!!courseId);
+
+      // 2. Récupérer les inscriptions payées
       const { data: enrolls, error: enrollError } = await supabase
         .from('enrollments')
         .select('student_id')
@@ -70,7 +71,7 @@ export default function AuditeursList({ certId, onBack }: AuditeursListProps) {
         return;
       }
 
-      // 3. Profils
+      // 3. Récupérer les profils
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select('id, full_name, email')
@@ -82,40 +83,39 @@ export default function AuditeursList({ certId, onBack }: AuditeursListProps) {
         return;
       }
 
-      // 4. Modules
-      const { data: modules, error: modulesError } = await supabase
-        .from('modules')
-        .select('id, title, week_number')
-        .eq('course_id', course.id)
-        .order('week_number');
+      // 4. Si pas de cours, on met des modules vides
+      let modules: Tables<'modules'>[] = [];
+      if (courseId) {
+        const { data: modulesData, error: modulesError } = await supabase
+          .from('modules')
+          .select('id, title, week_number')
+          .eq('course_id', courseId)
+          .order('week_number');
 
-      if (modulesError || !modules) {
-        setLoading(false);
-        setStudents([]);
-        return;
+        if (modulesError) console.error(modulesError);
+        modules = modulesData || [];
       }
 
       const moduleIds = modules.map((m) => m.id);
 
-      // 5. Leçons
-      const { data: allLessons, error: lessonsError } = await supabase
-        .from('lessons')
-        .select('id, title, module_id, content_type, category')
-        .in('module_id', moduleIds);
+      // 5. Récupérer les leçons (si modules existent)
+      let lessons: Tables<'lessons'>[] = [];
+      if (moduleIds.length > 0) {
+        const { data: allLessons, error: lessonsError } = await supabase
+          .from('lessons')
+          .select('id, title, module_id, content_type, category')
+          .in('module_id', moduleIds);
 
-      if (lessonsError || !allLessons) {
-        setLoading(false);
-        setStudents([]);
-        return;
+        if (lessonsError) console.error(lessonsError);
+        lessons = allLessons || [];
       }
 
-      const lessons = allLessons;
       const tpLessons = lessons.filter((l) => l.category === 'PRATIQUE' && l.content_type !== 'QUIZ');
       const quizLessons = lessons.filter((l) => l.content_type === 'QUIZ');
       const tpLessonIds = tpLessons.map((l) => l.id);
       const quizLessonIds = quizLessons.map((l) => l.id);
 
-      // 6. Questions TP et QCM
+      // 6. Questions TP et QCM (si leçons existent)
       let tpQuestionsData: Pick<Tables<'tp_questions'>, 'id' | 'lesson_id'>[] = [];
       let quizQuestionsData: Pick<Tables<'quiz_questions'>, 'id' | 'lesson_id'>[] = [];
       if (tpLessonIds.length > 0) {
@@ -139,13 +139,16 @@ export default function AuditeursList({ certId, onBack }: AuditeursListProps) {
       const totalQuizQuestions = quizQuestionsData.length;
 
       // 7. Examens de modules
-      const { data: assessments, error: assessmentsError } = await supabase
-        .from('assessments')
-        .select('id, module_id, type')
-        .in('module_id', moduleIds)
-        .eq('type', 'EXAM');
-      if (assessmentsError) console.error(assessmentsError);
-      const assessmentList = assessments || [];
+      let assessmentList: Tables<'assessments'>[] = [];
+      if (moduleIds.length > 0) {
+        const { data: assessments, error: assessmentsError } = await supabase
+          .from('assessments')
+          .select('id, module_id, type')
+          .in('module_id', moduleIds)
+          .eq('type', 'EXAM');
+        if (assessmentsError) console.error(assessmentsError);
+        assessmentList = assessments || [];
+      }
       const assessmentIds = assessmentList.map((a) => a.id);
 
       // 8. Tentatives TP correctes
@@ -202,10 +205,6 @@ export default function AuditeursList({ certId, onBack }: AuditeursListProps) {
         });
       }
 
-      console.log('enrolls reçus:', enrolls);
-      console.log('studentIds:', studentIds);
-      console.log('profiles:', profiles);
-
       // 11. Calculer la progression
       const progressData: StudentProgress[] = profiles.map((profile) => {
         const tpCorrect = tpCorrectMap[profile.id] || new Set();
@@ -236,9 +235,7 @@ export default function AuditeursList({ certId, onBack }: AuditeursListProps) {
 
     fetchAllData();
   }, [certId, supabase]);
-  
 
-  // Si un étudiant est sélectionné, afficher le détail
   if (selectedStudentId) {
     return (
       <AuditeurDetailView
@@ -264,16 +261,11 @@ export default function AuditeursList({ certId, onBack }: AuditeursListProps) {
 
   return (
     <div className="space-y-6">
-      {/* Bouton retour vers formations */}
-      <button
-        onClick={onBack}
-        className="inline-flex items-center gap-2 text-slate-400 hover:text-white transition-colors"
-      >
+      <button onClick={onBack} className="inline-flex items-center gap-2 text-slate-400 hover:text-white transition-colors">
         <ArrowLeft className="w-4 h-4" />
         Retour aux formations
       </button>
 
-      {/* En-tête */}
       <div>
         <h1 className="text-xl md:text-2xl font-bold text-white flex items-center gap-3">
           <div className="w-10 h-10 bg-blue-500/10 rounded-xl flex items-center justify-center">
@@ -286,7 +278,13 @@ export default function AuditeursList({ certId, onBack }: AuditeursListProps) {
         </p>
       </div>
 
-      {/* Filtres */}
+      {!hasCourse && (
+        <div className="flex items-start gap-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg text-amber-400 text-sm">
+          <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+          <p>Cette formation n&apos;a pas encore de contenu de cours. Les auditeurs apparaissent mais leur progression est à 0.</p>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
@@ -313,7 +311,6 @@ export default function AuditeursList({ certId, onBack }: AuditeursListProps) {
         </div>
       </div>
 
-      {/* Liste des auditeurs */}
       {loading ? (
         <div className="flex items-center justify-center py-16">
           <Loader2 className="w-8 h-8 text-blue-400 animate-spin" />
