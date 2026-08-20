@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useEnseignant } from '@/context/EnseignantContext';
 import AuditeursList from '@/components/dashboard/enseignant/AuditeursList';
 import { createClientComponent } from '@/lib/supabase/client';
-import { Users, ChevronRight, BookOpen, Loader2, BarChart3, ArrowLeft } from 'lucide-react';
+import { Users, ChevronRight, BookOpen, Loader2, BarChart3 } from 'lucide-react';
 
 export default function SuiviAuditeursView() {
   const { assignedCertificates } = useEnseignant();
@@ -17,51 +17,57 @@ export default function SuiviAuditeursView() {
 
   useEffect(() => {
     const fetchStats = async () => {
-      if (!assignedCertificates.length) {
+      if (!assignedCertificates || assignedCertificates.length === 0) {
         setLoadingStats(false);
         return;
       }
+
       setLoadingStats(true);
       const newStats: Record<number, { total: number; paid: number }> = {};
 
-      // Utilisation de Promise.all pour paralléliser
+      // Récupérer les stats pour chaque formation
       await Promise.all(
         assignedCertificates.map(async (cert) => {
-          // Comptage total
-          const { count: totalCount, error: totalError } = await supabase
-            .from('enrollments')
-            .select('*', { count: 'exact', head: true })
-            .eq('certificate_id', cert.id);
+          try {
+            // Comptage total des inscriptions (tous statuts)
+            const { data: allData, error: allError } = await supabase
+              .from('enrollments')
+              .select('id')
+              .eq('certificate_id', cert.id);
 
-          // Comptage payé
-          const { count: paidCount, error: paidError } = await supabase
-            .from('enrollments')
-            .select('*', { count: 'exact', head: true })
-            .eq('certificate_id', cert.id)
-            .eq('payment_status', 'PAID');
+            // Comptage des inscriptions payées
+            const { data: paidData, error: paidError } = await supabase
+              .from('enrollments')
+              .select('id')
+              .eq('certificate_id', cert.id)
+              .eq('payment_status', 'PAID');
 
-          if (totalError || paidError) {
-            console.error('Erreur comptage', cert.id, totalError, paidError);
+            if (allError || paidError) {
+              console.error('Erreur stats pour cert', cert.id, allError || paidError);
+              newStats[cert.id] = { total: 0, paid: 0 };
+            } else {
+              newStats[cert.id] = {
+                total: allData?.length || 0,
+                paid: paidData?.length || 0,
+              };
+            }
+          } catch (err) {
+            console.error('Exception stats', err);
             newStats[cert.id] = { total: 0, paid: 0 };
-          } else {
-            newStats[cert.id] = {
-              total: totalCount || 0,
-              paid: paidCount || 0,
-            };
           }
         })
       );
 
       setStatsByCert(newStats);
       setLoadingStats(false);
+
+      // Logs de débogage (à retirer après vérification)
+      console.log('assignedCertificates', assignedCertificates);
+      console.log('statsByCert', newStats);
     };
 
     fetchStats();
   }, [assignedCertificates]);
-
-  // Affichage de débogage si nécessaire
-  // console.log('assignedCertificates', assignedCertificates);
-  // console.log('statsByCert', statsByCert);
 
   if (!selectedCert) {
     return (
