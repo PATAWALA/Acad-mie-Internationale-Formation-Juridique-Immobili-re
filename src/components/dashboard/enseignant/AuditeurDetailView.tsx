@@ -4,7 +4,11 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClientComponent } from '@/lib/supabase/client';
 import { getStudentProgress } from '@/lib/student-progress';
-import { User, Mail, ArrowLeft, Loader2,  FileText, HelpCircle, Wrench, ChevronDown, ChevronUp, Star, Pencil } from 'lucide-react';
+import {
+  User, Mail, ArrowLeft, Loader2, CheckCircle2, XCircle,
+  FileText, HelpCircle, Wrench, ChevronDown, ChevronUp, Star, Pencil,
+  AlertCircle, BookOpen
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import HtmlContentViewer from '../../HtmlContentViewer';
 import { GradeModal } from './GradeModal';
@@ -15,7 +19,7 @@ interface Props {
   onBack: () => void;
 }
 
-// Types sélectionnés depuis Supabase (uniquement les colonnes récupérées)
+// Types partiels
 interface StudentProfile {
   id: string;
   full_name: string | null;
@@ -29,43 +33,21 @@ interface ModuleSummary {
 }
 
 interface StudentProgress {
-  modules?: {
-    module: ModuleSummary;
-  }[];
+  modules?: { module: ModuleSummary }[];
   progressPercent: number;
 }
 
-interface TpLesson {
-  id: string;
-  title: string;
-}
+interface TpLesson { id: string; title: string; }
+interface TpQuestion { id: string; question_text: string; }
+interface TpAttempt { selected_option: string; is_correct: boolean; created_at: string | null; }
 
-interface TpQuestion {
-  id: string;
-  question_text: string;
-}
-
-interface TpAttempt {
-  selected_option: string;
-  is_correct: boolean;
-  created_at: string | null;
-}
-
-interface QuizLesson {
-  id: string;
-  title: string;
-}
-
+interface QuizLesson { id: string; title: string; }
 interface QuizQuestion {
   id: number;
   question: string;
   correct_answer: string;
 }
-
-interface QuizAnswer {
-  selected_answer: string;
-  is_correct: boolean;
-}
+interface QuizAnswer { selected_answer: string; is_correct: boolean; }
 
 interface Assessment {
   id: string;
@@ -193,7 +175,7 @@ export default function AuditeurDetailView({ studentId, certId, onBack }: Props)
           for (const quiz of (quizLessons || []) as QuizLesson[]) {
             const { data: questions } = await supabase
               .from('quiz_questions')
-              .select('id, question, option_a, option_b, option_c, option_d, correct_answer')
+              .select('id, question, correct_answer')
               .eq('lesson_id', quiz.id)
               .order('position');
 
@@ -249,6 +231,11 @@ export default function AuditeurDetailView({ studentId, certId, onBack }: Props)
           });
         }
         setModuleDetails(details);
+
+        // Ouvrir automatiquement le premier module
+        if (details.length > 0) {
+          setOpenModules({ [details[0].module.id]: true });
+        }
       }
 
       // ---- Examen final ----
@@ -293,7 +280,6 @@ export default function AuditeurDetailView({ studentId, certId, onBack }: Props)
       const updated = { ...selectedSubmission, grade, status };
       setSelectedSubmission(null);
       setGradeModalOpen(false);
-      // Mettre à jour les données affichées localement
       setModuleDetails(prev =>
         prev.map(mod => {
           if (mod.examSubmission?.id === updated.id) {
@@ -323,154 +309,163 @@ export default function AuditeurDetailView({ studentId, certId, onBack }: Props)
       </button>
 
       {/* En-tête étudiant */}
-      <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-5 flex flex-col sm:flex-row sm:items-center gap-4">
-        <div className="w-12 h-12 bg-blue-500/10 rounded-xl flex items-center justify-center flex-shrink-0">
-          <User className="w-6 h-6 text-blue-400" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <h1 className="text-xl font-bold text-white">{profile?.full_name || 'Sans nom'}</h1>
-          <p className="text-slate-400 text-sm flex items-center gap-2">
-            <Mail className="w-3.5 h-3.5" />
-            {profile?.email || ''}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-slate-400">Progression :</span>
-          <span className={cn("font-bold", progress?.progressPercent === 100 ? "text-green-400" : "text-blue-400")}>
-            {progress?.progressPercent || 0}%
-          </span>
+      <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-5">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+          <div className="w-12 h-12 bg-blue-500/10 rounded-xl flex items-center justify-center flex-shrink-0">
+            <User className="w-6 h-6 text-blue-400" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-xl font-bold text-white">{profile?.full_name || 'Sans nom'}</h1>
+            <p className="text-slate-400 text-sm flex items-center gap-2">
+              <Mail className="w-3.5 h-3.5" />
+              {profile?.email || ''}
+            </p>
+          </div>
+          <div className="flex items-center gap-2 bg-slate-800 px-3 py-2 rounded-lg">
+            <span className="text-sm text-slate-400">Progression :</span>
+            <span className={cn("font-bold", progress?.progressPercent === 100 ? "text-green-400" : "text-blue-400")}>
+              {progress?.progressPercent || 0}%
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* Modules */}
+      {/* Liste des modules */}
       {moduleDetails.length === 0 ? (
-        <p className="text-center text-slate-500 py-12">Aucun module trouvé pour cette formation.</p>
+        <div className="text-center py-12">
+          <BookOpen className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+          <p className="text-slate-400">Aucun module pour cette formation.</p>
+        </div>
       ) : (
         <div className="space-y-3">
-          {moduleDetails.map((modDetail) => (
-            <div key={modDetail.module.id} className="bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden">
-              {/* Header module */}
-              <button
-                onClick={() => toggleModule(modDetail.module.id)}
-                className="w-full flex items-center justify-between p-4 hover:bg-slate-800/30 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-blue-500/10 rounded-lg flex items-center justify-center text-blue-400 font-bold text-sm">
-                    {modDetail.module.week_number}
-                  </div>
-                  <h3 className="text-white font-semibold">{modDetail.module.title}</h3>
-                </div>
-                {openModules[modDetail.module.id] ? (
-                  <ChevronUp className="w-5 h-5 text-slate-400" />
-                ) : (
-                  <ChevronDown className="w-5 h-5 text-slate-400" />
-                )}
-              </button>
-
-              {/* Contenu dépliable */}
-              <AnimatePresence>
-                {openModules[modDetail.module.id] && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    className="border-t border-slate-800"
-                  >
-                    <div className="p-4 space-y-6">
-                      {/* TP */}
-                      {modDetail.tpData.length > 0 && (
-                        <div>
-                          <h4 className="text-sm font-semibold text-orange-400 mb-2 flex items-center gap-2">
-                            <Wrench className="w-4 h-4" /> Travaux Pratiques
-                          </h4>
-                          {modDetail.tpData.map((tp) => (
-                            <div key={tp.id} className="mb-3">
-                              <p className="text-white text-sm font-medium">{tp.title}</p>
-                              {tp.questions.map((q) => (
-                                <div key={q.id} className="ml-4 mt-1 p-2 rounded-lg bg-slate-800/50">
-                                  <HtmlContentViewer content={q.question_text} />
-                                  {q.attempt ? (
-                                    <div className={cn("text-xs mt-1", q.attempt.is_correct ? "text-green-400" : "text-red-400")}>
-                                      {q.attempt.is_correct ? '✅' : '❌'} Dernière réponse : <HtmlContentViewer content={q.attempt.selected_option} />
-                                    </div>
-                                  ) : (
-                                    <p className="text-xs text-slate-500">Aucune tentative</p>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* QCM */}
-                      {modDetail.quizData.length > 0 && (
-                        <div>
-                          <h4 className="text-sm font-semibold text-violet-400 mb-2 flex items-center gap-2">
-                            <HelpCircle className="w-4 h-4" /> QCM
-                          </h4>
-                          {modDetail.quizData.map((quiz) => (
-                            <div key={quiz.id} className="mb-3">
-                              <p className="text-white text-sm font-medium">{quiz.title}</p>
-                              {quiz.questions.map((q) => (
-                                <div key={q.id} className="ml-4 mt-1 p-2 rounded-lg bg-slate-800/50">
-                                  <HtmlContentViewer content={q.question} />
-                                  {q.answer ? (
-                                    <div className={cn("text-xs mt-1", q.answer.is_correct ? "text-green-400" : "text-red-400")}>
-                                      {q.answer.is_correct ? '✅' : '❌'} Réponse : <HtmlContentViewer content={q.answer.selected_answer} /> (bonne : <HtmlContentViewer content={q.correct_answer} />)
-                                    </div>
-                                  ) : (
-                                    <p className="text-xs text-slate-500">Aucune réponse</p>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Examen de module */}
-                      {modDetail.exam && (
-                        <div>
-                          <h4 className="text-sm font-semibold text-green-400 mb-2 flex items-center gap-2">
-                            <FileText className="w-4 h-4" /> Examen : {modDetail.exam.title}
-                          </h4>
-                          {modDetail.examSubmission ? (
-                            <div className="ml-4 p-2 rounded-lg bg-slate-800/50 space-y-2">
-                              <p className="text-slate-300 text-sm">Statut : {modDetail.examSubmission.status}</p>
-                              <p className="text-slate-300 text-sm">Note : {modDetail.examSubmission.grade ?? '-'}/20</p>
-                              {modDetail.examSubmission.submission_url && (
-                                <a
-                                  href={modDetail.examSubmission.submission_url}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="text-blue-400 hover:text-blue-300 text-xs"
-                                >
-                                  Voir la copie
-                                </a>
-                              )}
-                              <button
-                                onClick={() => {
-                                  setSelectedSubmission(modDetail.examSubmission);
-                                  setGradeModalOpen(true);
-                                }}
-                                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 transition-colors"
-                              >
-                                <Pencil className="w-3.5 h-3.5" />
-                                Noter / Corriger
-                              </button>
-                            </div>
-                          ) : (
-                            <p className="text-xs text-slate-500 ml-4">Aucune soumission</p>
-                          )}
-                        </div>
-                      )}
+          {moduleDetails.map((modDetail) => {
+            const isOpen = openModules[modDetail.module.id] || false;
+            return (
+              <div key={modDetail.module.id} className="bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden">
+                {/* Header module */}
+                <button
+                  onClick={() => toggleModule(modDetail.module.id)}
+                  className="w-full flex items-center justify-between p-4 hover:bg-slate-800/30 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-blue-500/10 rounded-lg flex items-center justify-center text-blue-400 font-bold text-sm">
+                      {modDetail.module.week_number}
                     </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          ))}
+                    <h3 className="text-white font-semibold">{modDetail.module.title}</h3>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {modDetail.examSubmission?.status === 'PASSED' && (
+                      <span className="text-green-400 text-xs font-medium">Examen validé</span>
+                    )}
+                    {isOpen ? <ChevronUp className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
+                  </div>
+                </button>
+
+                {/* Contenu dépliable */}
+                <AnimatePresence>
+                  {isOpen && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="border-t border-slate-800"
+                    >
+                      <div className="p-4 space-y-6">
+                        {/* TP */}
+                        {modDetail.tpData.length > 0 && (
+                          <div>
+                            <h4 className="text-sm font-semibold text-orange-400 mb-2 flex items-center gap-2">
+                              <Wrench className="w-4 h-4" /> Travaux Pratiques
+                            </h4>
+                            {modDetail.tpData.map((tp) => (
+                              <div key={tp.id} className="mb-3">
+                                <p className="text-white text-sm font-medium">{tp.title}</p>
+                                {tp.questions.map((q) => (
+                                  <div key={q.id} className="ml-4 mt-1 p-2 rounded-lg bg-slate-800/50">
+                                    <HtmlContentViewer content={q.question_text} />
+                                    {q.attempt ? (
+                                      <div className={cn("text-xs mt-1", q.attempt.is_correct ? "text-green-400" : "text-red-400")}>
+                                        {q.attempt.is_correct ? '✅' : '❌'} Dernière réponse : <HtmlContentViewer content={q.attempt.selected_option} />
+                                      </div>
+                                    ) : (
+                                      <p className="text-xs text-slate-500">Aucune tentative</p>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* QCM */}
+                        {modDetail.quizData.length > 0 && (
+                          <div>
+                            <h4 className="text-sm font-semibold text-violet-400 mb-2 flex items-center gap-2">
+                              <HelpCircle className="w-4 h-4" /> QCM
+                            </h4>
+                            {modDetail.quizData.map((quiz) => (
+                              <div key={quiz.id} className="mb-3">
+                                <p className="text-white text-sm font-medium">{quiz.title}</p>
+                                {quiz.questions.map((q) => (
+                                  <div key={q.id} className="ml-4 mt-1 p-2 rounded-lg bg-slate-800/50">
+                                    <HtmlContentViewer content={q.question} />
+                                    {q.answer ? (
+                                      <div className={cn("text-xs mt-1", q.answer.is_correct ? "text-green-400" : "text-red-400")}>
+                                        {q.answer.is_correct ? '✅' : '❌'} Réponse : <HtmlContentViewer content={q.answer.selected_answer} /> (bonne : <HtmlContentViewer content={q.correct_answer} />)
+                                      </div>
+                                    ) : (
+                                      <p className="text-xs text-slate-500">Aucune réponse</p>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Examen de module */}
+                        {modDetail.exam && (
+                          <div>
+                            <h4 className="text-sm font-semibold text-green-400 mb-2 flex items-center gap-2">
+                              <FileText className="w-4 h-4" /> Examen : {modDetail.exam.title}
+                            </h4>
+                            {modDetail.examSubmission ? (
+                              <div className="ml-4 p-2 rounded-lg bg-slate-800/50 space-y-2">
+                                <p className="text-slate-300 text-sm">Statut : {modDetail.examSubmission.status}</p>
+                                <p className="text-slate-300 text-sm">Note : {modDetail.examSubmission.grade ?? '-'}/20</p>
+                                {modDetail.examSubmission.submission_url && (
+                                  <a
+                                    href={modDetail.examSubmission.submission_url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-blue-400 hover:text-blue-300 text-xs"
+                                  >
+                                    Voir la copie
+                                  </a>
+                                )}
+                                <button
+                                  onClick={() => {
+                                    setSelectedSubmission(modDetail.examSubmission);
+                                    setGradeModalOpen(true);
+                                  }}
+                                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 transition-colors"
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                  Noter / Corriger
+                                </button>
+                              </div>
+                            ) : (
+                              <p className="text-xs text-slate-500 ml-4">Aucune soumission</p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -524,7 +519,7 @@ export default function AuditeurDetailView({ studentId, certId, onBack }: Props)
                 </button>
               </>
             ) : (
-              <p className="text-sm text-slate-500">L&apos;étudiant n&apos;a pas encore soumis son examen final.</p>
+              <p className="text-sm text-slate-500">L'étudiant n'a pas encore soumis son examen final.</p>
             )}
           </div>
         </div>
