@@ -201,6 +201,10 @@ export default function AuditeursList({ certId, onBack }: AuditeursListProps) {
         });
       }
 
+      console.log('enrolls reçus:', enrolls);
+      console.log('studentIds:', studentIds);
+      console.log('profiles:', profiles);
+
       // 11. Calculer la progression
       const progressData: StudentProgress[] = profiles.map((profile) => {
         const tpCorrect = tpCorrectMap[profile.id] || new Set();
@@ -231,6 +235,7 @@ export default function AuditeursList({ certId, onBack }: AuditeursListProps) {
 
     fetchAllData();
   }, [certId, supabase]);
+  
 
   // Si un étudiant est sélectionné, afficher le détail
   if (selectedStudentId) {

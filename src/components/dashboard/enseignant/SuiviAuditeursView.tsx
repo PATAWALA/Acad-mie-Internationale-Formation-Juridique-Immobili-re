@@ -37,6 +37,8 @@ export default function SuiviAuditeursView() {
         return;
       }
 
+      
+
       // Calculer les totaux manuellement
       const statsMap: Record<number, { total: number; paid: number }> = {};
       certIds.forEach((id) => {
@@ -61,6 +63,7 @@ export default function SuiviAuditeursView() {
 
     fetchStats();
   }, [assignedCertificates, supabase]);
+  
 
   if (!selectedCert) {
     return (
