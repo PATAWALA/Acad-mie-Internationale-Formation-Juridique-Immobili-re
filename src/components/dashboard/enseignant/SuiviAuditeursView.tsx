@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useEnseignant } from '@/context/EnseignantContext';
-import AuditeursList from '@/components/dashboard/enseignant/AuditeursList';
+import AuditeursList from './AuditeursList';
 import { createClientComponent } from '@/lib/supabase/client';
 import { Users, ChevronRight, BookOpen, Loader2, BarChart3 } from 'lucide-react';
 
