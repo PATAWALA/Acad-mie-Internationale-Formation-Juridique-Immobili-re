@@ -35,10 +35,11 @@ export default function AuditeursList({ certId, onBack }: AuditeursListProps) {
 
       // 1. Récupérer le cours
       const { data: course, error: courseError } = await supabase
-        .from('courses')
-        .select('id')
-        .eq('certificate_id', certId)
-        .single();
+  .from('courses')
+  .select('id')
+  .eq('certificate_id', certId)
+  .limit(1)
+  .maybeSingle(); // ✅ retourne le premier cours, pas d'erreur
 
       if (courseError || !course) {
         setLoading(false);
