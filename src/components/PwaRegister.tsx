@@ -4,7 +4,11 @@ import { useEffect } from 'react';
 
 export default function PwaRegister() {
   useEffect(() => {
-    if ('serviceWorker' in navigator) {
+    // Vérifier si l'appareil est mobile (largeur ≤ 768px ou écran tactile)
+    const isMobile = window.innerWidth <= 768 || window.matchMedia('(pointer: coarse)').matches;
+
+    // N'enregistrer le Service Worker que sur mobile
+    if ('serviceWorker' in navigator && isMobile) {
       navigator.serviceWorker
         .register('/sw.js')
         .then((registration) => {
@@ -13,6 +17,8 @@ export default function PwaRegister() {
         .catch((error) => {
           console.error('❌ Erreur d’enregistrement du Service Worker :', error);
         });
+    } else {
+      console.log('ℹ️ Service Worker non enregistré sur desktop ou non supporté.');
     }
   }, []);
 
