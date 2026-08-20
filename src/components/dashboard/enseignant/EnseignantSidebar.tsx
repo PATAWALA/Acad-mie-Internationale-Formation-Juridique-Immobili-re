@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import {
   LayoutDashboard,
   BookOpen,
+  Users,
   X,
   GraduationCap,
   LogOut,
@@ -14,6 +15,7 @@ interface EnseignantSidebarProps {
   currentView: string;
   onShowAll: () => void;
   onShowFormations: () => void;
+  onShowSuivi: () => void; // 🆕 nouvelle prop pour le suivi des auditeurs
   onCloseMobile: () => void;
   formationsCount: number;
   onLogout: () => void;
@@ -23,6 +25,7 @@ export default function EnseignantSidebar({
   currentView,
   onShowAll,
   onShowFormations,
+  onShowSuivi,
   onCloseMobile,
   formationsCount,
   onLogout,
@@ -54,6 +57,7 @@ export default function EnseignantSidebar({
 
       {/* Navigation */}
       <nav className="flex-1 py-4 px-3 space-y-1">
+        {/* Tableau de bord */}
         <motion.button
           whileHover={{ x: 3 }}
           whileTap={{ scale: 0.98 }}
@@ -72,6 +76,7 @@ export default function EnseignantSidebar({
           )}
         </motion.button>
 
+        {/* Mes formations */}
         <motion.button
           whileHover={{ x: 3 }}
           whileTap={{ scale: 0.98 }}
@@ -91,6 +96,25 @@ export default function EnseignantSidebar({
             </span>
           )}
           {(isActive('formations') || isActive('content')) && (
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+          )}
+        </motion.button>
+
+        {/* 🆕 Suivi des auditeurs */}
+        <motion.button
+          whileHover={{ x: 3 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={onShowSuivi}
+          className={cn(
+            "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all",
+            isActive('suivi')
+              ? "bg-blue-500/10 border border-blue-500/20 text-blue-400"
+              : "text-slate-400 hover:text-white hover:bg-[#1e293b]"
+          )}
+        >
+          <Users className="w-4 h-4 flex-shrink-0" />
+          <span className="flex-1 text-left">Suivi des auditeurs</span>
+          {isActive('suivi') && (
             <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
           )}
         </motion.button>

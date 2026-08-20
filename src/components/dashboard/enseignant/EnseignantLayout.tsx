@@ -7,6 +7,7 @@ import EnseignantSidebar from './EnseignantSidebar';
 import EnseignantDashboardView from './EnseignantDashboardView';
 import CourseContentManager from './CourseContentManager';
 import FormationsListView from './FormationsListView';
+import SuiviAuditeursView from './SuiviAuditeursView'; // 🆕 import de la vue de suivi
 import NotificationBell from '@/components/notifications/NotificationBell';
 import NotificationDropdown from '@/components/notifications/NotificationDropdown';
 import ProfileSettingsModal from './ProfileSettingsModal';
@@ -22,7 +23,7 @@ import {
   ChevronDown,
 } from 'lucide-react';
 
-type ViewType = 'dashboard' | 'formations' | 'content';
+type ViewType = 'dashboard' | 'formations' | 'content' | 'suivi'; // 🆕 ajout de 'suivi'
 
 export default function EnseignantLayout() {
   const { profile, loading, assignedCertificates, refreshProfile } = useEnseignant();
@@ -64,6 +65,11 @@ export default function EnseignantLayout() {
     setSidebarOpen(false);
   };
 
+  const handleShowSuivi = () => { // 🆕 fonction pour afficher le suivi
+    setCurrentView('suivi');
+    setSidebarOpen(false);
+  };
+
   const handleSelectCert = (certId: number) => {
     setSelectedCertId(certId);
     setCurrentView('dashboard');
@@ -100,6 +106,7 @@ export default function EnseignantLayout() {
           currentView={currentView}
           onShowAll={handleShowAll}
           onShowFormations={handleShowFormations}
+          onShowSuivi={handleShowSuivi} // 🆕 prop ajoutée
           onCloseMobile={() => setSidebarOpen(false)}
           formationsCount={assignedCertificates.length}
           onLogout={handleLogout}
@@ -127,6 +134,7 @@ export default function EnseignantLayout() {
                 currentView={currentView}
                 onShowAll={handleShowAll}
                 onShowFormations={handleShowFormations}
+                onShowSuivi={handleShowSuivi} // 🆕 prop ajoutée
                 onCloseMobile={() => setSidebarOpen(false)}
                 formationsCount={assignedCertificates.length}
                 onLogout={handleLogout}
@@ -275,6 +283,13 @@ export default function EnseignantLayout() {
                   <GraduationCap className="w-12 h-12 text-slate-600 mx-auto mb-4" />
                   <h2 className="text-lg font-semibold text-white mb-2">Aucune formation sélectionnée</h2>
                   <p className="text-sm text-slate-400 max-w-sm">Veuillez choisir une formation dans le menu latéral pour accéder à son contenu.</p>
+                </motion.div>
+              )}
+
+              {/* 🆕 Vue Suivi des auditeurs */}
+              {currentView === 'suivi' && (
+                <motion.div key="suivi" {...fadeIn}>
+                  <SuiviAuditeursView />
                 </motion.div>
               )}
             </AnimatePresence>
