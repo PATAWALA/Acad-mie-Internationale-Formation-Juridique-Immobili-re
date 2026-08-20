@@ -4,15 +4,35 @@ import { useState, useEffect } from 'react';
 import { createClientComponent } from '@/lib/supabase/client';
 import { Search, Users, Loader2, ArrowLeft, UserCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import type { Tables } from '@/types/database';
+
+type ProfileRow = Tables<'profiles'>;
+type ModuleRow = Tables<'modules'>;
+type LessonRow = Tables<'lessons'>;
+type TpQuestionRow = Tables<'tp_questions'>;
+type QuizQuestionRow = Tables<'quiz_questions'>;
+type AssessmentRow = Tables<'assessments'>;
+type TpAttemptRow = Tables<'tp_attempts'>;
+type QuizAnswerRow = Tables<'quiz_answers'>;
+type SubmissionRow = Tables<'submissions'>;
 
 interface AuditeursListProps {
   certId: number;
   onBack: () => void;
 }
 
+interface StudentProgress {
+  id: string;
+  full_name: string | null;
+  email: string | null;
+  progressPercent: number;
+  modulesValidated: number;
+  totalModules: number;
+}
+
 export default function AuditeursList({ certId, onBack }: AuditeursListProps) {
   const supabase = createClientComponent();
-  const [students, setStudents] = useState<any[]>([]);
+  const [students, setStudents] = useState<StudentProgress[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'COMPLETED' | 'IN_PROGRESS' | 'NOT_STARTED'>('ALL');
@@ -21,7 +41,7 @@ export default function AuditeursList({ certId, onBack }: AuditeursListProps) {
     const fetchAllData = async () => {
       setLoading(true);
 
-      // 1. Récupérer le cours de la formation
+      // 1. Récupérer le cours
       const { data: course, error: courseError } = await supabase
         .from('courses')
         .select('id')
@@ -34,7 +54,7 @@ export default function AuditeursList({ certId, onBack }: AuditeursListProps) {
         return;
       }
 
-      // 2. Récupérer les inscriptions payées de cette formation
+      // 2. Récupérer les inscriptions payées
       const { data: enrolls, error: enrollError } = await supabase
         .from('enrollments')
         .select('student_id')
@@ -47,9 +67,10 @@ export default function AuditeursList({ certId, onBack }: AuditeursListProps) {
         return;
       }
 
+      // Filtrer les student_id null, en sachant que la colonne est nullable dans la DB
       const studentIds: string[] = enrolls
-        .map((e: any) => e.student_id)
-        .filter((id: string | null): id is string => id !== null);
+  .map((e) => e.student_id)
+  .filter((id): id is string => id !== null);
 
       if (studentIds.length === 0) {
         setLoading(false);
@@ -57,7 +78,7 @@ export default function AuditeursList({ certId, onBack }: AuditeursListProps) {
         return;
       }
 
-      // 3. Récupérer les profils de tous les étudiants en une seule requête
+      // 3. Récupérer les profils
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select('id, full_name, email')
@@ -82,9 +103,9 @@ export default function AuditeursList({ certId, onBack }: AuditeursListProps) {
         return;
       }
 
-      const moduleIds = modules.map((m: any) => m.id);
+      const moduleIds = (modules as ModuleRow[]).map((m) => m.id);
 
-      // 5. Récupérer toutes les leçons de ces modules
+      // 5. Récupérer toutes les leçons
       const { data: allLessons, error: lessonsError } = await supabase
         .from('lessons')
         .select('id, title, module_id, content_type, category')
@@ -96,21 +117,22 @@ export default function AuditeursList({ certId, onBack }: AuditeursListProps) {
         return;
       }
 
-      const tpLessons = allLessons.filter((l) => l.category === 'PRATIQUE' && l.content_type !== 'QUIZ');
-      const quizLessons = allLessons.filter((l) => l.content_type === 'QUIZ');
+      const lessons = allLessons as LessonRow[];
+      const tpLessons = lessons.filter((l) => l.category === 'PRATIQUE' && l.content_type !== 'QUIZ');
+      const quizLessons = lessons.filter((l) => l.content_type === 'QUIZ');
       const tpLessonIds = tpLessons.map((l) => l.id);
       const quizLessonIds = quizLessons.map((l) => l.id);
 
-      // 6. Récupérer toutes les questions TP et QCM en une seule fois
-      let tpQuestionsData: any[] = [];
-      let quizQuestionsData: any[] = [];
+      // 6. Questions TP et QCM
+      let tpQuestionsData: TpQuestionRow[] = [];
+      let quizQuestionsData: QuizQuestionRow[] = [];
       if (tpLessonIds.length > 0) {
         const { data, error } = await supabase
           .from('tp_questions')
           .select('id, lesson_id')
           .in('lesson_id', tpLessonIds);
         if (error) console.error(error);
-        tpQuestionsData = data || [];
+        tpQuestionsData = (data as TpQuestionRow[]) || [];
       }
       if (quizLessonIds.length > 0) {
         const { data, error } = await supabase
@@ -118,22 +140,23 @@ export default function AuditeursList({ certId, onBack }: AuditeursListProps) {
           .select('id, lesson_id')
           .in('lesson_id', quizLessonIds);
         if (error) console.error(error);
-        quizQuestionsData = data || [];
+        quizQuestionsData = (data as QuizQuestionRow[]) || [];
       }
 
       const totalTpQuestions = tpQuestionsData.length;
       const totalQuizQuestions = quizQuestionsData.length;
 
-      // 7. Récupérer les examens de modules
+      // 7. Examens de module
       const { data: assessments, error: assessmentsError } = await supabase
         .from('assessments')
         .select('id, module_id, type')
         .in('module_id', moduleIds)
         .eq('type', 'EXAM');
       if (assessmentsError) console.error(assessmentsError);
-      const assessmentIds = assessments?.map((a) => a.id) || [];
+      const assessmentList = (assessments as AssessmentRow[]) || [];
+      const assessmentIds = assessmentList.map((a) => a.id);
 
-      // 8. Récupérer les tentatives TP correctes de tous les étudiants
+      // 8. Tentatives TP correctes
       const tpCorrectMap: Record<string, Set<string>> = {};
       if (tpLessonIds.length > 0) {
         const { data: tpAttempts, error: tpError } = await supabase
@@ -143,7 +166,7 @@ export default function AuditeursList({ certId, onBack }: AuditeursListProps) {
           .in('lesson_id', tpLessonIds)
           .eq('is_correct', true);
         if (tpError) console.error(tpError);
-        (tpAttempts || []).forEach((att) => {
+        (tpAttempts as TpAttemptRow[])?.forEach((att) => {
           if (att.student_id && att.tp_question_id) {
             if (!tpCorrectMap[att.student_id]) tpCorrectMap[att.student_id] = new Set();
             tpCorrectMap[att.student_id].add(att.tp_question_id);
@@ -151,10 +174,10 @@ export default function AuditeursList({ certId, onBack }: AuditeursListProps) {
         });
       }
 
-      // 9. Récupérer les réponses QCM correctes de tous les étudiants
+      // 9. Réponses QCM correctes
       const quizCorrectMap: Record<string, Set<string>> = {};
       if (quizLessonIds.length > 0) {
-        const qIds = quizQuestionsData.map((q) => q.id); // number[]
+        const qIds = quizQuestionsData.map((q) => q.id);
         const { data: quizAnswers, error: quizError } = await supabase
           .from('quiz_answers')
           .select('student_id, question_id, is_correct')
@@ -162,15 +185,15 @@ export default function AuditeursList({ certId, onBack }: AuditeursListProps) {
           .in('question_id', qIds)
           .eq('is_correct', true);
         if (quizError) console.error(quizError);
-        (quizAnswers || []).forEach((ans) => {
-          if (ans.student_id && ans.question_id) {
+        (quizAnswers as QuizAnswerRow[])?.forEach((ans) => {
+          if (ans.student_id && ans.question_id !== null) {
             if (!quizCorrectMap[ans.student_id]) quizCorrectMap[ans.student_id] = new Set();
             quizCorrectMap[ans.student_id].add(String(ans.question_id));
           }
         });
       }
 
-      // 10. Récupérer les soumissions d'examens réussies de tous les étudiants
+      // 10. Soumissions d'examens réussies
       const examPassedMap: Record<string, number> = {};
       if (assessmentIds.length > 0) {
         const { data: submissions, error: subError } = await supabase
@@ -180,27 +203,31 @@ export default function AuditeursList({ certId, onBack }: AuditeursListProps) {
           .in('assessment_id', assessmentIds)
           .eq('status', 'PASSED');
         if (subError) console.error(subError);
-        (submissions || []).forEach((sub) => {
+        (submissions as SubmissionRow[])?.forEach((sub) => {
           if (sub.student_id) {
             examPassedMap[sub.student_id] = (examPassedMap[sub.student_id] || 0) + 1;
           }
         });
       }
 
-      // 11. Calculer la progression pour chaque étudiant
-      const progressData = profiles.map((profile) => {
+      // 11. Calcul progression
+      const progressData: StudentProgress[] = (profiles as ProfileRow[]).map((profile) => {
         const tpCorrect = tpCorrectMap[profile.id] || new Set();
         const quizCorrect = quizCorrectMap[profile.id] || new Set();
         const examsPassed = examPassedMap[profile.id] || 0;
 
         const tpPercent = totalTpQuestions > 0 ? Math.round((tpCorrect.size / totalTpQuestions) * 100) : 0;
         const quizPercent = totalQuizQuestions > 0 ? Math.round((quizCorrect.size / totalQuizQuestions) * 100) : 0;
-        const modulesPercent = assessments ? (assessments.length > 0 ? Math.round((examsPassed / assessments.length) * 100) : 0) : 0;
+        const modulesPercent = assessmentList.length > 0
+          ? Math.round((examsPassed / assessmentList.length) * 100)
+          : 0;
 
         const overall = Math.round((tpPercent + quizPercent + modulesPercent) / 3);
 
         return {
-          ...profile,
+          id: profile.id,
+          full_name: profile.full_name,
+          email: profile.email,
           progressPercent: overall,
           modulesValidated: examsPassed,
           totalModules: modules.length,
@@ -260,8 +287,8 @@ export default function AuditeursList({ certId, onBack }: AuditeursListProps) {
 
         <select
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as any)}
-          className="px-3 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+          onChange={(e) => setStatusFilter(e.target.value as 'ALL' | 'COMPLETED' | 'IN_PROGRESS' | 'NOT_STARTED')}
+          className="..."
         >
           <option value="ALL">Tous</option>
           <option value="COMPLETED">Terminés</option>
