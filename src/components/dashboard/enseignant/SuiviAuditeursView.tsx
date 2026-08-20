@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useEnseignant } from '@/context/EnseignantContext';
 import AuditeursList from '@/components/dashboard/enseignant/AuditeursList';
 import { createClientComponent } from '@/lib/supabase/client';
-import { Users, ChevronRight, BookOpen, Loader2, ArrowLeft, BarChart3 } from 'lucide-react';
+import { Users, ChevronRight, BookOpen, Loader2, BarChart3, ArrowLeft } from 'lucide-react';
 
 export default function SuiviAuditeursView() {
   const { assignedCertificates } = useEnseignant();
@@ -15,7 +15,6 @@ export default function SuiviAuditeursView() {
   const [statsByCert, setStatsByCert] = useState<Record<number, { total: number; paid: number }>>({});
   const [loadingStats, setLoadingStats] = useState(true);
 
-  // Charger le nombre d'auditeurs payés pour chaque formation
   useEffect(() => {
     const fetchStats = async () => {
       if (!assignedCertificates.length) {
@@ -25,23 +24,33 @@ export default function SuiviAuditeursView() {
       setLoadingStats(true);
       const newStats: Record<number, { total: number; paid: number }> = {};
 
-      for (const cert of assignedCertificates) {
-        const { count: totalCount } = await supabase
-          .from('enrollments')
-          .select('*', { count: 'exact', head: true })
-          .eq('certificate_id', cert.id);
+      // Utilisation de Promise.all pour paralléliser
+      await Promise.all(
+        assignedCertificates.map(async (cert) => {
+          // Comptage total
+          const { count: totalCount, error: totalError } = await supabase
+            .from('enrollments')
+            .select('*', { count: 'exact', head: true })
+            .eq('certificate_id', cert.id);
 
-        const { count: paidCount } = await supabase
-          .from('enrollments')
-          .select('*', { count: 'exact', head: true })
-          .eq('certificate_id', cert.id)
-          .eq('payment_status', 'PAID');
+          // Comptage payé
+          const { count: paidCount, error: paidError } = await supabase
+            .from('enrollments')
+            .select('*', { count: 'exact', head: true })
+            .eq('certificate_id', cert.id)
+            .eq('payment_status', 'PAID');
 
-        newStats[cert.id] = {
-          total: totalCount || 0,
-          paid: paidCount || 0,
-        };
-      }
+          if (totalError || paidError) {
+            console.error('Erreur comptage', cert.id, totalError, paidError);
+            newStats[cert.id] = { total: 0, paid: 0 };
+          } else {
+            newStats[cert.id] = {
+              total: totalCount || 0,
+              paid: paidCount || 0,
+            };
+          }
+        })
+      );
 
       setStatsByCert(newStats);
       setLoadingStats(false);
@@ -50,10 +59,13 @@ export default function SuiviAuditeursView() {
     fetchStats();
   }, [assignedCertificates]);
 
+  // Affichage de débogage si nécessaire
+  // console.log('assignedCertificates', assignedCertificates);
+  // console.log('statsByCert', statsByCert);
+
   if (!selectedCert) {
     return (
       <div className="max-w-6xl mx-auto space-y-6 md:space-y-8">
-        {/* En-tête */}
         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-xl md:text-2xl font-bold text-white flex items-center gap-3">
@@ -68,7 +80,6 @@ export default function SuiviAuditeursView() {
           </div>
         </div>
 
-        {/* Grille des formations */}
         {assignedCertificates.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mb-4">
@@ -104,7 +115,6 @@ export default function SuiviAuditeursView() {
                     </div>
                   </div>
 
-                  {/* Statistiques */}
                   <div className="mt-4 flex items-center gap-3 text-sm">
                     <span className="inline-flex items-center gap-1.5 text-slate-400">
                       <Users className="w-4 h-4 text-slate-500" />
@@ -124,7 +134,6 @@ export default function SuiviAuditeursView() {
                     )}
                   </div>
 
-                  {/* Indication cliquable */}
                   <div className="mt-4 flex items-center justify-between text-sm">
                     <span className="text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity">
                       Voir les auditeurs
@@ -140,7 +149,6 @@ export default function SuiviAuditeursView() {
     );
   }
 
-  // Vue détaillée avec AuditeursList
   return (
     <div className="max-w-6xl mx-auto">
       <AnimatePresence mode="wait">
@@ -150,10 +158,7 @@ export default function SuiviAuditeursView() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -10 }}
         >
-          <AuditeursList
-            certId={selectedCert}
-            onBack={() => setSelectedCert(null)}
-          />
+          <AuditeursList certId={selectedCert} onBack={() => setSelectedCert(null)} />
         </motion.div>
       </AnimatePresence>
     </div>
