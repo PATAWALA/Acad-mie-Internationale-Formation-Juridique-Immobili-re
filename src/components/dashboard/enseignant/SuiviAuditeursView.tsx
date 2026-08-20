@@ -23,51 +23,44 @@ export default function SuiviAuditeursView() {
       }
 
       setLoadingStats(true);
-      const newStats: Record<number, { total: number; paid: number }> = {};
+      const certIds = assignedCertificates.map((cert) => cert.id);
 
-      // Récupérer les stats pour chaque formation
-      await Promise.all(
-        assignedCertificates.map(async (cert) => {
-          try {
-            // Comptage total des inscriptions (tous statuts)
-            const { data: allData, error: allError } = await supabase
-              .from('enrollments')
-              .select('id')
-              .eq('certificate_id', cert.id);
+      // Une seule requête pour toutes les inscriptions liées aux formations assignées
+      const { data: enrollments, error } = await supabase
+        .from('enrollments')
+        .select('certificate_id, payment_status')
+        .in('certificate_id', certIds);
 
-            // Comptage des inscriptions payées
-            const { data: paidData, error: paidError } = await supabase
-              .from('enrollments')
-              .select('id')
-              .eq('certificate_id', cert.id)
-              .eq('payment_status', 'PAID');
+      if (error) {
+        console.error('Erreur chargement stats:', error);
+        setLoadingStats(false);
+        return;
+      }
 
-            if (allError || paidError) {
-              console.error('Erreur stats pour cert', cert.id, allError || paidError);
-              newStats[cert.id] = { total: 0, paid: 0 };
-            } else {
-              newStats[cert.id] = {
-                total: allData?.length || 0,
-                paid: paidData?.length || 0,
-              };
-            }
-          } catch (err) {
-            console.error('Exception stats', err);
-            newStats[cert.id] = { total: 0, paid: 0 };
-          }
-        })
-      );
+      // Calculer les totaux manuellement
+      const statsMap: Record<number, { total: number; paid: number }> = {};
+      certIds.forEach((id) => {
+        statsMap[id] = { total: 0, paid: 0 };
+      });
 
-      setStatsByCert(newStats);
+      (enrollments || []).forEach((enr) => {
+        const certId = enr.certificate_id;
+        if (!statsMap[certId]) statsMap[certId] = { total: 0, paid: 0 };
+        statsMap[certId].total += 1;
+        if (enr.payment_status === 'PAID') {
+          statsMap[certId].paid += 1;
+        }
+      });
+
+      setStatsByCert(statsMap);
       setLoadingStats(false);
 
-      // Logs de débogage (à retirer après vérification)
-      console.log('assignedCertificates', assignedCertificates);
-      console.log('statsByCert', newStats);
+      // Débogage facultatif
+      // console.log('Stats:', statsMap);
     };
 
     fetchStats();
-  }, [assignedCertificates]);
+  }, [assignedCertificates, supabase]);
 
   if (!selectedCert) {
     return (
