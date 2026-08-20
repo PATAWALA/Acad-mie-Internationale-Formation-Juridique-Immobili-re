@@ -3,7 +3,8 @@
 export function formatContentWithImagesAndPdfs(content: string): string {
   if (!content) return '';
 
-  const urlRegex = /(https?:\/\/[^\s"'<>]+)/g;
+  // Regex avec lookbehind négatif pour ne pas capturer les URLs déjà dans src="..." ou href="..."
+  const urlRegex = /(?<!src=")(?<!href=")(https?:\/\/[^\s"'<>]+)/g;
 
   return content.replace(urlRegex, (url) => {
     // Nettoyer l'URL des caractères de ponctuation finaux
