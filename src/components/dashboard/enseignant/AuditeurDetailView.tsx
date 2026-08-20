@@ -5,9 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { createClientComponent } from '@/lib/supabase/client';
 import { getStudentProgress } from '@/lib/student-progress';
 import {
-  User, Mail, ArrowLeft, Loader2, CheckCircle2, XCircle,
-  FileText, HelpCircle, Wrench, ChevronDown, ChevronUp, Star, Pencil,
-  AlertCircle, BookOpen
+  User, Mail, ArrowLeft, Loader2, FileText, HelpCircle, Wrench,
+  ChevronDown, ChevronUp, Star, Pencil, BookOpen
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import HtmlContentViewer from '../../HtmlContentViewer';
@@ -19,7 +18,7 @@ interface Props {
   onBack: () => void;
 }
 
-// Types partiels
+// Types locaux correspondant aux colonnes sélectionnées
 interface StudentProfile {
   id: string;
   full_name: string | null;
@@ -37,20 +36,46 @@ interface StudentProgress {
   progressPercent: number;
 }
 
-interface TpLesson { id: string; title: string; }
-interface TpQuestion { id: string; question_text: string; }
-interface TpAttempt { selected_option: string; is_correct: boolean; created_at: string | null; }
+// Leçon générique avec tous les champs sélectionnés
+interface Lesson {
+  id: string;
+  title: string;
+  module_id: string;
+  content_type: string | null;
+  category: string | null;
+}
 
-interface QuizLesson { id: string; title: string; }
+interface TpQuestion {
+  id: string;
+  lesson_id: string;
+  question_text: string;
+}
+
 interface QuizQuestion {
   id: number;
+  lesson_id: string;
   question: string;
   correct_answer: string;
 }
-interface QuizAnswer { selected_answer: string; is_correct: boolean; }
+
+interface TpAttempt {
+  student_id: string;
+  tp_question_id: string;
+  selected_option: string;
+  is_correct: boolean;
+  created_at: string | null;
+}
+
+interface QuizAnswer {
+  student_id: string;
+  question_id: number;
+  selected_answer: string;
+  is_correct: boolean;
+}
 
 interface Assessment {
   id: string;
+  module_id: string | null;
   title: string;
   type: string | null;
   description?: string | null;
@@ -58,12 +83,12 @@ interface Assessment {
 
 interface Submission {
   id: number;
+  assessment_id: string | null;
+  student_id: string | null;
   submission_url: string;
   status: string | null;
   grade: number | null;
   feedback: string | null;
-  assessment_id: string | null;
-  student_id: string | null;
 }
 
 interface ModuleDetail {
@@ -107,162 +132,164 @@ export default function AuditeurDetailView({ studentId, certId, onBack }: Props)
     const fetchData = async () => {
       setLoading(true);
 
-      // Récupérer le profil de l'étudiant
-      const { data: studentProfile } = await supabase
-        .from('profiles')
-        .select('id, full_name, email')
-        .eq('id', studentId)
-        .single();
-      setProfile(studentProfile as StudentProfile | null);
+      // ========== ÉTAPE 1 : requêtes indépendantes en parallèle ==========
+      const [profileRes, courseRes, progressData] = await Promise.all([
+        supabase.from('profiles').select('id, full_name, email').eq('id', studentId).single(),
+        supabase.from('courses').select('id').eq('certificate_id', certId).limit(1).maybeSingle(),
+        getStudentProgress(certId, studentId),
+      ]);
 
-      // Récupérer la progression globale
-      const progressData = await getStudentProgress(certId, studentId);
+      setProfile(profileRes.data as StudentProfile | null);
       setProgress(progressData);
 
-      if (progressData?.modules) {
-        const details: ModuleDetail[] = [];
-        for (const mod of progressData.modules) {
-          const moduleId = mod.module.id;
-
-          // ---- TP ----
-          const { data: tpLessons } = await supabase
-            .from('lessons')
-            .select('id, title')
-            .eq('module_id', moduleId)
-            .eq('category', 'PRATIQUE')
-            .neq('content_type', 'QUIZ');
-
-          const tpData: ModuleDetail['tpData'] = [];
-          for (const tp of (tpLessons || []) as TpLesson[]) {
-            const { data: questions } = await supabase
-              .from('tp_questions')
-              .select('id, question_text')
-              .eq('lesson_id', tp.id)
-              .order('position');
-
-            const questionsWithAttempts = [];
-            for (const q of (questions || []) as TpQuestion[]) {
-              const { data: attempts } = await supabase
-                .from('tp_attempts')
-                .select('selected_option, is_correct, created_at')
-                .eq('student_id', studentId)
-                .eq('tp_question_id', q.id)
-                .order('created_at', { ascending: false })
-                .limit(1);
-
-              questionsWithAttempts.push({
-                id: q.id,
-                question_text: q.question_text,
-                attempt: (attempts?.[0] as TpAttempt) || null,
-              });
-            }
-
-            tpData.push({
-              id: tp.id,
-              title: tp.title,
-              questions: questionsWithAttempts,
-            });
-          }
-
-          // ---- QCM ----
-          const { data: quizLessons } = await supabase
-            .from('lessons')
-            .select('id, title')
-            .eq('module_id', moduleId)
-            .eq('content_type', 'QUIZ');
-
-          const quizData: ModuleDetail['quizData'] = [];
-          for (const quiz of (quizLessons || []) as QuizLesson[]) {
-            const { data: questions } = await supabase
-              .from('quiz_questions')
-              .select('id, question, correct_answer')
-              .eq('lesson_id', quiz.id)
-              .order('position');
-
-            const questionsWithAnswers = [];
-            for (const q of (questions || []) as QuizQuestion[]) {
-              const { data: answer } = await supabase
-                .from('quiz_answers')
-                .select('selected_answer, is_correct')
-                .eq('student_id', studentId)
-                .eq('question_id', q.id)
-                .maybeSingle();
-
-              questionsWithAnswers.push({
-                id: q.id,
-                question: q.question,
-                correct_answer: q.correct_answer,
-                answer: (answer as QuizAnswer) || null,
-              });
-            }
-
-            quizData.push({
-              id: quiz.id,
-              title: quiz.title,
-              questions: questionsWithAnswers,
-            });
-          }
-
-          // ---- Examen de module ----
-          const { data: exam } = await supabase
-            .from('assessments')
-            .select('id, title, type')
-            .eq('module_id', moduleId)
-            .eq('type', 'EXAM')
-            .maybeSingle();
-
-          let examSubmission: Submission | null = null;
-          if (exam) {
-            const { data: sub } = await supabase
-              .from('submissions')
-              .select('id, submission_url, status, grade, feedback, assessment_id, student_id')
-              .eq('assessment_id', exam.id)
-              .eq('student_id', studentId)
-              .maybeSingle();
-            examSubmission = (sub as Submission) || null;
-          }
-
-          details.push({
-            module: mod.module,
-            tpData,
-            quizData,
-            exam: (exam as Assessment) || null,
-            examSubmission,
-          });
-        }
-        setModuleDetails(details);
-
-        // Ouvrir automatiquement le premier module
-        if (details.length > 0) {
-          setOpenModules({ [details[0].module.id]: true });
-        }
+      // Si pas de cours, on ne peut pas charger les modules
+      if (!courseRes.data) {
+        setLoading(false);
+        return;
       }
 
-      // ---- Examen final ----
-      const { data: courseData } = await supabase
-        .from('courses')
-        .select('id')
-        .eq('certificate_id', certId)
-        .single();
+      // ========== ÉTAPE 2 : récupérer les modules et leçons ==========
+      const { data: modules } = await supabase
+        .from('modules')
+        .select('id, title, week_number')
+        .eq('course_id', courseRes.data.id)
+        .order('week_number');
 
-      if (courseData) {
-        const { data: final } = await supabase
-          .from('assessments')
-          .select('id, title, type, description')
-          .eq('course_id', courseData.id)
-          .eq('type', 'FINAL')
-          .maybeSingle();
-        setFinalExam((final as Assessment) || null);
+      if (!modules || modules.length === 0) {
+        setLoading(false);
+        return;
+      }
 
-        if (final) {
-          const { data: finalSub } = await supabase
-            .from('submissions')
-            .select('id, submission_url, status, grade, feedback, assessment_id, student_id')
-            .eq('assessment_id', final.id)
-            .eq('student_id', studentId)
-            .maybeSingle();
-          setFinalSubmission((finalSub as Submission) || null);
+      const moduleIds = (modules as ModuleSummary[]).map((m) => m.id);
+
+      const { data: allLessons } = await supabase
+        .from('lessons')
+        .select('id, title, module_id, content_type, category')
+        .in('module_id', moduleIds);
+
+      if (!allLessons) {
+        setLoading(false);
+        return;
+      }
+
+      const lessons = allLessons as Lesson[];
+      const tpLessons = lessons.filter(
+        (l) => l.category === 'PRATIQUE' && l.content_type !== 'QUIZ'
+      );
+      const quizLessons = lessons.filter((l) => l.content_type === 'QUIZ');
+      const tpLessonIds = tpLessons.map((l) => l.id);
+      const quizLessonIds = quizLessons.map((l) => l.id);
+
+      // ========== ÉTAPE 3 : récupérer questions et examens en parallèle ==========
+      const [tpQuestionsRes, quizQuestionsRes, moduleAssessRes, finalAssessRes, submissionsRes, tpAttemptsRes] = await Promise.all([
+        tpLessonIds.length > 0
+          ? supabase.from('tp_questions').select('id, lesson_id, question_text').in('lesson_id', tpLessonIds)
+          : Promise.resolve({ data: [] as TpQuestion[], error: null }),
+        quizLessonIds.length > 0
+          ? supabase.from('quiz_questions').select('id, lesson_id, question, correct_answer').in('lesson_id', quizLessonIds)
+          : Promise.resolve({ data: [] as QuizQuestion[], error: null }),
+        supabase.from('assessments').select('id, module_id, title, type, description').in('module_id', moduleIds).eq('type', 'EXAM'),
+        supabase.from('assessments').select('id, module_id, title, type, description').eq('course_id', courseRes.data.id).eq('type', 'FINAL').maybeSingle(),
+        supabase.from('submissions').select('id, assessment_id, student_id, submission_url, status, grade, feedback').eq('student_id', studentId),
+        tpLessonIds.length > 0
+          ? supabase.from('tp_attempts').select('student_id, tp_question_id, selected_option, is_correct, created_at').eq('student_id', studentId).in('lesson_id', tpLessonIds)
+          : Promise.resolve({ data: [] as TpAttempt[], error: null }),
+      ]);
+
+      const tpQuestions = tpQuestionsRes.data || [];
+      const quizQuestions = quizQuestionsRes.data || [];
+      const moduleAssessments = (moduleAssessRes.data || []) as Assessment[];
+      const finalAssessment = (finalAssessRes.data || null) as Assessment | null;
+      const submissions = (submissionsRes.data || []) as Submission[];
+      const tpAttempts = (tpAttemptsRes.data || []) as TpAttempt[];
+
+      // ========== ÉTAPE 4 : récupérer réponses QCM en parallèle avec les IDs ==========
+      let quizAnswers: QuizAnswer[] = [];
+      if (quizQuestions.length > 0) {
+        const questionIds = quizQuestions.map((q) => q.id);
+        const { data } = await supabase
+          .from('quiz_answers')
+          .select('student_id, question_id, selected_answer, is_correct')
+          .eq('student_id', studentId)
+          .in('question_id', questionIds);
+        quizAnswers = (data || []) as QuizAnswer[];
+      }
+
+      // Indexer les tentatives TP (dernière par question)
+      const tpAttemptMap: Record<string, TpAttempt> = {};
+      tpAttempts.forEach((att) => {
+        const existing = tpAttemptMap[att.tp_question_id];
+        if (!existing || (existing.created_at ?? '') < (att.created_at ?? '')) {
+          tpAttemptMap[att.tp_question_id] = att;
         }
+      });
+
+      // Indexer les réponses QCM
+      const quizAnswerMap: Record<number, QuizAnswer> = {};
+      quizAnswers.forEach((ans) => {
+        quizAnswerMap[ans.question_id] = ans;
+      });
+
+      // Construire moduleDetails
+      const details: ModuleDetail[] = modules.map((mod) => {
+        const modTpLessons = tpLessons.filter((l) => l.module_id === mod.id);
+        const modQuizLessons = quizLessons.filter((l) => l.module_id === mod.id);
+
+        const tpData = modTpLessons.map((tpLesson) => {
+          const questions = tpQuestions
+            .filter((q) => q.lesson_id === tpLesson.id)
+            .map((q) => ({
+              id: q.id,
+              question_text: q.question_text,
+              attempt: tpAttemptMap[q.id] || null,
+            }));
+          return {
+            id: tpLesson.id,
+            title: tpLesson.title,
+            questions,
+          };
+        });
+
+        const quizData = modQuizLessons.map((quizLesson) => {
+          const questions = quizQuestions
+            .filter((q) => q.lesson_id === quizLesson.id)
+            .map((q) => ({
+              id: q.id,
+              question: q.question,
+              correct_answer: q.correct_answer,
+              answer: quizAnswerMap[q.id] || null,
+            }));
+          return {
+            id: quizLesson.id,
+            title: quizLesson.title,
+            questions,
+          };
+        });
+
+        const modExam = moduleAssessments.find((a) => a.module_id === mod.id) || null;
+        const examSubmission = modExam
+          ? submissions.find((s) => s.assessment_id === modExam.id && s.student_id === studentId) || null
+          : null;
+
+        return {
+          module: mod,
+          tpData,
+          quizData,
+          exam: modExam,
+          examSubmission,
+        };
+      });
+
+      setModuleDetails(details);
+
+      setFinalExam(finalAssessment);
+      const finalSub = finalAssessment
+        ? submissions.find((s) => s.assessment_id === finalAssessment.id && s.student_id === studentId) || null
+        : null;
+      setFinalSubmission(finalSub);
+
+      if (details.length > 0) {
+        setOpenModules({ [details[0].module.id]: true });
       }
 
       setLoading(false);
@@ -342,7 +369,6 @@ export default function AuditeurDetailView({ studentId, certId, onBack }: Props)
             const isOpen = openModules[modDetail.module.id] || false;
             return (
               <div key={modDetail.module.id} className="bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden">
-                {/* Header module */}
                 <button
                   onClick={() => toggleModule(modDetail.module.id)}
                   className="w-full flex items-center justify-between p-4 hover:bg-slate-800/30 transition-colors"
@@ -361,7 +387,6 @@ export default function AuditeurDetailView({ studentId, certId, onBack }: Props)
                   </div>
                 </button>
 
-                {/* Contenu dépliable */}
                 <AnimatePresence>
                   {isOpen && (
                     <motion.div
