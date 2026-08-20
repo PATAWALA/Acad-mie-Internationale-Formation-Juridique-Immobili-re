@@ -4,44 +4,112 @@ import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Download, X, Smartphone } from 'lucide-react';
 
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+}
+
+type NavigatorWithStandalone = Navigator & { standalone?: boolean };
+
 export default function InstallPwaButton() {
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isVisible, setIsVisible] = useState(false);
   const [isDismissed, setIsDismissed] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
-    const handler = (e: Event) => {
-      e.preventDefault();
-      setDeferredPrompt(e);
-      setIsVisible(true);
+    let isSubscribed = true;
+
+    const checkMobile = () => {
+      const mobile = window.innerWidth <= 768 || window.matchMedia('(pointer: coarse)').matches;
+      if (isSubscribed) setIsMobile(mobile);
     };
 
-    window.addEventListener('beforeinstallprompt', handler);
+    const checkStandalone = () => {
+      const standalone = window.matchMedia('(display-mode: standalone)').matches ||
+        (window.navigator as NavigatorWithStandalone).standalone === true;
+      return standalone;
+    };
 
-    // Vérifier si déjà installée
-    window.addEventListener('appinstalled', () => {
-      setIsVisible(false);
-      setDeferredPrompt(null);
-    });
+    const checkDismissed = () => {
+      try {
+        return localStorage.getItem('pwa-install-dismissed') === 'true';
+      } catch {
+        return false;
+      }
+    };
+
+    // Différer les setState initiaux pour éviter les cascades synchrones
+    const timeoutId = setTimeout(() => {
+      if (!isSubscribed) return;
+
+      if (checkStandalone() || !window.matchMedia('(max-width: 768px), (pointer: coarse)').matches) {
+        setIsVisible(false);
+        return;
+      }
+
+      if (checkDismissed()) {
+        setIsDismissed(true);
+        return;
+      }
+
+      checkMobile();
+      const handler = (e: Event) => {
+        e.preventDefault();
+        setDeferredPrompt(e as BeforeInstallPromptEvent);
+        setIsVisible(true);
+      };
+
+      window.addEventListener('beforeinstallprompt', handler);
+      window.addEventListener('appinstalled', () => {
+        setIsVisible(false);
+        setDeferredPrompt(null);
+        localStorage.setItem('pwa-install-dismissed', 'true');
+      });
+
+      // Nettoyer si l'effet est démonté avant la fin du timeout
+      if (!isSubscribed) {
+        window.removeEventListener('beforeinstallprompt', handler);
+      }
+    }, 0);
 
     return () => {
-      window.removeEventListener('beforeinstallprompt', handler);
+      isSubscribed = false;
+      clearTimeout(timeoutId);
+      window.removeEventListener('beforeinstallprompt', () => {});
       window.removeEventListener('appinstalled', () => {});
     };
   }, []);
 
+  // Gérer le redimensionnement après montage
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth <= 768 || window.matchMedia('(pointer: coarse)').matches;
+      setIsMobile(mobile);
+      if (!mobile) setIsVisible(false);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const handleInstall = async () => {
     if (!deferredPrompt) return;
-    deferredPrompt.prompt();
+    await deferredPrompt.prompt();
     const result = await deferredPrompt.userChoice;
     if (result.outcome === 'accepted') {
-      console.log('✅ PWA installée');
       setIsVisible(false);
       setDeferredPrompt(null);
+      localStorage.setItem('pwa-install-dismissed', 'true');
     }
   };
 
-  if (!isVisible || isDismissed) return null;
+  const handleDismiss = () => {
+    setIsDismissed(true);
+    setIsVisible(false);
+    localStorage.setItem('pwa-install-dismissed', 'true');
+  };
+
+  if (!isVisible || isDismissed || !isMobile) return null;
 
   return (
     <AnimatePresence>
@@ -59,7 +127,7 @@ export default function InstallPwaButton() {
             </div>
             <div>
               <p className="text-white font-bold text-sm lg:text-base leading-tight">
-                📱 Installez l'application APIAD
+                📱 Installez l&lsquo;application APIAD
               </p>
               <p className="text-blue-100 text-xs lg:text-sm">
                 Accès rapide à vos formations, même hors ligne
@@ -76,7 +144,7 @@ export default function InstallPwaButton() {
               Installer
             </button>
             <button
-              onClick={() => setIsDismissed(true)}
+              onClick={handleDismiss}
               className="p-2 text-blue-100 hover:text-white transition-colors"
               aria-label="Fermer"
             >
