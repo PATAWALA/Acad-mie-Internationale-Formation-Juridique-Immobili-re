@@ -86,7 +86,7 @@ export default function SuiviAuditeursView() {
             </div>
             <h3 className="text-white font-semibold mb-2">Aucune formation assignée</h3>
             <p className="text-slate-400 text-sm max-w-sm">
-              Contactez l'administrateur pour qu'il vous assigne des formations.
+              Contactez l&apos;administrateur pour qu&apos;il vous assigne des formations.
             </p>
           </div>
         ) : (
