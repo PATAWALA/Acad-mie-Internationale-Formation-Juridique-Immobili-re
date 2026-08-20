@@ -1,12 +1,13 @@
-// components/dashboard/enseignant/AuditeurDetailView.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClientComponent } from '@/lib/supabase/client';
 import { getStudentProgress } from '@/lib/student-progress';
-import { User, Mail, ArrowLeft, Loader2, CheckCircle2, XCircle, Clock, FileText, HelpCircle, Wrench, ChevronDown, ChevronUp, Star } from 'lucide-react';
+import { User, Mail, ArrowLeft, Loader2,  FileText, HelpCircle, Wrench, ChevronDown, ChevronUp, Star, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import HtmlContentViewer from '../../HtmlContentViewer';
+import { GradeModal } from './GradeModal';
 
 interface Props {
   studentId: string;
@@ -14,15 +15,111 @@ interface Props {
   onBack: () => void;
 }
 
+// Types sélectionnés depuis Supabase (uniquement les colonnes récupérées)
+interface StudentProfile {
+  id: string;
+  full_name: string | null;
+  email: string;
+}
+
+interface ModuleSummary {
+  id: string;
+  title: string;
+  week_number: number;
+}
+
+interface StudentProgress {
+  modules?: {
+    module: ModuleSummary;
+  }[];
+  progressPercent: number;
+}
+
+interface TpLesson {
+  id: string;
+  title: string;
+}
+
+interface TpQuestion {
+  id: string;
+  question_text: string;
+}
+
+interface TpAttempt {
+  selected_option: string;
+  is_correct: boolean;
+  created_at: string | null;
+}
+
+interface QuizLesson {
+  id: string;
+  title: string;
+}
+
+interface QuizQuestion {
+  id: number;
+  question: string;
+  correct_answer: string;
+}
+
+interface QuizAnswer {
+  selected_answer: string;
+  is_correct: boolean;
+}
+
+interface Assessment {
+  id: string;
+  title: string;
+  type: string | null;
+  description?: string | null;
+}
+
+interface Submission {
+  id: number;
+  submission_url: string;
+  status: string | null;
+  grade: number | null;
+  feedback: string | null;
+  assessment_id: string | null;
+  student_id: string | null;
+}
+
+interface ModuleDetail {
+  module: ModuleSummary;
+  tpData: {
+    id: string;
+    title: string;
+    questions: {
+      id: string;
+      question_text: string;
+      attempt: TpAttempt | null;
+    }[];
+  }[];
+  quizData: {
+    id: string;
+    title: string;
+    questions: {
+      id: number;
+      question: string;
+      correct_answer: string;
+      answer: QuizAnswer | null;
+    }[];
+  }[];
+  exam: Assessment | null;
+  examSubmission: Submission | null;
+}
+
 export default function AuditeurDetailView({ studentId, certId, onBack }: Props) {
   const supabase = createClientComponent();
-  const [profile, setProfile] = useState<any>(null);
-  const [progress, setProgress] = useState<any>(null);
-  const [moduleDetails, setModuleDetails] = useState<any[]>([]);
-  const [finalExam, setFinalExam] = useState<any | null>(null);
-  const [finalSubmission, setFinalSubmission] = useState<any | null>(null);
+  const [profile, setProfile] = useState<StudentProfile | null>(null);
+  const [progress, setProgress] = useState<StudentProgress | null>(null);
+  const [moduleDetails, setModuleDetails] = useState<ModuleDetail[]>([]);
+  const [finalExam, setFinalExam] = useState<Assessment | null>(null);
+  const [finalSubmission, setFinalSubmission] = useState<Submission | null>(null);
   const [loading, setLoading] = useState(true);
   const [openModules, setOpenModules] = useState<Record<string, boolean>>({});
+  const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
+  const [gradeModalOpen, setGradeModalOpen] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -34,14 +131,14 @@ export default function AuditeurDetailView({ studentId, certId, onBack }: Props)
         .select('id, full_name, email')
         .eq('id', studentId)
         .single();
-      setProfile(studentProfile);
+      setProfile(studentProfile as StudentProfile | null);
 
       // Récupérer la progression globale
       const progressData = await getStudentProgress(certId, studentId);
       setProgress(progressData);
 
       if (progressData?.modules) {
-        const details = [];
+        const details: ModuleDetail[] = [];
         for (const mod of progressData.modules) {
           const moduleId = mod.module.id;
 
@@ -53,8 +150,8 @@ export default function AuditeurDetailView({ studentId, certId, onBack }: Props)
             .eq('category', 'PRATIQUE')
             .neq('content_type', 'QUIZ');
 
-          const tpData = [];
-          for (const tp of tpLessons || []) {
+          const tpData: ModuleDetail['tpData'] = [];
+          for (const tp of (tpLessons || []) as TpLesson[]) {
             const { data: questions } = await supabase
               .from('tp_questions')
               .select('id, question_text')
@@ -62,7 +159,7 @@ export default function AuditeurDetailView({ studentId, certId, onBack }: Props)
               .order('position');
 
             const questionsWithAttempts = [];
-            for (const q of questions || []) {
+            for (const q of (questions || []) as TpQuestion[]) {
               const { data: attempts } = await supabase
                 .from('tp_attempts')
                 .select('selected_option, is_correct, created_at')
@@ -72,8 +169,9 @@ export default function AuditeurDetailView({ studentId, certId, onBack }: Props)
                 .limit(1);
 
               questionsWithAttempts.push({
-                ...q,
-                attempt: attempts?.[0] || null,
+                id: q.id,
+                question_text: q.question_text,
+                attempt: (attempts?.[0] as TpAttempt) || null,
               });
             }
 
@@ -91,8 +189,8 @@ export default function AuditeurDetailView({ studentId, certId, onBack }: Props)
             .eq('module_id', moduleId)
             .eq('content_type', 'QUIZ');
 
-          const quizData = [];
-          for (const quiz of quizLessons || []) {
+          const quizData: ModuleDetail['quizData'] = [];
+          for (const quiz of (quizLessons || []) as QuizLesson[]) {
             const { data: questions } = await supabase
               .from('quiz_questions')
               .select('id, question, option_a, option_b, option_c, option_d, correct_answer')
@@ -100,7 +198,7 @@ export default function AuditeurDetailView({ studentId, certId, onBack }: Props)
               .order('position');
 
             const questionsWithAnswers = [];
-            for (const q of questions || []) {
+            for (const q of (questions || []) as QuizQuestion[]) {
               const { data: answer } = await supabase
                 .from('quiz_answers')
                 .select('selected_answer, is_correct')
@@ -109,8 +207,10 @@ export default function AuditeurDetailView({ studentId, certId, onBack }: Props)
                 .maybeSingle();
 
               questionsWithAnswers.push({
-                ...q,
-                answer: answer || null,
+                id: q.id,
+                question: q.question,
+                correct_answer: q.correct_answer,
+                answer: (answer as QuizAnswer) || null,
               });
             }
 
@@ -124,27 +224,27 @@ export default function AuditeurDetailView({ studentId, certId, onBack }: Props)
           // ---- Examen de module ----
           const { data: exam } = await supabase
             .from('assessments')
-            .select('id, title')
+            .select('id, title, type')
             .eq('module_id', moduleId)
             .eq('type', 'EXAM')
             .maybeSingle();
 
-          let examSubmission = null;
+          let examSubmission: Submission | null = null;
           if (exam) {
             const { data: sub } = await supabase
               .from('submissions')
-              .select('id, submission_url, status, grade, feedback')
+              .select('id, submission_url, status, grade, feedback, assessment_id, student_id')
               .eq('assessment_id', exam.id)
               .eq('student_id', studentId)
               .maybeSingle();
-            examSubmission = sub || null;
+            examSubmission = (sub as Submission) || null;
           }
 
           details.push({
             module: mod.module,
             tpData,
             quizData,
-            exam: exam || null,
+            exam: (exam as Assessment) || null,
             examSubmission,
           });
         }
@@ -161,20 +261,20 @@ export default function AuditeurDetailView({ studentId, certId, onBack }: Props)
       if (courseData) {
         const { data: final } = await supabase
           .from('assessments')
-          .select('id, title, description')
+          .select('id, title, type, description')
           .eq('course_id', courseData.id)
           .eq('type', 'FINAL')
           .maybeSingle();
-        setFinalExam(final);
+        setFinalExam((final as Assessment) || null);
 
         if (final) {
           const { data: finalSub } = await supabase
             .from('submissions')
-            .select('id, submission_url, status, grade, feedback')
+            .select('id, submission_url, status, grade, feedback, assessment_id, student_id')
             .eq('assessment_id', final.id)
             .eq('student_id', studentId)
             .maybeSingle();
-          setFinalSubmission(finalSub || null);
+          setFinalSubmission((finalSub as Submission) || null);
         }
       }
 
@@ -186,6 +286,24 @@ export default function AuditeurDetailView({ studentId, certId, onBack }: Props)
 
   const toggleModule = (moduleId: string) => {
     setOpenModules(prev => ({ ...prev, [moduleId]: !prev[moduleId] }));
+  };
+
+  const handleGradeSuccess = (grade: number, status: string) => {
+    if (selectedSubmission) {
+      const updated = { ...selectedSubmission, grade, status };
+      setSelectedSubmission(null);
+      setGradeModalOpen(false);
+      // Mettre à jour les données affichées localement
+      setModuleDetails(prev =>
+        prev.map(mod => {
+          if (mod.examSubmission?.id === updated.id) {
+            return { ...mod, examSubmission: updated };
+          }
+          return mod;
+        })
+      );
+      setFinalSubmission(prev => prev && prev.id === updated.id ? updated : prev);
+    }
   };
 
   if (loading) {
@@ -229,7 +347,7 @@ export default function AuditeurDetailView({ studentId, certId, onBack }: Props)
         <p className="text-center text-slate-500 py-12">Aucun module trouvé pour cette formation.</p>
       ) : (
         <div className="space-y-3">
-          {moduleDetails.map((modDetail: any) => (
+          {moduleDetails.map((modDetail) => (
             <div key={modDetail.module.id} className="bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden">
               {/* Header module */}
               <button
@@ -265,16 +383,16 @@ export default function AuditeurDetailView({ studentId, certId, onBack }: Props)
                           <h4 className="text-sm font-semibold text-orange-400 mb-2 flex items-center gap-2">
                             <Wrench className="w-4 h-4" /> Travaux Pratiques
                           </h4>
-                          {modDetail.tpData.map((tp: any) => (
+                          {modDetail.tpData.map((tp) => (
                             <div key={tp.id} className="mb-3">
                               <p className="text-white text-sm font-medium">{tp.title}</p>
-                              {tp.questions.map((q: any) => (
+                              {tp.questions.map((q) => (
                                 <div key={q.id} className="ml-4 mt-1 p-2 rounded-lg bg-slate-800/50">
-                                  <p className="text-slate-300 text-sm">{q.question_text}</p>
+                                  <HtmlContentViewer content={q.question_text} />
                                   {q.attempt ? (
-                                    <p className={cn("text-xs mt-1", q.attempt.is_correct ? "text-green-400" : "text-red-400")}>
-                                      {q.attempt.is_correct ? '✅' : '❌'} Dernière réponse : {q.attempt.selected_option}
-                                    </p>
+                                    <div className={cn("text-xs mt-1", q.attempt.is_correct ? "text-green-400" : "text-red-400")}>
+                                      {q.attempt.is_correct ? '✅' : '❌'} Dernière réponse : <HtmlContentViewer content={q.attempt.selected_option} />
+                                    </div>
                                   ) : (
                                     <p className="text-xs text-slate-500">Aucune tentative</p>
                                   )}
@@ -291,16 +409,16 @@ export default function AuditeurDetailView({ studentId, certId, onBack }: Props)
                           <h4 className="text-sm font-semibold text-violet-400 mb-2 flex items-center gap-2">
                             <HelpCircle className="w-4 h-4" /> QCM
                           </h4>
-                          {modDetail.quizData.map((quiz: any) => (
+                          {modDetail.quizData.map((quiz) => (
                             <div key={quiz.id} className="mb-3">
                               <p className="text-white text-sm font-medium">{quiz.title}</p>
-                              {quiz.questions.map((q: any) => (
+                              {quiz.questions.map((q) => (
                                 <div key={q.id} className="ml-4 mt-1 p-2 rounded-lg bg-slate-800/50">
-                                  <p className="text-slate-300 text-sm">{q.question}</p>
+                                  <HtmlContentViewer content={q.question} />
                                   {q.answer ? (
-                                    <p className={cn("text-xs mt-1", q.answer.is_correct ? "text-green-400" : "text-red-400")}>
-                                      {q.answer.is_correct ? '✅' : '❌'} Réponse : {q.answer.selected_answer} (bonne : {q.correct_answer})
-                                    </p>
+                                    <div className={cn("text-xs mt-1", q.answer.is_correct ? "text-green-400" : "text-red-400")}>
+                                      {q.answer.is_correct ? '✅' : '❌'} Réponse : <HtmlContentViewer content={q.answer.selected_answer} /> (bonne : <HtmlContentViewer content={q.correct_answer} />)
+                                    </div>
                                   ) : (
                                     <p className="text-xs text-slate-500">Aucune réponse</p>
                                   )}
@@ -318,17 +436,29 @@ export default function AuditeurDetailView({ studentId, certId, onBack }: Props)
                             <FileText className="w-4 h-4" /> Examen : {modDetail.exam.title}
                           </h4>
                           {modDetail.examSubmission ? (
-                            <div className="ml-4 p-2 rounded-lg bg-slate-800/50">
+                            <div className="ml-4 p-2 rounded-lg bg-slate-800/50 space-y-2">
                               <p className="text-slate-300 text-sm">Statut : {modDetail.examSubmission.status}</p>
                               <p className="text-slate-300 text-sm">Note : {modDetail.examSubmission.grade ?? '-'}/20</p>
-                              <a
-                                href={modDetail.examSubmission.submission_url}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-blue-400 hover:text-blue-300 text-xs"
+                              {modDetail.examSubmission.submission_url && (
+                                <a
+                                  href={modDetail.examSubmission.submission_url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-blue-400 hover:text-blue-300 text-xs"
+                                >
+                                  Voir la copie
+                                </a>
+                              )}
+                              <button
+                                onClick={() => {
+                                  setSelectedSubmission(modDetail.examSubmission);
+                                  setGradeModalOpen(true);
+                                }}
+                                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 transition-colors"
                               >
-                                Voir la copie
-                              </a>
+                                <Pencil className="w-3.5 h-3.5" />
+                                Noter / Corriger
+                              </button>
                             </div>
                           ) : (
                             <p className="text-xs text-slate-500 ml-4">Aucune soumission</p>
@@ -364,29 +494,52 @@ export default function AuditeurDetailView({ studentId, certId, onBack }: Props)
               <span className="text-xs text-slate-500">Non soumis</span>
             )}
           </div>
-          <div className="p-4">
+          <div className="p-4 space-y-3">
             {finalSubmission ? (
-              <div className="space-y-2">
+              <>
                 <p className="text-sm text-slate-300">Statut : {finalSubmission.status}</p>
                 <p className="text-sm text-slate-300">Note : {finalSubmission.grade ?? '-'}/20</p>
                 {finalSubmission.feedback && (
                   <p className="text-sm text-slate-400">Feedback : {finalSubmission.feedback}</p>
                 )}
-                <a
-                  href={finalSubmission.submission_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-blue-400 hover:text-blue-300 text-xs"
+                {finalSubmission.submission_url && (
+                  <a
+                    href={finalSubmission.submission_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-blue-400 hover:text-blue-300 text-xs"
+                  >
+                    Voir la copie
+                  </a>
+                )}
+                <button
+                  onClick={() => {
+                    setSelectedSubmission(finalSubmission);
+                    setGradeModalOpen(true);
+                  }}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 transition-colors"
                 >
-                  Voir la copie
-                </a>
-              </div>
+                  <Pencil className="w-3.5 h-3.5" />
+                  Noter / Corriger
+                </button>
+              </>
             ) : (
-              <p className="text-sm text-slate-500">L'étudiant n'a pas encore soumis son examen final.</p>
+              <p className="text-sm text-slate-500">L&apos;étudiant n&apos;a pas encore soumis son examen final.</p>
             )}
           </div>
         </div>
       )}
+
+      {/* Modal de notation */}
+      <GradeModal
+        isOpen={gradeModalOpen && !!selectedSubmission}
+        onClose={() => {
+          setGradeModalOpen(false);
+          setSelectedSubmission(null);
+        }}
+        submission={selectedSubmission}
+        onSuccess={handleGradeSuccess}
+      />
     </div>
   );
 }

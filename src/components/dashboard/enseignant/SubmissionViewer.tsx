@@ -10,7 +10,6 @@ import {
   FileImage,
   FileText,
   AlertTriangle,
-  Maximize2,
   Download,
 } from 'lucide-react';
 
@@ -83,7 +82,7 @@ export default function SubmissionViewer({ submissionUrl }: SubmissionViewerProp
                   </div>
                   <div>
                     <p className="text-white font-medium text-sm">
-                      {fileType.label} de l'étudiant
+                      {fileType.label} de l&apos;étudiant
                     </p>
                     <p className="text-slate-500 text-xs">
                       {submissionUrl.split('/').pop()?.substring(0, 50)}
@@ -153,7 +152,7 @@ export default function SubmissionViewer({ submissionUrl }: SubmissionViewerProp
                     </h3>
                     <p className="text-slate-400 text-sm mb-6">
                       Ce format de fichier ne peut pas être prévisualisé directement.
-                      Vous pouvez l'ouvrir dans un nouvel onglet.
+                      Vous pouvez l&apos;ouvrir dans un nouvel onglet.
                     </p>
                     <a
                       href={submissionUrl}
