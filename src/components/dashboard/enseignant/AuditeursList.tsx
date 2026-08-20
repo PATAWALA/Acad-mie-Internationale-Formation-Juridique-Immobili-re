@@ -84,7 +84,7 @@ export default function AuditeursList({ certId, onBack }: AuditeursListProps) {
       }
 
       // 4. Si pas de cours, on met des modules vides
-      let modules: Tables<'modules'>[] = [];
+      let modules: Pick<Tables<'modules'>, 'id' | 'title' | 'week_number'>[] = [];
       if (courseId) {
         const { data: modulesData, error: modulesError } = await supabase
           .from('modules')
@@ -99,7 +99,7 @@ export default function AuditeursList({ certId, onBack }: AuditeursListProps) {
       const moduleIds = modules.map((m) => m.id);
 
       // 5. Récupérer les leçons (si modules existent)
-      let lessons: Tables<'lessons'>[] = [];
+      let lessons: Pick<Tables<'lessons'>, 'id' | 'title' | 'module_id' | 'content_type' | 'category'>[] = [];
       if (moduleIds.length > 0) {
         const { data: allLessons, error: lessonsError } = await supabase
           .from('lessons')
@@ -139,7 +139,7 @@ export default function AuditeursList({ certId, onBack }: AuditeursListProps) {
       const totalQuizQuestions = quizQuestionsData.length;
 
       // 7. Examens de modules
-      let assessmentList: Tables<'assessments'>[] = [];
+      let assessmentList: Pick<Tables<'assessments'>, 'id' | 'module_id' | 'type'>[] = [];
       if (moduleIds.length > 0) {
         const { data: assessments, error: assessmentsError } = await supabase
           .from('assessments')
