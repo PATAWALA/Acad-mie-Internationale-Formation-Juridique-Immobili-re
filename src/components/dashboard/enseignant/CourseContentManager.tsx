@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
 import { createClientComponent } from '@/lib/supabase/client';
 import CourseEditor from './CourseEditor';
 import { Plus, BookOpen, ArrowRight, Loader2 } from 'lucide-react';
