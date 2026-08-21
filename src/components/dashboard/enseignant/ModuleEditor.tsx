@@ -559,7 +559,6 @@ export default function ModuleEditor({ module, onUpdate }: ModuleEditorProps) {
               </button>
             </div>
 
-            {/* Formulaire de création du QCM (affiche uniquement quand showAddLesson est vrai) */}
             {showAddLesson && lessonType === 'QUIZ' && (
               <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 space-y-3 mb-4">
                 <p className="text-sm text-slate-400">Donnez un titre au QCM, puis vous pourrez ajouter les questions juste après l'enregistrement.</p>
@@ -605,6 +604,13 @@ export default function ModuleEditor({ module, onUpdate }: ModuleEditorProps) {
                 className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50" />
               <textarea placeholder="Consignes de l'examen..." value={examDescription} onChange={(e) => setExamDescription(e.target.value)} rows={4}
                 className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none" />
+              {/* Aperçu de la description de l'examen */}
+              {examDescription && (
+                <div className="p-3 bg-slate-900/80 border border-slate-700 rounded-lg">
+                  <p className="text-xs text-slate-400 mb-2">Aperçu :</p>
+                  <HtmlContentViewer content={examDescription} />
+                </div>
+              )}
               <div className="space-y-2">
                 <p className="text-xs text-slate-400 font-medium">Documents à joindre :</p>
                 <label className="flex items-center justify-center gap-2 py-3 border-2 border-dashed border-slate-600 rounded-xl cursor-pointer hover:border-slate-400 transition-colors">
