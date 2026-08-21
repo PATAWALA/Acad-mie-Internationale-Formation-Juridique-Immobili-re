@@ -118,7 +118,7 @@ export default function AuditeurDetailView({ studentId, certId, onBack }: Props)
       const tpLessonIds = tpLessons.map(l => l.id);
       const quizLessonIds = quizLessons.map(l => l.id);
 
-      // Étape 3 : récupérer les questions et tentatives de manière séquentielle pour éviter les références circulaires
+      // Étape 3 : questions et tentatives
       const tpQuestionsRes = tpLessonIds.length > 0
         ? await supabase.from('tp_questions').select('id, lesson_id, question_text').in('lesson_id', tpLessonIds)
         : { data: [] as TpQuestion[], error: null };
@@ -167,7 +167,7 @@ export default function AuditeurDetailView({ studentId, certId, onBack }: Props)
       const submissions = (submissionsRes.data || []) as Submission[];
       const tpAttempts = (tpAttemptsRes.data || []) as TpAttempt[];
 
-      // Groupement des tentatives par question
+      // Groupement
       const tpAttemptsMap: Record<string, TpAttempt[]> = {};
       tpAttempts.forEach(att => {
         if (!tpAttemptsMap[att.tp_question_id]) tpAttemptsMap[att.tp_question_id] = [];
@@ -250,20 +250,17 @@ export default function AuditeurDetailView({ studentId, certId, onBack }: Props)
     }
   };
 
-  // Calculs d'efficacité
+  // Calculs simples pour le résumé
   const allTpQuestions = moduleDetails.flatMap(mod => mod.tpData.flatMap(tp => tp.questions));
   const allQuizQuestions = moduleDetails.flatMap(mod => mod.quizData.flatMap(quiz => quiz.questions));
 
-  const totalTpAttempts = allTpQuestions.reduce((sum, q) => sum + q.attempts.length, 0);
-  const totalQuizAttempts = allQuizQuestions.reduce((sum, q) => sum + q.answers.length, 0);
   const totalTpValidated = allTpQuestions.filter(q => q.attempts.some(a => a.is_correct)).length;
   const totalQuizValidated = allQuizQuestions.filter(q => q.answers.some(a => a.is_correct)).length;
-
   const totalQuestions = allTpQuestions.length + allQuizQuestions.length;
-  const totalAttempts = totalTpAttempts + totalQuizAttempts;
   const totalValidated = totalTpValidated + totalQuizValidated;
 
-  const efficiency = totalAttempts > 0 ? Math.round((totalValidated / totalAttempts) * 100) : 0;
+  const modulesPassed = moduleDetails.filter(m => m.examSubmission?.status === 'PASSED').length;
+  const totalModules = moduleDetails.length;
 
   const examGrades = moduleDetails
     .map(mod => mod.examSubmission?.grade)
@@ -272,11 +269,7 @@ export default function AuditeurDetailView({ studentId, certId, onBack }: Props)
     ? Math.round(examGrades.reduce((sum, g) => sum + g, 0) / examGrades.length)
     : null;
 
-  const getEfficiencyColor = (score: number) => {
-    if (score >= 80) return 'text-green-400 bg-green-500/10 border-green-500/20';
-    if (score >= 50) return 'text-amber-400 bg-amber-500/10 border-amber-500/20';
-    return 'text-red-400 bg-red-500/10 border-red-500/20';
-  };
+  const progressPercent = progress?.progressPercent || 0;
 
   if (loading) {
     return <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 text-blue-400 animate-spin" /></div>;
@@ -302,43 +295,58 @@ export default function AuditeurDetailView({ studentId, certId, onBack }: Props)
               {profile?.email || ''}
             </p>
           </div>
-          <div className="flex items-center gap-2 bg-slate-800 px-3 py-2 rounded-lg">
-            <span className="text-sm text-slate-400">Progression :</span>
-            <span className={cn("font-bold", progress?.progressPercent === 100 ? "text-green-400" : "text-blue-400")}>
-              {progress?.progressPercent || 0}%
-            </span>
-          </div>
         </div>
       </div>
 
-      {/* Résumé d'efficacité */}
+      {/* Résumé simplifié */}
       <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-5">
         <h2 className="text-white font-bold text-lg mb-4 flex items-center gap-2">
-          <TrendingUp className="w-5 h-5 text-blue-400" /> Résumé d'efficacité
+          <TrendingUp className="w-5 h-5 text-blue-400" /> Résumé
         </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          <div className="bg-slate-800/50 rounded-lg p-3">
-            <p className="text-slate-400 text-xs">TP validés</p>
-            <p className="text-white font-bold text-lg">{totalTpValidated}/{allTpQuestions.length}</p>
+
+        {/* Progression */}
+        <div className="mb-4">
+          <div className="flex justify-between text-sm mb-1">
+            <span className="text-slate-400">Progression</span>
+            <span className={cn("font-bold", progressPercent === 100 ? "text-green-400" : "text-blue-400")}>
+              {progressPercent}%
+            </span>
           </div>
-          <div className="bg-slate-800/50 rounded-lg p-3">
-            <p className="text-slate-400 text-xs">QCM réussis</p>
-            <p className="text-white font-bold text-lg">{totalQuizValidated}/{allQuizQuestions.length}</p>
-          </div>
-          <div className="bg-slate-800/50 rounded-lg p-3">
-            <p className="text-slate-400 text-xs">Tentatives totales</p>
-            <p className="text-white font-bold text-lg">{totalAttempts}</p>
-          </div>
-          <div className={cn("rounded-lg p-3 border", getEfficiencyColor(efficiency))}>
-            <p className="text-xs opacity-75">Efficacité</p>
-            <p className="font-bold text-lg">{efficiency}%</p>
+          <div className="h-2.5 bg-slate-800 rounded-full overflow-hidden">
+            <div
+              className="h-full rounded-full bg-blue-500 transition-all"
+              style={{ width: `${progressPercent}%` }}
+            />
           </div>
         </div>
-        {averageExamGrade !== null && (
-          <p className="text-sm text-slate-400 mt-3 flex items-center gap-2">
-            <Target className="w-4 h-4 text-blue-400" />
-            Note moyenne aux examens : <span className="text-white font-semibold">{averageExamGrade}/20</span>
-          </p>
+
+        {/* Chiffres clés */}
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          <div className="bg-slate-800/50 rounded-lg p-3">
+            <p className="text-slate-400 text-xs">Modules validés</p>
+            <p className="text-white font-bold text-lg">{modulesPassed}/{totalModules}</p>
+          </div>
+          <div className="bg-slate-800/50 rounded-lg p-3">
+            <p className="text-slate-400 text-xs">Questions réussies</p>
+            <p className="text-white font-bold text-lg">{totalValidated}/{totalQuestions}</p>
+          </div>
+          <div className="bg-slate-800/50 rounded-lg p-3">
+            <p className="text-slate-400 text-xs">Note moyenne</p>
+            <p className="text-white font-bold text-lg">
+              {averageExamGrade !== null ? `${averageExamGrade}/20` : '-'}
+            </p>
+          </div>
+        </div>
+
+        {/* Badge global simple */}
+        {progressPercent === 100 ? (
+          <p className="mt-3 text-green-400 font-bold">✅ Formation terminée</p>
+        ) : progressPercent > 50 ? (
+          <p className="mt-3 text-blue-400 font-bold">👍 Bonne progression</p>
+        ) : progressPercent > 20 ? (
+          <p className="mt-3 text-amber-400 font-bold">⚠️ En cours d'apprentissage</p>
+        ) : (
+          <p className="mt-3 text-red-400 font-bold">🔴 Difficultés détectées</p>
         )}
       </div>
 
