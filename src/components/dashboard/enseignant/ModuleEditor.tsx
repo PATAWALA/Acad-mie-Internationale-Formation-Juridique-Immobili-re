@@ -30,7 +30,7 @@ export default function ModuleEditor({ module, onUpdate }: ModuleEditorProps) {
   const [assessments, setAssessments] = useState<any[]>([]);
   const [quizQuestions, setQuizQuestions] = useState<any[]>([]);
 
-  // Formulaire leçon théorique
+  // Formulaire leçon théorique / création QCM
   const [showAddLesson, setShowAddLesson] = useState(false);
   const [lessonType, setLessonType] = useState<LessonType>('TEXT');
   const [lessonTitle, setLessonTitle] = useState('');
@@ -68,7 +68,6 @@ export default function ModuleEditor({ module, onUpdate }: ModuleEditorProps) {
   const [tpOptionD, setTpOptionD] = useState('');
   const [tpCorrectAnswer, setTpCorrectAnswer] = useState<'A' | 'B' | 'C' | 'D'>('A');
 
-  // Fonctions de chargement
   const fetchData = useCallback(async () => {
     const { data: l } = await supabase
       .from('lessons')
@@ -109,12 +108,10 @@ export default function ModuleEditor({ module, onUpdate }: ModuleEditorProps) {
     }
   }, [activeQuizLesson, fetchQuizQuestions]);
 
-  // Filtres
   const theoreticalLessons = lessons.filter(l => l.category === 'THEORIQUE');
   const practicalLessons = lessons.filter(l => l.category === 'PRATIQUE' && l.content_type !== 'QUIZ');
   const quizLessons = lessons.filter(l => l.content_type === 'QUIZ');
 
-  // Utilitaires
   const sanitizeFileName = (fileName: string) => {
     return fileName
       .normalize('NFD')
@@ -127,7 +124,6 @@ export default function ModuleEditor({ module, onUpdate }: ModuleEditorProps) {
     return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
   };
 
-  // Uploads
   const handlePdfUpload = async (file: File) => {
     if (!file) return;
     setUploadingPdf(true);
@@ -172,7 +168,6 @@ export default function ModuleEditor({ module, onUpdate }: ModuleEditorProps) {
     setUploadingExamFile(false);
   };
 
-  // Gestion des examens
   const handleEditExam = (exam: any) => {
     setEditingExam(exam);
     setExamTitle(exam.title);
@@ -234,35 +229,49 @@ export default function ModuleEditor({ module, onUpdate }: ModuleEditorProps) {
     onUpdate();
   };
 
-  // Gestion des leçons théoriques
+  // Gestion des leçons (théorique ou QCM)
   const handleAddTheoreticalLesson = async () => {
     if (!lessonTitle.trim()) return;
     if (lessonType === 'PDF' && !lessonUrl) {
       alert('Veuillez télécharger un fichier PDF.');
       return;
     }
+    const category = activeTab === 'theoretical' ? 'THEORIQUE' : 'PRATIQUE';
     const contentBody = lessonType === 'TEXT' ? textToHtml(lessonBodyRaw) : null;
-    const { error } = await supabase.from('lessons').insert({
+    const position = category === 'THEORIQUE'
+      ? theoreticalLessons.length + 1
+      : lessonType === 'QUIZ'
+        ? quizLessons.length + 1
+        : practicalLessons.length + 1;
+
+    const { data, error } = await supabase.from('lessons').insert({
       module_id: module.id,
       title: lessonTitle,
       content_type: lessonType,
       content_url: lessonUrl.trim() || null,
       content_body: contentBody,
-      category: 'THEORIQUE',
-      position: theoreticalLessons.length + 1,
-    });
-    if (!error) {
-      setLessonTitle('');
-      setLessonUrl('');
-      setLessonBodyRaw('');
-      setLessonType('TEXT');
-      setShowAddLesson(false);
-      fetchData();
-      onUpdate();
+      category,
+      position,
+    }).select('*').single();
+
+    if (error) {
+      alert('Erreur: ' + error.message);
+      return;
     }
+
+    setLessonTitle('');
+    setLessonUrl('');
+    setLessonBodyRaw('');
+    setLessonType('TEXT');
+    setShowAddLesson(false);
+
+    if (lessonType === 'QUIZ' && data) {
+      setActiveQuizLesson(data);
+    }
+    fetchData();
+    onUpdate();
   };
 
-  // Gestion des QCM
   const handleAddQuizQuestion = async () => {
     if (!questionText.trim() || !activeQuizLesson) return;
     if (!optionA.trim() || !optionB.trim() || !optionC.trim() || !optionD.trim()) {
@@ -305,7 +314,6 @@ export default function ModuleEditor({ module, onUpdate }: ModuleEditorProps) {
     onUpdate();
   };
 
-  // Gestion des TP
   const handleSaveTp = async () => {
     if (!tpTitle.trim() || !tpStatement.trim()) return;
     if (tpQuestions.length === 0) {
@@ -400,7 +408,6 @@ export default function ModuleEditor({ module, onUpdate }: ModuleEditorProps) {
     onUpdate();
   };
 
-  // Types de leçons théoriques
   const lessonTypes = [
     { type: 'TEXT', icon: FileText, label: 'Texte', color: 'text-blue-400', bg: 'bg-blue-500/10' },
     { type: 'VIDEO', icon: Video, label: 'Vidéo', color: 'text-red-400', bg: 'bg-red-500/10' },
@@ -477,14 +484,9 @@ export default function ModuleEditor({ module, onUpdate }: ModuleEditorProps) {
                 <input type="text" placeholder="URL du lien" value={lessonUrl} onChange={(e) => setLessonUrl(e.target.value)}
                   className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50" />
               )}
-              {lessonType === 'QUIZ' && (
-                <p className="text-xs text-violet-400">💡 Le QCM sera créé, puis vous pourrez ajouter des questions.</p>
-              )}
               <div className="flex gap-2">
                 <button onClick={handleAddTheoreticalLesson} disabled={!lessonTitle.trim() || (lessonType === 'PDF' && !lessonUrl) || uploadingPdf}
-                  className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium disabled:opacity-50">
-                  {lessonType === 'QUIZ' ? 'Créer le QCM' : 'Ajouter'}
-                </button>
+                  className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium disabled:opacity-50">Ajouter</button>
                 <button onClick={() => setShowAddLesson(false)} className="px-4 py-2 bg-slate-700 text-slate-400 hover:text-white rounded-lg text-sm">Annuler</button>
               </div>
             </div>
@@ -536,6 +538,21 @@ export default function ModuleEditor({ module, onUpdate }: ModuleEditorProps) {
                 <Plus className="w-4 h-4" /> Ajouter un QCM
               </button>
             </div>
+
+            {/* Formulaire de création du QCM (affiche uniquement quand showAddLesson est vrai) */}
+            {showAddLesson && lessonType === 'QUIZ' && (
+              <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 space-y-3 mb-4">
+                <p className="text-sm text-slate-400">Donnez un titre au QCM, puis vous pourrez ajouter les questions juste après l'enregistrement.</p>
+                <input type="text" placeholder="Titre du QCM" value={lessonTitle} onChange={(e) => setLessonTitle(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50" />
+                <div className="flex gap-2">
+                  <button onClick={handleAddTheoreticalLesson} disabled={!lessonTitle.trim()}
+                    className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium disabled:opacity-50">Créer le QCM</button>
+                  <button onClick={() => setShowAddLesson(false)} className="px-4 py-2 bg-slate-700 text-slate-400 hover:text-white rounded-lg text-sm">Annuler</button>
+                </div>
+              </div>
+            )}
+
             {quizLessons.length === 0 ? (
               <p className="text-slate-500 text-sm py-4">Aucun QCM pour le moment.</p>
             ) : (
