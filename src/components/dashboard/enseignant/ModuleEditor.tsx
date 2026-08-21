@@ -272,33 +272,45 @@ export default function ModuleEditor({ module, onUpdate }: ModuleEditorProps) {
     onUpdate();
   };
 
+  const cleanOption = (text: string) => {
+  return text.replace(/\s*\([^)]*Bonne réponse[^)]*\)/gi, '');
+};
+
   const handleAddQuizQuestion = async () => {
-    if (!questionText.trim() || !activeQuizLesson) return;
-    if (!optionA.trim() || !optionB.trim() || !optionC.trim() || !optionD.trim()) {
-      alert('Veuillez remplir les 4 options.');
-      return;
-    }
-    const { error } = await supabase.from('quiz_questions').insert({
-      lesson_id: activeQuizLesson.id,
-      question: questionText,
-      option_a: optionA,
-      option_b: optionB,
-      option_c: optionC,
-      option_d: optionD,
-      correct_answer: correctAnswer,
-      position: quizQuestions.length + 1,
-    });
-    if (!error) {
-      setQuestionText('');
-      setOptionA('');
-      setOptionB('');
-      setOptionC('');
-      setOptionD('');
-      setCorrectAnswer('A');
-      fetchQuizQuestions(activeQuizLesson.id);
-      onUpdate();
-    }
-  };
+  const cleanedQuestion = questionText.trim();
+  const cleanedA = cleanOption(optionA.trim());
+  const cleanedB = cleanOption(optionB.trim());
+  const cleanedC = cleanOption(optionC.trim());
+  const cleanedD = cleanOption(optionD.trim());
+
+  if (!cleanedQuestion || !activeQuizLesson) return;
+  if (!cleanedA || !cleanedB || !cleanedC || !cleanedD) {
+    alert('Veuillez remplir les 4 options.');
+    return;
+  }
+
+  const { error } = await supabase.from('quiz_questions').insert({
+    lesson_id: activeQuizLesson.id,
+    question: cleanedQuestion,
+    option_a: cleanedA,
+    option_b: cleanedB,
+    option_c: cleanedC,
+    option_d: cleanedD,
+    correct_answer: correctAnswer,
+    position: quizQuestions.length + 1,
+  });
+
+  if (!error) {
+    setQuestionText('');
+    setOptionA('');
+    setOptionB('');
+    setOptionC('');
+    setOptionD('');
+    setCorrectAnswer('A');
+    fetchQuizQuestions(activeQuizLesson.id);
+    onUpdate();
+  }
+};
 
   const handleDeleteQuestion = async (id: number) => {
     if (!confirm('Supprimer cette question ?')) return;
@@ -374,26 +386,34 @@ export default function ModuleEditor({ module, onUpdate }: ModuleEditorProps) {
   };
 
   const handleAddTpQuestion = () => {
-    if (!tpQuestionText.trim() || !tpOptionA.trim() || !tpOptionB.trim() || !tpOptionC.trim() || !tpOptionD.trim()) {
-      alert('Veuillez remplir la question et les 4 propositions.');
-      return;
-    }
-    const newQuestion = {
-      question: tpQuestionText,
-      optionA: tpOptionA,
-      optionB: tpOptionB,
-      optionC: tpOptionC,
-      optionD: tpOptionD,
-      correct: tpCorrectAnswer,
-    };
-    setTpQuestions(prev => [...prev, newQuestion]);
-    setTpQuestionText('');
-    setTpOptionA('');
-    setTpOptionB('');
-    setTpOptionC('');
-    setTpOptionD('');
-    setTpCorrectAnswer('A');
+  const cleanedQuestion = tpQuestionText.trim();
+  const cleanedA = cleanOption(tpOptionA.trim());
+  const cleanedB = cleanOption(tpOptionB.trim());
+  const cleanedC = cleanOption(tpOptionC.trim());
+  const cleanedD = cleanOption(tpOptionD.trim());
+
+  if (!cleanedQuestion || !cleanedA || !cleanedB || !cleanedC || !cleanedD) {
+    alert('Veuillez remplir la question et les 4 propositions.');
+    return;
+  }
+
+  const newQuestion = {
+    question: cleanedQuestion,
+    optionA: cleanedA,
+    optionB: cleanedB,
+    optionC: cleanedC,
+    optionD: cleanedD,
+    correct: tpCorrectAnswer,
   };
+
+  setTpQuestions(prev => [...prev, newQuestion]);
+  setTpQuestionText('');
+  setTpOptionA('');
+  setTpOptionB('');
+  setTpOptionC('');
+  setTpOptionD('');
+  setTpCorrectAnswer('A');
+};
 
   const handleDeleteTp = async (lessonId: string) => {
     if (!confirm('Supprimer ce TP et toutes ses questions ?')) return;
