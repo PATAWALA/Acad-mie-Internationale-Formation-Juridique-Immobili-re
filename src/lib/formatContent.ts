@@ -3,7 +3,7 @@
 export function formatContentWithImagesAndPdfs(content: string): string {
   if (!content) return '';
 
-  // Regex avec lookbehind négatif pour ne pas capturer les URLs déjà dans src="..." ou href="..."
+  // Détecte les URLs, sauf celles déjà dans src="..." ou href="..."
   const urlRegex = /(?<!src=")(?<!href=")(https?:\/\/[^\s"'<>]+)/g;
 
   return content.replace(urlRegex, (url) => {
@@ -20,12 +20,7 @@ export function formatContentWithImagesAndPdfs(content: string): string {
       return `<a href="${cleanUrl}" target="_blank" rel="noopener noreferrer" style="display:inline-block; margin:6px 0; padding:8px 16px; background-color:#1e293b; color:#60a5fa; border-radius:8px; text-decoration:none; font-weight:500;">📄 Ouvrir le PDF</a>`;
     }
 
-    // Documents Word, Excel, PowerPoint, archives
-    if (/\.(docx?|xlsx?|pptx?|zip|rar|7z)(\?.*)?$/i.test(cleanUrl)) {
-      return `<a href="${cleanUrl}" target="_blank" rel="noopener noreferrer" style="display:inline-block; margin:6px 0; padding:8px 16px; background-color:#1e293b; color:#60a5fa; border-radius:8px; text-decoration:none; font-weight:500;">📎 Télécharger le fichier</a>`;
-    }
-
-    // URL générique -> lien cliquable
+    // Autres types : lien cliquable
     return `<a href="${cleanUrl}" target="_blank" rel="noopener noreferrer" style="color:#60a5fa; text-decoration:underline;">${cleanUrl}</a>`;
   });
 }
