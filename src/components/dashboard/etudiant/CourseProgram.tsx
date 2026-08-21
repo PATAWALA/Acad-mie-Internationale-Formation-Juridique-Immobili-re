@@ -19,14 +19,12 @@ interface CourseProgramProps {
   userStatus: string;
   passedAssessments: string[];
   submissionsMap: Record<string, any>;
-  certificateInfo?: any;
-  courseCertificate?: any;
 }
 
 type ModuleStep = 'theoretical' | 'practical' | 'quiz' | 'exam';
 
 export function CourseProgram({
-  courses, userStatus, passedAssessments, submissionsMap, certificateInfo, courseCertificate
+  courses, userStatus, passedAssessments, submissionsMap
 }: CourseProgramProps) {
   const { profile } = useStudent();
   const supabase = createClientComponent();
@@ -51,10 +49,6 @@ export function CourseProgram({
   const [tpQuestionChosenOption, setTpQuestionChosenOption] = useState<Record<string, string>>({});
   const [loadingTP, setLoadingTP] = useState<Record<string, boolean>>({});
 
-  // TP validation
-  const [tpSelections, setTpSelections] = useState<Record<string, string>>({});
-  const [tpCorrectCount, setTpCorrectCount] = useState(0);
-
   // UI
   const [showTpContent, setShowTpContent] = useState<Record<string, boolean>>({});
   const [selectedQuizOption, setSelectedQuizOption] = useState<Record<string, string>>({});
@@ -63,7 +57,6 @@ export function CourseProgram({
 
   // Examen final
   const [finalAssessment, setFinalAssessment] = useState<any | null>(null);
-  const [allModulesPassed, setAllModulesPassed] = useState(false);
 
   const activeCourse = courses[0];
   const modules = useMemo(() => activeCourse?.modules || [], [activeCourse]);
@@ -84,7 +77,7 @@ export function CourseProgram({
     }
   };
 
-  // Charger l'examen final
+  // Charger l'examen final (différé pour éviter setState synchrone)
   useEffect(() => {
     const loadFinalAssessment = async () => {
       if (!activeCourse) return;
@@ -99,13 +92,6 @@ export function CourseProgram({
     const timer = setTimeout(loadFinalAssessment, 0);
     return () => clearTimeout(timer);
   }, [activeCourse, supabase]);
-
-  // Vérifier si tous les modules sont validés
-  useEffect(() => {
-    const moduleExamIds = modules.flatMap((mod: any) => mod.assessments?.map((a: any) => a.id) || []);
-    const allPassed = moduleExamIds.length > 0 && moduleExamIds.every((id: string) => passedAssessments.includes(id));
-    setAllModulesPassed(allPassed);
-  }, [modules, passedAssessments]);
 
   const getPositionFromTitle = (title: string) => {
     if (!title) return 9999;
@@ -145,6 +131,25 @@ export function CourseProgram({
     0
   );
   const tpValidatedQuestions = Object.keys(tpQuestionSelections).length;
+
+  // Dérivations via useMemo
+  const allModulesPassed = useMemo(() => {
+    const moduleExamIds = modules.flatMap((mod: any) => mod.assessments?.map((a: any) => a.id) || []);
+    return moduleExamIds.length > 0 && moduleExamIds.every((id: string) => passedAssessments.includes(id));
+  }, [modules, passedAssessments]);
+
+  const { tpSelections, tpCorrectCount } = useMemo(() => {
+    const validTpMap: Record<string, string> = {};
+    let count = 0;
+    practicalLessons.forEach((lesson: any) => {
+      const questions = tpQuestions[lesson.id] || [];
+      if (questions.length > 0 && questions.every((q: any) => tpQuestionSelections[q.id] !== undefined)) {
+        validTpMap[lesson.id] = 'validated';
+        count++;
+      }
+    });
+    return { tpSelections: validTpMap, tpCorrectCount: count };
+  }, [tpQuestionSelections, tpQuestions, practicalLessons]);
 
   const isTpValidated = tpCorrectCount >= totalTp && totalTp > 0;
   const isQuizValidated = quizScore >= totalQuiz && totalQuiz > 0;
@@ -276,22 +281,6 @@ export function CourseProgram({
       return () => clearTimeout(timer);
     }
   }, [activeModule, isModuleUnlocked, isFinalExamActive, practicalLessons, loadTpQuestionsAndOptions, loadQuizForModule]);
-
-  // Recalculer tpSelections et tpCorrectCount
-  useEffect(() => {
-    if (!tpQuestions) return;
-    const validTpMap: Record<string, string> = {};
-    let count = 0;
-    practicalLessons.forEach((lesson: any) => {
-      const questions = tpQuestions[lesson.id] || [];
-      if (questions.length > 0 && questions.every((q: any) => tpQuestionSelections[q.id] !== undefined)) {
-        validTpMap[lesson.id] = 'validated';
-        count++;
-      }
-    });
-    setTpSelections(validTpMap);
-    setTpCorrectCount(count);
-  }, [tpQuestionSelections, tpQuestions, practicalLessons]);
 
   const handleTpOptionClick = async (lessonId: string, questionId: string, optionText: string, isCorrect: boolean) => {
     if (!profile) return;
