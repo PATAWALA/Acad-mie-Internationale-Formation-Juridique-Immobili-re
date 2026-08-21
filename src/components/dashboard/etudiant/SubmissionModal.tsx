@@ -1,12 +1,10 @@
 'use client';
-
 import { useState, useRef } from 'react';
 import { createClientComponent } from '@/lib/supabase/client';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  X, Upload, Link, Camera, FileText, 
-  Loader2, Check, AlertCircle, Lock,
-  Image, File, ArrowRight
+  X, Upload, Link, Camera,Send, 
+  Loader2, Check, AlertCircle, Lock, File
 } from 'lucide-react';
 
 interface SubmissionModalProps {
@@ -387,6 +385,3 @@ export function SubmissionModal({ isOpen, onClose, assessmentId, userStatus }: S
     </motion.div>
   );
 }
-
-// Need to import Send at the top
-import { Send } from 'lucide-react';

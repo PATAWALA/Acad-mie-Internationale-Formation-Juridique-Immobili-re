@@ -2,14 +2,13 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
-import { createClientComponent } from '@/lib/supabase/client';
+import { AnimatePresence } from 'framer-motion';
 import { GradeModal } from './GradeModal';
 import SubmissionViewer from './SubmissionViewer';
 import { cn } from '@/lib/utils';
 import {
-  FileText, X,  Clock, CheckCircle2, XCircle,
-  Edit3, FileSearch, Loader2, Eye, HelpCircle, Wrench
+  FileText, Clock, CheckCircle2, XCircle,
+  Edit3, FileSearch
 } from 'lucide-react';
 
 interface GradingTableProps {
@@ -19,53 +18,11 @@ interface GradingTableProps {
 
 export function GradingTable({ submissions, loading }: GradingTableProps) {
   const router = useRouter();
-  const supabase = createClientComponent();
   const [selectedSubmission, setSelectedSubmission] = useState<any>(null);
-  const [showDetails, setShowDetails] = useState<any>(null);
-  const [studentDetails, setStudentDetails] = useState<any>(null);
-  const [loadingDetails, setLoadingDetails] = useState(false);
 
   const handleSuccess = () => {
     setSelectedSubmission(null);
     router.refresh();
-  };
-
-  const handleShowDetails = async (submission: any) => {
-    setShowDetails(submission);
-    setLoadingDetails(true);
-    setStudentDetails(null);
-
-    if (submission.student_id) {
-      // Récupérer les tentatives TP
-      const { data: tpAttempts } = await supabase
-        .from('tp_attempts')
-        .select('*')
-        .eq('student_id', submission.student_id)
-        .order('created_at', { ascending: false });
-
-      // Récupérer les tentatives QCM
-      const { data: quizAttempts } = await supabase
-        .from('quiz_answers')
-        .select('*')
-        .eq('student_id', submission.student_id)
-        .order('answered_at', { ascending: false });
-
-      // Récupérer les leçons TP pour les titres
-      const tpLessonIds = tpAttempts?.map((a: any) => a.lesson_id) || [];
-      const { data: tpLessons } = tpLessonIds.length > 0
-        ? await supabase.from('lessons').select('id, title').in('id', tpLessonIds)
-        : { data: [] };
-
-      const tpLessonMap = new Map(tpLessons?.map((l: any) => [l.id, l.title]) || []);
-
-      setStudentDetails({
-        tpAttempts: tpAttempts || [],
-        quizAttempts: quizAttempts || [],
-        tpLessonMap,
-      });
-    }
-
-    setLoadingDetails(false);
   };
 
   const getStatusBadge = (status: string) => {
@@ -123,7 +80,6 @@ export function GradingTable({ submissions, loading }: GradingTableProps) {
                   <th className="text-center py-3 px-4 text-xs font-semibold text-slate-400">Rendu</th>
                   <th className="text-center py-3 px-4 text-xs font-semibold text-slate-400">Note</th>
                   <th className="text-center py-3 px-4 text-xs font-semibold text-slate-400">Statut</th>
-                  <th className="text-center py-3 px-4 text-xs font-semibold text-slate-400">Détails</th>
                   <th className="text-right py-3 px-4 text-xs font-semibold text-slate-400">Action</th>
                 </tr>
               </thead>
@@ -152,15 +108,6 @@ export function GradingTable({ submissions, loading }: GradingTableProps) {
                     <td className="py-3 px-4 text-center">
                       {getStatusBadge(sub.status)}
                     </td>
-                    <td className="py-3 px-4 text-center">
-                      <button
-                        onClick={() => handleShowDetails(sub)}
-                        className="p-1.5 text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 rounded-lg transition-colors"
-                        title="Voir les tentatives TP et QCM"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
-                    </td>
                     <td className="py-3 px-4 text-right">
                       <button
                         onClick={() => setSelectedSubmission(sub)}
@@ -182,97 +129,6 @@ export function GradingTable({ submissions, loading }: GradingTableProps) {
           </div>
         )}
       </div>
-
-      {/* Modal détails */}
-      <AnimatePresence>
-        {showDetails && (
-          <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowDetails(null)}
-              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="relative w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden"
-            >
-              <div className="flex items-center justify-between p-4 border-b border-slate-800">
-                <h3 className="text-white font-semibold">
-                  Détails : {showDetails.profiles?.full_name}
-                </h3>
-                <button onClick={() => setShowDetails(null)} className="text-slate-400 hover:text-white">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <div className="p-4 space-y-4 max-h-[70vh] overflow-y-auto">
-                {loadingDetails ? (
-                  <div className="flex justify-center py-8">
-                    <Loader2 className="w-8 h-8 text-blue-400 animate-spin" />
-                  </div>
-                ) : studentDetails ? (
-                  <>
-                    {/* Tentatives TP */}
-                    <div>
-                      <h4 className="text-sm font-semibold text-orange-400 mb-2 flex items-center gap-2">
-                        <Wrench className="w-4 h-4" /> Tentatives TP
-                      </h4>
-                      {studentDetails.tpAttempts.length === 0 ? (
-                        <p className="text-slate-500 text-sm">Aucune tentative TP</p>
-                      ) : (
-                        <div className="space-y-2">
-                          {studentDetails.tpAttempts.map((attempt: any, i: number) => (
-                            <div key={attempt.id} className={`p-2.5 rounded-lg border ${attempt.is_correct ? 'border-green-500/30 bg-green-500/5' : 'border-red-500/30 bg-red-500/5'}`}>
-                              <p className="text-white text-sm">
-                                {studentDetails.tpLessonMap.get(attempt.lesson_id) || 'TP'}
-                              </p>
-                              <p className="text-xs text-slate-400 mt-1">
-                                {attempt.is_correct ? '✅' : '❌'} {attempt.selected_option}
-                              </p>
-                              <p className="text-xs text-slate-500 mt-0.5">
-                                {new Date(attempt.created_at).toLocaleString('fr-FR')}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Tentatives QCM */}
-                    <div>
-                      <h4 className="text-sm font-semibold text-violet-400 mb-2 flex items-center gap-2">
-                        <HelpCircle className="w-4 h-4" /> Réponses QCM
-                      </h4>
-                      {studentDetails.quizAttempts.length === 0 ? (
-                        <p className="text-slate-500 text-sm">Aucune réponse QCM</p>
-                      ) : (
-                        <div className="space-y-2">
-                          {studentDetails.quizAttempts.map((answer: any, i: number) => (
-                            <div key={answer.id} className={`p-2.5 rounded-lg border ${answer.is_correct ? 'border-green-500/30 bg-green-500/5' : 'border-red-500/30 bg-red-500/5'}`}>
-                              <p className="text-white text-sm">
-                                Question {i + 1} : {answer.is_correct ? '✅ Correcte' : '❌ Incorrecte'}
-                              </p>
-                              <p className="text-xs text-slate-400 mt-1">
-                                Réponse : {answer.selected_answer}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </>
-                ) : (
-                  <p className="text-slate-500 text-sm">Aucune donnée disponible</p>
-                )}
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
 
       {/* Modal correction */}
       <AnimatePresence>
