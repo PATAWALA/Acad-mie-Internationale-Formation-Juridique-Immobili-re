@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClientComponent } from '@/lib/supabase/client';
 import { useStudent } from '@/context/StudentContext';
@@ -32,7 +32,6 @@ export function CourseProgram({
   const supabase = createClientComponent();
   const isPaid = userStatus?.trim().toUpperCase() === 'PAID';
   const [selectedAssessment, setSelectedAssessment] = useState<{ id: string; title: string } | null>(null);
-  const [activeCourseIndex, setActiveCourseIndex] = useState(0);
   const [activeModuleIndex, setActiveModuleIndex] = useState(0);
   const [activeStep, setActiveStep] = useState<ModuleStep>('theoretical');
 
@@ -66,11 +65,8 @@ export function CourseProgram({
   const [finalAssessment, setFinalAssessment] = useState<any | null>(null);
   const [allModulesPassed, setAllModulesPassed] = useState(false);
 
-  // Ref pour scroll
-  const mainContentRef = useRef<HTMLElement | null>(null);
-
-  const activeCourse = courses[activeCourseIndex];
-  const modules = activeCourse?.modules || [];
+  const activeCourse = courses[0];
+  const modules = useMemo(() => activeCourse?.modules || [], [activeCourse]);
   const activeModule = modules[activeModuleIndex];
   const isFinalExamActive = activeModuleIndex === modules.length && !!finalAssessment;
 
@@ -100,8 +96,9 @@ export function CourseProgram({
         .maybeSingle();
       setFinalAssessment(data || null);
     };
-    loadFinalAssessment();
-  }, [activeCourse]);
+    const timer = setTimeout(loadFinalAssessment, 0);
+    return () => clearTimeout(timer);
+  }, [activeCourse, supabase]);
 
   // Vérifier si tous les modules sont validés
   useEffect(() => {
@@ -167,7 +164,7 @@ export function CourseProgram({
       setActiveStep('theoretical');
       scrollToTop();
     } else if (finalAssessment && allModulesPassed) {
-      setActiveModuleIndex(modules.length); // aller à l'examen final
+      setActiveModuleIndex(modules.length);
       scrollToTop();
     }
   };
@@ -180,8 +177,8 @@ export function CourseProgram({
     }
   };
 
-  // Charger les questions d'un TP et leurs options
-  const loadTpQuestionsAndOptions = async (lessonId: string) => {
+  // Charger les questions d'un TP et leurs options (useCallback)
+  const loadTpQuestionsAndOptions = useCallback(async (lessonId: string) => {
     setLoadingTP(prev => ({ ...prev, [lessonId]: true }));
     const { data: questions } = await supabase
       .from('tp_questions')
@@ -228,10 +225,10 @@ export function CourseProgram({
       }
     }
     setLoadingTP(prev => ({ ...prev, [lessonId]: false }));
-  };
+  }, [supabase, profile]);
 
-  // Charger les QCM
-  const loadQuizForModule = async (module: any) => {
+  // Charger les QCM (useCallback)
+  const loadQuizForModule = useCallback(async (module: any) => {
     if (quizLessons.length === 0) return;
     const lessonIds = quizLessons.map((l: any) => l.id);
     const { data: questions } = await supabase
@@ -265,16 +262,20 @@ export function CourseProgram({
         }
       }
     }
-  };
+  }, [quizLessons, supabase, profile]);
 
+  // Effet principal différé pour charger TP et QCM
   useEffect(() => {
     if (activeModule && isModuleUnlocked && !isFinalExamActive) {
-      practicalLessons.forEach((lesson: any) => {
-        loadTpQuestionsAndOptions(lesson.id);
-      });
-      loadQuizForModule(activeModule);
+      const timer = setTimeout(() => {
+        practicalLessons.forEach((lesson: any) => {
+          loadTpQuestionsAndOptions(lesson.id);
+        });
+        loadQuizForModule(activeModule);
+      }, 0);
+      return () => clearTimeout(timer);
     }
-  }, [activeModule?.id, practicalLessons, quizLessons, isModuleUnlocked, profile, isFinalExamActive]);
+  }, [activeModule, isModuleUnlocked, isFinalExamActive, practicalLessons, loadTpQuestionsAndOptions, loadQuizForModule]);
 
   // Recalculer tpSelections et tpCorrectCount
   useEffect(() => {
@@ -331,7 +332,6 @@ export function CourseProgram({
       ...prev,
       [questionId]: { correct: true, message: `✅ Question validée en ${tpQuestionAttempts[questionId] || 1} tentative(s).` }
     }));
-    // scroll automatique vers le haut après validation ? optionnel
   };
 
   const handleQuizChoice = async (question: any, answer: string) => {
@@ -433,7 +433,6 @@ export function CourseProgram({
                 </button>
               );
             })}
-            {/* Bouton examen final */}
             <button
               onClick={() => { setActiveModuleIndex(modules.length); scrollToTop(); }}
               className={`w-8 h-8 rounded-lg text-sm font-bold transition-all flex items-center justify-center ${
@@ -653,7 +652,6 @@ export function CourseProgram({
               </button>
             );
           })}
-          {/* Bouton examen final si existe */}
           {finalAssessment && (
             <button
               onClick={() => {
