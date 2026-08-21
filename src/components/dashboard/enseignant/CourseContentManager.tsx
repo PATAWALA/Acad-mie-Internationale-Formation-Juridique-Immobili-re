@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { createClientComponent } from '@/lib/supabase/client';
 import CourseEditor from './CourseEditor';
-import { Plus, BookOpen, ArrowRight, Loader2 } from 'lucide-react';
+import { Plus, BookOpen, ArrowRight, Loader2, Info } from 'lucide-react';
 
 interface Props {
   certId: number;
@@ -20,7 +20,8 @@ export default function CourseContentManager({ certId, profile }: Props) {
   const [newDescription, setNewDescription] = useState('');
   const [creating, setCreating] = useState(false);
 
-  const fetchCourses = async () => {
+  // fetchCourses stable avec useCallback
+  const fetchCourses = useCallback(async () => {
     setLoading(true);
     const { data } = await supabase
       .from('courses')
@@ -29,14 +30,22 @@ export default function CourseContentManager({ certId, profile }: Props) {
       .order('created_at', { ascending: false });
     if (data) setCourses(data);
     setLoading(false);
-  };
+  }, [supabase, certId]);
 
+  // Appel différé pour éviter l'erreur de setState synchrone dans l'effet
   useEffect(() => {
-    fetchCourses();
-  }, [certId]);
+    const timer = setTimeout(() => {
+      fetchCourses();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [fetchCourses]);
 
   const handleCreateCourse = async () => {
     if (!newTitle.trim()) return;
+    if (courses.length > 0) {
+      alert('Cette formation possède déjà un cours. Vous ne pouvez pas en créer un second.');
+      return;
+    }
     setCreating(true);
     const { data, error } = await supabase
       .from('courses')
@@ -76,36 +85,51 @@ export default function CourseContentManager({ certId, profile }: Props) {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      {/* Header simple */}
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-white">Cours de la formation</h2>
-          <p className="text-slate-400 text-sm mt-1">{courses.length} cours</p>
+          <p className="text-slate-400 text-sm mt-1">
+            {courses.length > 0
+              ? 'Un seul cours est autorisé pour cette formation.'
+              : 'Aucun cours pour le moment.'}
+          </p>
         </div>
-        <button
-          onClick={() => setShowAddForm(true)}
-          className="flex items-center gap-2 px-4 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-xl font-medium transition-colors"
-        >
-          <Plus className="w-4 h-4" /> Nouveau cours
-        </button>
+        {courses.length === 0 && (
+          <button
+            onClick={() => setShowAddForm(true)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-xl font-medium transition-colors"
+          >
+            <Plus className="w-4 h-4" /> Créer le cours
+          </button>
+        )}
       </div>
 
-      {/* Formulaire rapide */}
-      {showAddForm && (
+      {courses.length > 0 && (
+        <div className="flex items-start gap-2 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg text-blue-400 text-sm">
+          <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
+          <p>Cliquez sur le cours pour gérer les modules et le contenu pédagogique.</p>
+        </div>
+      )}
+
+      {courses.length === 0 && showAddForm && (
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
+          <p className="text-sm text-slate-400">
+            Donnez un titre et une description à la formation. Ce sera le cours principal auquel seront rattachés tous les modules.
+          </p>
           <input
             type="text"
-            placeholder="Titre du cours (ex: Introduction au droit)"
+            placeholder="Titre de la formation (ex: Certification en Rédaction des Contrats)"
             value={newTitle}
             onChange={(e) => setNewTitle(e.target.value)}
             autoFocus
             className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500/50"
           />
           <textarea
-            placeholder="Description (optionnel)"
+            placeholder="Description de la formation (optionnel)"
             value={newDescription}
             onChange={(e) => setNewDescription(e.target.value)}
-            rows={2}
+            rows={3}
             className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500/50 resize-none"
           />
           <div className="flex gap-2">
@@ -126,7 +150,6 @@ export default function CourseContentManager({ certId, profile }: Props) {
         </div>
       )}
 
-      {/* Liste des cours */}
       {courses.length === 0 ? (
         <div className="text-center py-16 bg-slate-900/50 border border-slate-800 rounded-xl">
           <BookOpen className="w-12 h-12 text-slate-600 mx-auto mb-3" />
