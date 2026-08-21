@@ -1,42 +1,78 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClientComponent } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
 import {
   BookOpen, Wrench, GraduationCap, Plus, Trash2, HelpCircle,
   FileText, Video, FileArchive, Link2, X, Upload, Loader2, Pencil,
+  type LucideIcon,
 } from 'lucide-react';
+import HtmlContentViewer from '../../HtmlContentViewer';
+import { textToHtml } from '@/lib/textToHtml';
 
-interface Props {
+/* eslint-disable @next/next/no-img-element */
+
+interface ModuleEditorProps {
   module: any;
   onUpdate: () => void;
 }
 
-export default function ModuleEditor({ module, onUpdate }: Props) {
+interface Lesson {
+  id: string;
+  title: string;
+  content_type: string | null;
+  content_url: string | null;
+  content_body: string | null;
+  category: string | null;
+  position: number | null;
+}
+
+interface Assessment {
+  id: string;
+  title: string;
+  description: string | null;
+  type: string | null;
+}
+
+interface QuizQuestion {
+  id: number;
+  question: string;
+  option_a: string;
+  option_b: string;
+  option_c: string;
+  option_d: string;
+  correct_answer: string;
+  position: number | null;
+}
+
+type LessonType = 'TEXT' | 'VIDEO' | 'PDF' | 'LINK' | 'QUIZ';
+type TabType = 'theoretical' | 'practical' | 'exams';
+
+export default function ModuleEditor({ module, onUpdate }: ModuleEditorProps) {
   const supabase = createClientComponent();
-  const [activeTab, setActiveTab] = useState<'theoretical' | 'practical' | 'exams'>('theoretical');
-  const [lessons, setLessons] = useState<any[]>([]);
-  const [assessments, setAssessments] = useState<any[]>([]);
-  const [quizQuestions, setQuizQuestions] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<TabType>('theoretical');
+  const [lessons, setLessons] = useState<Lesson[]>([]);
+  const [assessments, setAssessments] = useState<Assessment[]>([]);
+  const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([]);
 
   const [showAddLesson, setShowAddLesson] = useState(false);
-  const [lessonType, setLessonType] = useState<'TEXT' | 'VIDEO' | 'PDF' | 'LINK' | 'QUIZ'>('TEXT');
+  const [lessonType, setLessonType] = useState<LessonType>('TEXT');
   const [lessonTitle, setLessonTitle] = useState('');
   const [lessonUrl, setLessonUrl] = useState('');
-  const [lessonBody, setLessonBody] = useState('');
+  const [lessonBodyRaw, setLessonBodyRaw] = useState('');
   const [uploadingPdf, setUploadingPdf] = useState(false);
 
   const [showAddExam, setShowAddExam] = useState(false);
-  const [editingExam, setEditingExam] = useState<any | null>(null);
+  const [editingExam, setEditingExam] = useState<Assessment | null>(null);
   const [examTitle, setExamTitle] = useState('');
   const [examDescription, setExamDescription] = useState('');
   const [examImages, setExamImages] = useState<string[]>([]);
   const [examFiles, setExamFiles] = useState<string[]>([]);
   const [uploadingExamFile, setUploadingExamFile] = useState(false);
 
-  const [activeQuizLesson, setActiveQuizLesson] = useState<any | null>(null);
+  const [activeQuizLesson, setActiveQuizLesson] = useState<Lesson | null>(null);
   const [questionText, setQuestionText] = useState('');
   const [optionA, setOptionA] = useState('');
   const [optionB, setOptionB] = useState('');
@@ -44,37 +80,47 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
   const [optionD, setOptionD] = useState('');
   const [correctAnswer, setCorrectAnswer] = useState<'A' | 'B' | 'C' | 'D'>('A');
 
-  const fetchData = async () => {
+  // fetchData avec useCallback pour stabilité
+  const fetchData = useCallback(async () => {
     const { data: l } = await supabase
       .from('lessons')
-      .select('*')
+      .select('id, title, content_type, content_url, content_body, category, position')
       .eq('module_id', module.id)
       .order('position', { ascending: true });
-    if (l) setLessons(l);
+    if (l) setLessons(l as Lesson[]);
 
     const { data: a } = await supabase
       .from('assessments')
-      .select('*')
+      .select('id, title, description, type')
       .eq('module_id', module.id);
-    if (a) setAssessments(a);
-  };
+    if (a) setAssessments(a as Assessment[]);
+  }, [supabase, module.id]);
 
-  const fetchQuizQuestions = async (lessonId: string) => {
+  const fetchQuizQuestions = useCallback(async (lessonId: string) => {
     const { data } = await supabase
       .from('quiz_questions')
-      .select('*')
+      .select('id, question, option_a, option_b, option_c, option_d, correct_answer, position')
       .eq('lesson_id', lessonId)
       .order('position', { ascending: true });
-    if (data) setQuizQuestions(data);
-  };
+    if (data) setQuizQuestions(data as QuizQuestion[]);
+  }, [supabase]);
+
+  // Chargement initial différé pour éviter l'erreur de hooks
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchData();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [fetchData]);
 
   useEffect(() => {
-    fetchData();
-  }, [module.id]);
-
-  useEffect(() => {
-    if (activeQuizLesson) fetchQuizQuestions(activeQuizLesson.id);
-  }, [activeQuizLesson]);
+    if (activeQuizLesson) {
+      const timer = setTimeout(() => {
+        fetchQuizQuestions(activeQuizLesson.id);
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [activeQuizLesson, fetchQuizQuestions]);
 
   const theoreticalLessons = lessons.filter(l => l.category === 'THEORIQUE');
   const practicalLessons = lessons.filter(l => l.category === 'PRATIQUE');
@@ -135,13 +181,22 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
     setUploadingExamFile(false);
   };
 
-  const handleEditExam = (exam: any) => {
+  const handleEditExam = (exam: Assessment) => {
     setEditingExam(exam);
     setExamTitle(exam.title);
     setExamDescription(exam.description || '');
     setExamImages([]);
     setExamFiles([]);
     setShowAddExam(true);
+  };
+
+  const resetExamForm = () => {
+    setExamTitle('');
+    setExamDescription('');
+    setExamImages([]);
+    setExamFiles([]);
+    setEditingExam(null);
+    setShowAddExam(false);
   };
 
   const handleAddExam = async () => {
@@ -166,16 +221,7 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
         .from('assessments')
         .update({ title: examTitle, description: fullDescription.trim() || null })
         .eq('id', editingExam.id);
-      if (!error) {
-        setExamTitle('');
-        setExamDescription('');
-        setExamImages([]);
-        setExamFiles([]);
-        setEditingExam(null);
-        setShowAddExam(false);
-        fetchData();
-        onUpdate();
-      }
+      if (!error) resetExamForm();
     } else {
       const { error } = await supabase.from('assessments').insert({
         module_id: module.id,
@@ -184,16 +230,10 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
         description: fullDescription.trim() || null,
         type: 'EXAM',
       });
-      if (!error) {
-        setExamTitle('');
-        setExamDescription('');
-        setExamImages([]);
-        setExamFiles([]);
-        setShowAddExam(false);
-        fetchData();
-        onUpdate();
-      }
+      if (!error) resetExamForm();
     }
+    fetchData();
+    onUpdate();
   };
 
   const handleDeleteExam = async (id: string) => {
@@ -210,27 +250,35 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
       return;
     }
     const category = activeTab === 'theoretical' ? 'THEORIQUE' : 'PRATIQUE';
-    const position = category === 'THEORIQUE' ? theoreticalLessons.length + 1 : practicalLessons.length + 1;
+    const position = category === 'THEORIQUE'
+      ? theoreticalLessons.length + 1
+      : practicalLessons.length + 1;
+
+    const contentBody = lessonType === 'TEXT' ? textToHtml(lessonBodyRaw) : null;
+
     const { data, error } = await supabase.from('lessons').insert({
       module_id: module.id,
       title: lessonTitle,
       content_type: lessonType,
       content_url: lessonUrl.trim() || null,
-      content_body: lessonBody.trim() || null,
+      content_body: contentBody,
       category,
       position,
     }).select('*').single();
+
     if (error) {
       alert('Erreur: ' + error.message);
       return;
     }
+
     setLessonTitle('');
     setLessonUrl('');
-    setLessonBody('');
+    setLessonBodyRaw('');
     setLessonType('TEXT');
     setShowAddLesson(false);
+
     if (lessonType === 'QUIZ' && data) {
-      setActiveQuizLesson(data);
+      setActiveQuizLesson(data as Lesson);
     }
     fetchData();
     onUpdate();
@@ -300,7 +348,7 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
     }
   };
 
-  const lessonTypes = [
+  const lessonTypes: { type: LessonType; icon: LucideIcon; label: string; color: string; bg: string }[] = [
     { type: 'TEXT', icon: FileText, label: 'Texte', color: 'text-blue-400', bg: 'bg-blue-500/10' },
     { type: 'VIDEO', icon: Video, label: 'Vidéo', color: 'text-red-400', bg: 'bg-red-500/10' },
     { type: 'PDF', icon: FileArchive, label: 'PDF', color: 'text-amber-400', bg: 'bg-amber-500/10' },
@@ -319,7 +367,7 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
         ].map((tab) => (
           <button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id as any)}
+            onClick={() => setActiveTab(tab.id as TabType)}
             className={cn(
               "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors",
               activeTab === tab.id ? "bg-blue-500 text-white" : "bg-slate-800 text-slate-400 hover:text-white"
@@ -341,7 +389,7 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
                 setShowAddLesson(true);
                 setLessonType('TEXT');
                 setLessonUrl('');
-                setLessonBody('');
+                setLessonBodyRaw('');
               }}
               className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-slate-700 rounded-xl text-slate-400 hover:text-white hover:border-slate-500 transition-colors"
             >
@@ -355,7 +403,7 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
                   {lessonTypes.map((type) => (
                     <button
                       key={type.type}
-                      onClick={() => { setLessonType(type.type as any); setLessonUrl(''); }}
+                      onClick={() => { setLessonType(type.type); setLessonUrl(''); }}
                       className={cn(
                         "flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border transition-colors",
                         lessonType === type.type ? `${type.bg} ${type.color} border-current` : "border-slate-600 text-slate-400 hover:text-white"
@@ -376,13 +424,21 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
                 />
 
                 {lessonType === 'TEXT' && (
-                  <textarea
-                    placeholder="Contenu..."
-                    value={lessonBody}
-                    onChange={(e) => setLessonBody(e.target.value)}
-                    rows={4}
-                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none"
-                  />
+                  <>
+                    <textarea
+                      placeholder="Contenu... Séparez les paragraphes par une ligne vide. Utilisez - pour une liste, ## pour un sous-titre."
+                      value={lessonBodyRaw}
+                      onChange={(e) => setLessonBodyRaw(e.target.value)}
+                      rows={6}
+                      className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none"
+                    />
+                    {lessonBodyRaw && (
+                      <div className="p-3 bg-slate-900/80 border border-slate-700 rounded-lg">
+                        <p className="text-xs text-slate-400 mb-2">Aperçu :</p>
+                        <HtmlContentViewer content={textToHtml(lessonBodyRaw)} />
+                      </div>
+                    )}
+                  </>
                 )}
 
                 {lessonType === 'VIDEO' && (
@@ -733,7 +789,7 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
                     <label className="text-xs text-slate-400 mb-1 block">Bonne réponse</label>
                     <div className="flex gap-2">
                       {['A', 'B', 'C', 'D'].map((letter) => (
-                        <button key={letter} onClick={() => setCorrectAnswer(letter as any)}
+                        <button key={letter} onClick={() => setCorrectAnswer(letter as 'A' | 'B' | 'C' | 'D')}
                           className={cn(
                             "w-12 h-12 rounded-lg font-bold text-lg transition-colors",
                             correctAnswer === letter ? "bg-green-500 text-white" : "bg-slate-800 text-slate-400 hover:text-white"
@@ -757,26 +813,34 @@ export default function ModuleEditor({ module, onUpdate }: Props) {
                 {quizQuestions.length > 0 && (
                   <div className="space-y-2 pt-4 border-t border-slate-800">
                     <p className="text-xs text-slate-400 font-medium">Questions ajoutées ({quizQuestions.length})</p>
-                    {quizQuestions.map((q, index) => (
-                      <div key={q.id} className="bg-slate-800/30 border border-slate-700/50 rounded-lg p-3">
-                        <div className="flex items-start justify-between gap-2">
-                          <p className="text-white text-sm font-medium">Q{index + 1}. {q.question}</p>
-                          <button onClick={() => handleDeleteQuestion(q.id)} className="text-red-400 hover:text-red-300 flex-shrink-0">
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                    {quizQuestions.map((q, index) => {
+                      const optionsMap: Record<string, string> = {
+                        A: q.option_a,
+                        B: q.option_b,
+                        C: q.option_c,
+                        D: q.option_d,
+                      };
+                      return (
+                        <div key={q.id} className="bg-slate-800/30 border border-slate-700/50 rounded-lg p-3">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="text-white text-sm font-medium">Q{index + 1}. {q.question}</p>
+                            <button onClick={() => handleDeleteQuestion(q.id)} className="text-red-400 hover:text-red-300 flex-shrink-0">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                          <div className="grid grid-cols-2 gap-1 mt-2">
+                            {['A', 'B', 'C', 'D'].map((letter) => (
+                              <span key={letter} className={cn(
+                                "text-xs px-2 py-1 rounded",
+                                q.correct_answer === letter ? "bg-green-500/10 text-green-400 font-semibold" : "text-slate-400"
+                              )}>
+                                {letter}) {optionsMap[letter]}
+                              </span>
+                            ))}
+                          </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-1 mt-2">
-                          {['A', 'B', 'C', 'D'].map((letter) => (
-                            <span key={letter} className={cn(
-                              "text-xs px-2 py-1 rounded",
-                              q.correct_answer === letter ? "bg-green-500/10 text-green-400 font-semibold" : "text-slate-400"
-                            )}>
-                              {letter}) {q[`option_${letter.toLowerCase()}`]}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>

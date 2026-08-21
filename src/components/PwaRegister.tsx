@@ -24,7 +24,7 @@ export default function PwaRegister() {
             for (const registration of registrations) {
               registration.unregister();
             }
-            // Recharger pour purger le cache
+            // Forcer le rechargement sans cache
             window.location.reload();
           }
         });
