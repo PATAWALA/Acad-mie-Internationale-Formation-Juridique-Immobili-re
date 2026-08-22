@@ -347,6 +347,9 @@ export function CourseProgram({
     }
   };
 
+  console.log('submissionsMap:', submissionsMap);
+  console.log('assessments:', assessments);
+
   const handleQuizValidate = async (question: any, answer: string) => {
     if (!profile) return;
     setQuizAnswers(prev => ({
