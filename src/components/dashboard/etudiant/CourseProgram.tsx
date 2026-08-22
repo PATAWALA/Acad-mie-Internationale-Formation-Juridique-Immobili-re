@@ -453,21 +453,49 @@ export function CourseProgram({
             </div>
           )}
 
-          {submissionsMap[finalAssessment.id] ? (
-            <p className={`mt-3 text-sm font-medium ${submissionsMap[finalAssessment.id].status === 'PASSED' ? 'text-green-400' : 'text-amber-400'}`}>
-              {submissionsMap[finalAssessment.id].status === 'PASSED'
-                ? `✅ Examen final validé - ${submissionsMap[finalAssessment.id].grade}/20`
-                : '⏳ Examen final en attente de correction'}
-            </p>
-          ) : (
-            <button
-              onClick={() => setSelectedAssessment({ id: finalAssessment.id, title: finalAssessment.title })}
-              className="mt-4 w-full flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white font-bold rounded-xl"
-            >
-              <Send className="w-5 h-5" />
-              Soumettre mon examen final
-            </button>
-          )}
+          {(() => {
+  const sub = submissionsMap[finalAssessment.id];
+  if (sub) {
+    return (
+      <div className="mt-4 space-y-3">
+        <div className={`p-3 rounded-lg ${
+          sub.status === 'PASSED' 
+            ? 'bg-green-500/10 border border-green-500/20' 
+            : sub.status === 'FAILED' 
+              ? 'bg-red-500/10 border border-red-500/20' 
+              : 'bg-amber-500/10 border border-amber-500/20'
+        }`}>
+          <p className={`text-sm font-medium ${
+            sub.status === 'PASSED' ? 'text-green-400' : sub.status === 'FAILED' ? 'text-red-400' : 'text-amber-400'
+          }`}>
+            {sub.status === 'PASSED' 
+              ? `✅ Examen final validé - ${sub.grade}/20`
+              : sub.status === 'FAILED' 
+                ? `❌ Non validé - ${sub.grade}/20. Vous pouvez renvoyer votre travail.`
+                : `⏳ Vous avez déjà soumis votre travail. En attente de correction.`}
+          </p>
+        </div>
+        {sub.status !== 'PASSED' && (
+          <button
+            onClick={() => setSelectedAssessment({ id: finalAssessment.id, title: finalAssessment.title })}
+            className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white font-bold rounded-xl"
+          >
+            <Send className="w-5 h-5" /> Renvoyer mon examen final
+          </button>
+        )}
+      </div>
+    );
+  }
+  return (
+    <button
+      onClick={() => setSelectedAssessment({ id: finalAssessment.id, title: finalAssessment.title })}
+      className="mt-4 w-full flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white font-bold rounded-xl"
+    >
+      <Send className="w-5 h-5" />
+      Soumettre mon examen final
+    </button>
+  );
+})()}
         </div>
 
         <AnimatePresence>
@@ -1052,18 +1080,42 @@ export function CourseProgram({
                         )}
                       </div>
                     )}
-                    {isPaid && !sub ? (
-                      <button
-                        onClick={() => setSelectedAssessment({ id: ass.id, title: ass.title })}
-                        className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-gradient-to-r from-green-500 to-emerald-500 text-white font-bold rounded-xl"
-                      >
-                        <Send className="w-5 h-5" /> Soumettre mon travail
-                      </button>
-                    ) : sub ? (
-                      <p className={`text-sm ${sub.status === 'PASSED' ? 'text-green-400' : 'text-amber-400'}`}>
-                        {sub.status === 'PASSED' ? `✅ Validé - ${sub.grade}/20` : '⏳ En attente de correction'}
-                      </p>
-                    ) : null}
+                    {sub ? (
+  <div className="space-y-3">
+    <div className={`p-3 rounded-lg ${
+      sub.status === 'PASSED' 
+        ? 'bg-green-500/10 border border-green-500/20' 
+        : sub.status === 'FAILED' 
+          ? 'bg-red-500/10 border border-red-500/20' 
+          : 'bg-amber-500/10 border border-amber-500/20'
+    }`}>
+      <p className={`text-sm font-medium ${
+        sub.status === 'PASSED' ? 'text-green-400' : sub.status === 'FAILED' ? 'text-red-400' : 'text-amber-400'
+      }`}>
+        {sub.status === 'PASSED' 
+          ? `✅ Examen validé - ${sub.grade}/20`
+          : sub.status === 'FAILED' 
+            ? `❌ Non validé - ${sub.grade}/20. Vous pouvez renvoyer votre travail.`
+            : `⏳ Vous avez déjà soumis votre travail. En attente de correction.`}
+      </p>
+    </div>
+    {sub.status !== 'PASSED' && (
+      <button
+        onClick={() => setSelectedAssessment({ id: ass.id, title: ass.title })}
+        className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-gradient-to-r from-green-500 to-emerald-500 text-white font-bold rounded-xl"
+      >
+        <Send className="w-5 h-5" /> Renvoyer mon travail
+      </button>
+    )}
+  </div>
+) : (
+  <button
+    onClick={() => setSelectedAssessment({ id: ass.id, title: ass.title })}
+    className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-gradient-to-r from-green-500 to-emerald-500 text-white font-bold rounded-xl"
+  >
+    <Send className="w-5 h-5" /> Soumettre mon travail
+  </button>
+)}
                   </div>
                 );
               })
