@@ -1,6 +1,6 @@
 import { Inter, Playfair_Display } from 'next/font/google';
 import { generateWebSiteSchema, generatePersonSchema, JsonLd } from '@/lib/structured-data';
-import { generateBaseMetadata, siteConfig } from '@/lib/metadata';
+import { generateBaseMetadata } from '@/lib/metadata';
 import './globals.css';
 import type { Metadata } from 'next';
 import PwaRegister from '@/components/PwaRegister';
@@ -44,24 +44,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
         <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png" />
         <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
-
-        {/* OPEN GRAPH */}
-        <meta property="og:type" content="website" />
-        <meta property="og:locale" content="fr_FR" />
-        <meta property="og:url" content={siteConfig.url} />
-        <meta property="og:site_name" content={siteConfig.name} />
-        <meta property="og:title" content={siteConfig.title} />
-        <meta property="og:description" content={siteConfig.description} />
-        <meta property="og:image" content={`${siteConfig.url}/images/og-default.png`} />
-        <meta property="og:image:width" content="1200" />
-        <meta property="og:image:height" content="630" />
-
-        {/* TWITTER CARD */}
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content={siteConfig.title} />
-        <meta name="twitter:description" content={siteConfig.description} />
-        <meta name="twitter:image" content={`${siteConfig.url}/images/og-default.png`} />
-        <meta name="twitter:creator" content="@abdoulaye_dev" />
 
         {/* JSON-LD */}
         <JsonLd data={generateWebSiteSchema()} />

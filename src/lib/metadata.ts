@@ -1,22 +1,28 @@
 import type { Metadata } from 'next';
 
 export const siteConfig = {
-  name: 'Académie Internationale',
-  title: 'Académie Internationale | Formation Juridique & Immobilière',
+  name: 'APIAD',
+  title: 'APIAD | Académie Internationale de Formation Juridique et Immobilière',
   description:
-    'L\'Académie Internationale forme les élites juridiques et immobilières. Bourse Mamadou TOURÉ disponible.',
-  url: process.env.NEXT_PUBLIC_SITE_URL || 'https://adonai-academie.com',
-  ogImage: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://adonai-academie.com'}/images/og-default.jpg`,
+    'Certifications professionnelles en droit des contrats, droit immobilier, gestion immobilière et droit OHADA. Formation 100% en ligne pour l’Afrique francophone.',
+  url: process.env.NEXT_PUBLIC_SITE_URL || 'https://www.apiad-lobe.com',
+  ogImage: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://www.apiad-lobe.com'}/images/og-default.jpg`,
   locale: 'fr_FR',
-  twitterHandle: '@academie_intl',
-  author: 'Académie Internationale',
+  twitterHandle: '@apiad_lobe', // à adapter si vous avez un compte Twitter
+  author: 'APIAD',
   keywords: [
-    'formation juridique',
-    'droit OHADA',
-    'bourse',
-    'certificat',
-    'immobilier',
-    'Côte d\'Ivoire',
+    'formation juridique en ligne',
+    'certification rédaction contrats',
+    'droit immobilier',
+    'certification OHADA',
+    'formation droit des affaires',
+    'apprendre le droit en ligne',
+    "formation juridique Côte d'Ivoire",
+    'formation juridique Bénin',
+    'formation juridique Sénégal',
+    'formation juridique Cameroun',
+    'droit comparé Afrique',
+    'rédaction des conclusions et mémoires',
   ],
 };
 

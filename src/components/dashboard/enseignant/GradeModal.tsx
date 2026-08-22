@@ -21,9 +21,10 @@ interface GradeModalProps {
   onClose: () => void;
   submission: any;
   onSuccess: (grade: number, status: string) => void; // 🆕 signature
+  passingScore?: number; // nouveau
 }
 
-export function GradeModal({ isOpen, onClose, submission, onSuccess }: GradeModalProps) {
+export function GradeModal({ isOpen, onClose, submission, onSuccess,passingScore = 10 }: GradeModalProps) {
   const supabase = createClientComponent();
   const [grade, setGrade] = useState<number | ''>(submission?.grade ?? '');
   const [feedback, setFeedback] = useState<string>(submission?.feedback ?? '');
@@ -33,42 +34,49 @@ export function GradeModal({ isOpen, onClose, submission, onSuccess }: GradeModa
   if (!isOpen || !submission) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (grade === '' || Number(grade) < 0 || Number(grade) > 20) {
-      setError('Veuillez saisir une note valide entre 0 et 20.');
-      return;
-    }
+  e.preventDefault();
+  
+  if (grade === '' || Number(grade) < 0 || Number(grade) > 20) {
+    setError('Veuillez saisir une note valide entre 0 et 20.');
+    return;
+  }
 
-    setLoading(true);
-    setError('');
+  setLoading(true);
+  setError('');
 
-    const numGrade = Number(grade);
-    const status = numGrade >= 10 ? 'PASSED' : 'FAILED';
+  const numGrade = Number(grade);
+  const status = numGrade >= passingScore ? 'PASSED' : 'FAILED';
 
-    const { error: updateError } = await supabase
-      .from('submissions')
-      .update({
-        grade: numGrade,
-        feedback: feedback,
-        status: status,
-        graded_at: new Date().toISOString(),
-      })
-      .eq('id', submission.id);
+  const { error: updateError } = await supabase
+    .from('submissions')
+    .update({
+      grade: numGrade,
+      feedback: feedback,
+      status: status,
+      graded_at: new Date().toISOString(),
+    })
+    .eq('id', submission.id);
 
-    if (updateError) {
-      setError('Erreur lors de l\'enregistrement : ' + updateError.message);
-      setLoading(false);
-      return;
-    }
-
+  if (updateError) {
+    setError('Erreur lors de l\'enregistrement : ' + updateError.message);
     setLoading(false);
-    // 🆕 Passer grade et status au parent
-    onSuccess(numGrade, status);
-    onClose();
-  };
+    return;
+  }
 
-  const predictedStatus = grade !== '' ? (Number(grade) >= 10 ? 'PASSED' : 'FAILED') : null;
+  // 📧 Envoyer un e-mail à l'étudiant avec son résultat
+  await fetch('/api/send-grading-email', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ submissionId: submission.id }),
+  });
+
+  setLoading(false);
+  // 🆕 Passer grade et status au parent
+  onSuccess(numGrade, status);
+  onClose();
+};
+
+  const predictedStatus = grade !== '' ? (Number(grade) >= passingScore ? 'PASSED' : 'FAILED') : null;
 
   return (
     <AnimatePresence>

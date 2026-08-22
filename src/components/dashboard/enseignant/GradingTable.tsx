@@ -134,10 +134,11 @@ export function GradingTable({ submissions, loading }: GradingTableProps) {
       <AnimatePresence>
         {selectedSubmission && (
           <GradeModal
-            isOpen={!!selectedSubmission}
-            onClose={() => setSelectedSubmission(null)}
-            submission={selectedSubmission}
-            onSuccess={handleSuccess}
+          isOpen={!!selectedSubmission}
+          onClose={() => setSelectedSubmission(null)}
+          submission={selectedSubmission}
+          onSuccess={handleSuccess}
+          passingScore={14}
           />
         )}
       </AnimatePresence>

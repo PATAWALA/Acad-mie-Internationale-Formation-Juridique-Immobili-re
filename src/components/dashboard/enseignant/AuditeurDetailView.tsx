@@ -521,10 +521,11 @@ export default function AuditeurDetailView({ studentId, certId, onBack }: Props)
 
       {/* Modal de notation */}
       <GradeModal
-        isOpen={gradeModalOpen && !!selectedSubmission}
-        onClose={() => { setGradeModalOpen(false); setSelectedSubmission(null); }}
-        submission={selectedSubmission}
-        onSuccess={handleGradeSuccess}
+      isOpen={gradeModalOpen && !!selectedSubmission}
+      onClose={() => { setGradeModalOpen(false); setSelectedSubmission(null); }}
+      submission={selectedSubmission}
+      onSuccess={handleGradeSuccess}
+      passingScore={selectedSubmission?.assessment_id === finalExam?.id ? 16 : 14}
       />
     </div>
   );

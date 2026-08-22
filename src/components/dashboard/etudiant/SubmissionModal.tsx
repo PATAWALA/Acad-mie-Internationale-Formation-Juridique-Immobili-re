@@ -92,62 +92,73 @@ export function SubmissionModal({ isOpen, onClose, assessmentId, userStatus }: S
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    if (!isPaid) {
-      setError('Seuls les étudiants ayant validé leur règlement peuvent soumettre leurs travaux.');
-      return;
-    }
+  if (!isPaid) {
+    setError('Seuls les étudiants ayant validé leur règlement peuvent soumettre leurs travaux.');
+    return;
+  }
 
-    if (mode === 'upload' && files.length === 0) {
-      setError('Veuillez sélectionner au moins un fichier.');
-      return;
-    }
-    if (mode === 'link' && !linkUrl.trim()) {
-      setError('Veuillez fournir un lien valide.');
-      return;
-    }
+  if (mode === 'upload' && files.length === 0) {
+    setError('Veuillez sélectionner au moins un fichier.');
+    return;
+  }
+  if (mode === 'link' && !linkUrl.trim()) {
+    setError('Veuillez fournir un lien valide.');
+    return;
+  }
 
-    setLoading(true);
-    setError('');
+  setLoading(true);
+  setError('');
 
-    try {
-      let finalUrls: string[] = [];
+  try {
+    let finalUrls: string[] = [];
 
-      if (mode === 'upload') {
-        for (const file of files) {
-          const url = await uploadFile(file);
-          finalUrls.push(url);
-        }
-      } else {
-        finalUrls = [linkUrl.trim()];
+    if (mode === 'upload') {
+      for (const file of files) {
+        const url = await uploadFile(file);
+        finalUrls.push(url);
       }
-
-      // Stocker toutes les URLs séparées par '|||'
-      const submissionUrl = finalUrls.join('|||');
-
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Non authentifié');
-
-      const { error: insertError } = await supabase.from('submissions').insert({
-        assessment_id: assessmentId,
-        student_id: user.id,
-        submission_url: submissionUrl,
-        status: 'PENDING',
-      });
-
-      if (insertError) throw insertError;
-
-      setSuccess(true);
-      setTimeout(() => {
-        handleClose();
-      }, 2000);
-    } catch (err: any) {
-      setError(err.message || 'Une erreur est survenue.');
-    } finally {
-      setLoading(false);
+    } else {
+      finalUrls = [linkUrl.trim()];
     }
-  };
+
+    // Stocker toutes les URLs séparées par '|||'
+    const submissionUrl = finalUrls.join('|||');
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Non authentifié');
+
+    const { error: insertError } = await supabase.from('submissions').insert({
+      assessment_id: assessmentId,
+      student_id: user.id,
+      submission_url: submissionUrl,
+      status: 'PENDING',
+    });
+
+    if (insertError) throw insertError;
+
+    // 📧 Envoyer un e-mail aux formateurs assignés
+    await fetch('/api/send-submission-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        assessmentId,
+        submissionUrl,
+        studentId: user.id,
+      }),
+    });
+
+    setSuccess(true);
+    setTimeout(() => {
+      handleClose();
+    }, 2000);
+  } catch (err: any) {
+    setError(err.message || 'Une erreur est survenue.');
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <motion.div
