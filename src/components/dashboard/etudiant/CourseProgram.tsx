@@ -232,42 +232,52 @@ export function CourseProgram({
     setLoadingTP(prev => ({ ...prev, [lessonId]: false }));
   }, [supabase, profile]);
 
-  // Charger les QCM (useCallback)
   const loadQuizForModule = useCallback(async (module: any) => {
-    if (quizLessons.length === 0) return;
-    const lessonIds = quizLessons.map((l: any) => l.id);
-    const { data: questions } = await supabase
-      .from('quiz_questions')
-      .select('*')
-      .in('lesson_id', lessonIds)
-      .order('position', { ascending: true });
-    if (questions && questions.length > 0) {
-      setQuizQuestions(prev => ({ ...prev, [module.id]: questions }));
-      if (profile) {
-        const { data: answers } = await supabase
-          .from('quiz_answers')
-          .select('*')
-          .eq('student_id', profile.id)
-          .in('question_id', questions.map((q: any) => q.id));
-        if (answers) {
-          const map: Record<string, any> = {};
-          answers.forEach((a: any) => {
-            const qid = a.question_id ?? 0;
-            if (qid) map[qid] = a;
-          });
-          setQuizAnswers(prev => ({ ...prev, [module.id]: map }));
-          const correct = answers.filter((a: any) => a.is_correct).length;
-          setQuizScore(correct);
-          const attemptsMap: Record<string, number> = {};
-          answers.forEach((a: any) => {
-            const qid = a.question_id ?? 0;
-            if (qid) attemptsMap[qid] = (attemptsMap[qid] || 0) + 1;
-          });
-          setQuizAttemptsCount(attemptsMap);
-        }
+  if (quizLessons.length === 0) return;
+  const lessonIds = quizLessons.map((l: any) => l.id);
+  const { data: questions } = await supabase
+    .from('quiz_questions')
+    .select('*')
+    .in('lesson_id', lessonIds)
+    .order('position', { ascending: true });
+
+  if (questions && questions.length > 0) {
+    setQuizQuestions(prev => ({ ...prev, [module.id]: questions }));
+
+    if (profile) {
+      const { data: answers } = await supabase
+        .from('quiz_answers')
+        .select('*')
+        .eq('student_id', profile.id)
+        .in('question_id', questions.map((q: any) => q.id));
+
+      if (answers) {
+        const map: Record<string, any> = {};
+        const correctCountSet = new Set<string>(); // pour compter les questions réussies
+
+        // Ne garder que les réponses correctes pour chaque question
+        answers.forEach((a: any) => {
+          const qid = a.question_id ?? 0;
+          if (qid && a.is_correct) {
+            map[qid] = { selected_answer: a.selected_answer, is_correct: true };
+            correctCountSet.add(qid);
+          }
+        });
+
+        setQuizAnswers(prev => ({ ...prev, [module.id]: map }));
+        setQuizScore(correctCountSet.size);
+
+        // Calculer les tentatives par question
+        const attemptsMap: Record<string, number> = {};
+        answers.forEach((a: any) => {
+          const qid = a.question_id ?? 0;
+          if (qid) attemptsMap[qid] = (attemptsMap[qid] || 0) + 1;
+        });
+        setQuizAttemptsCount(attemptsMap);
       }
     }
-  }, [quizLessons, supabase, profile]);
+  }
+}, [quizLessons, supabase, profile]);
 
   // Effet principal différé pour charger TP et QCM
   useEffect(() => {
@@ -347,8 +357,6 @@ export function CourseProgram({
     }
   };
 
-  console.log('submissionsMap:', submissionsMap);
-  console.log('assessments:', assessments);
 
   const handleQuizValidate = async (question: any, answer: string) => {
     if (!profile) return;

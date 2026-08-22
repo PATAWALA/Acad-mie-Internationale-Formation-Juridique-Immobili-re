@@ -81,6 +81,9 @@ export async function POST(request: Request) {
     }
   } catch (error) {
     console.error('Erreur générale:', error);
-    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Erreur serveur', details: (error as any).message },
+      { status: 500 }
+    );
   }
 }
