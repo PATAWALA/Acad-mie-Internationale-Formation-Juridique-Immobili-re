@@ -28,7 +28,6 @@ export function CourseProgram({
 }: CourseProgramProps) {
   const { profile } = useStudent();
   const supabase = createClientComponent();
-  const isPaid = userStatus?.trim().toUpperCase() === 'PAID';
   const [selectedAssessment, setSelectedAssessment] = useState<{ id: string; title: string } | null>(null);
   const [activeModuleIndex, setActiveModuleIndex] = useState(0);
   const [activeStep, setActiveStep] = useState<ModuleStep>('theoretical');
@@ -334,44 +333,53 @@ export function CourseProgram({
   };
 
   const handleQuizChoice = async (question: any, answer: string) => {
-    if (!profile) return;
-    const isCorrect = answer === question.correct_answer;
+  if (!profile) return;
+  const isCorrect = answer === question.correct_answer;
 
-    await supabase.from('quiz_answers').insert({
+  const { error } = await supabase
+    .from('quiz_answers')
+    .insert({
       question_id: question.id,
       student_id: profile.id,
       selected_answer: answer,
       is_correct: isCorrect,
     });
 
-    const currentAttempts = quizAttemptsCount[question.id] || 0;
-    setQuizAttemptsCount(prev => ({ ...prev, [question.id]: currentAttempts + 1 }));
+  if (error) {
+    console.error('Erreur insertion quiz answer:', error);
+    setQuizFeedback(prev => ({ ...prev, [question.id]: '❌ Erreur lors de l\'enregistrement.' }));
+    return;
+  }
 
-    if (isCorrect) {
-      setSelectedQuizOption(prev => ({ ...prev, [question.id]: answer }));
-      setQuizCorrectSelected(prev => ({ ...prev, [question.id]: true }));
-      setQuizFeedback(prev => ({ ...prev, [question.id]: '✅ Bonne réponse ! Cliquez sur Valider pour confirmer.' }));
-    } else {
-      setQuizCorrectSelected(prev => ({ ...prev, [question.id]: false }));
-      setQuizFeedback(prev => ({ ...prev, [question.id]: `❌ Mauvaise réponse. Relisez et réessayez. (Tentative ${currentAttempts + 1})` }));
-    }
-  };
+  const currentAttempts = quizAttemptsCount[question.id] || 0;
+  setQuizAttemptsCount(prev => ({ ...prev, [question.id]: currentAttempts + 1 }));
 
+  if (isCorrect) {
+    setSelectedQuizOption(prev => ({ ...prev, [question.id]: answer }));
+    setQuizCorrectSelected(prev => ({ ...prev, [question.id]: true }));
+    setQuizFeedback(prev => ({ ...prev, [question.id]: '✅ Bonne réponse ! Cliquez sur Valider pour confirmer.' }));
+  } else {
+    setQuizCorrectSelected(prev => ({ ...prev, [question.id]: false }));
+    setQuizFeedback(prev => ({ ...prev, [question.id]: `❌ Mauvaise réponse. Relisez et réessayez. (Tentative ${currentAttempts + 1})` }));
+  }
+};
 
   const handleQuizValidate = async (question: any, answer: string) => {
-    if (!profile) return;
-    setQuizAnswers(prev => ({
-      ...prev,
-      [activeModule.id]: {
-        ...(prev[activeModule.id] || {}),
-        [question.id]: { selected_answer: answer, is_correct: true }
-      }
-    }));
-    setQuizScore(prev => prev + 1);
-    setQuizFeedback(prev => ({ ...prev, [question.id]: `✅ Question validée en ${quizAttemptsCount[question.id] || 1} tentative(s).` }));
-    setQuizCorrectSelected(prev => ({ ...prev, [question.id]: false }));
-    setSelectedQuizOption(prev => ({ ...prev, [question.id]: '' }));
-  };
+  if (!profile) return;
+
+  // Mise à jour de l'état local pour débloquer la question suivante
+  setQuizAnswers(prev => ({
+    ...prev,
+    [activeModule.id]: {
+      ...(prev[activeModule.id] || {}),
+      [question.id]: { selected_answer: answer, is_correct: true }
+    }
+  }));
+  setQuizScore(prev => prev + 1);
+  setQuizFeedback(prev => ({ ...prev, [question.id]: `✅ Question validée en ${quizAttemptsCount[question.id] || 1} tentative(s).` }));
+  setQuizCorrectSelected(prev => ({ ...prev, [question.id]: false }));
+  setSelectedQuizOption(prev => ({ ...prev, [question.id]: '' }));
+};
 
   const isTpUnlocked = (index: number) => {
     if (index === 0) return true;
