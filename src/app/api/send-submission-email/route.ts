@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createServerSupabase } from '@/lib/supabase/server';
+import { createAdminSupabase } from '@/lib/supabase/admin';
 import { sendSubmissionEmail } from '@/lib/email';
 
 export async function POST(request: Request) {
@@ -10,7 +10,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Paramètres manquants' }, { status: 400 });
     }
 
-    const supabase = await createServerSupabase();
+    const supabase = createAdminSupabase(); 
 
     // 1. Récupérer l'évaluation
     const { data: assessment, error: assessmentError } = await supabase
