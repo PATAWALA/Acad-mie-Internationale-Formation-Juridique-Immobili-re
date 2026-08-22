@@ -342,8 +342,6 @@ export default function FormationView({ certId, onPaymentSuccess, onPayClick }: 
               userStatus="PAID"
               passedAssessments={passedAssessments}
               submissionsMap={submissionsMap}
-              certificateInfo={certificateInfo}
-              courseCertificate={courseCertificate}
             />
           </motion.div>
         )}
