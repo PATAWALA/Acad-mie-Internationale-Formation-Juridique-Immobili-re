@@ -366,8 +366,6 @@ export function CourseProgram({
 
   const handleQuizValidate = async (question: any, answer: string) => {
   if (!profile) return;
-
-  // Mise à jour de l'état local pour débloquer la question suivante
   setQuizAnswers(prev => ({
     ...prev,
     [activeModule.id]: {
@@ -1019,11 +1017,15 @@ export function CourseProgram({
                           </>
                         )}
 
-                        {answer && (
-                          <p className="mt-3 text-sm font-medium text-green-400">
-                            ✅ Validé en {quizAttemptsCount[q.id] || 1} tentative(s)
-                          </p>
-                        )}
+                        {answer?.is_correct ? (
+  <p className="mt-3 text-sm font-medium text-green-400">
+    ✅ Validé en {quizAttemptsCount[q.id] || 1} tentative(s)
+  </p>
+) : answer ? (
+  <p className="mt-3 text-sm font-medium text-red-400">
+    ❌ Réponse incorrecte enregistrée. Réessayez.
+  </p>
+) : null}
                         {!isUnlocked && (
                           <p className="text-amber-400 text-sm mt-2">🔒 Répondez correctement à la question précédente pour débloquer celle-ci.</p>
                         )}
